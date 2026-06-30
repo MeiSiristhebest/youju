@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 主题色变量 - 深色主题 */
+:root {
+  --border: #2a2a3c;
+  --surface: #1e1e2e;
+  --bg: #181825;
+  --accent: #6366f1;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #22c55e;
+  --text: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Noto Sans SC", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 打印样式 */
+@media print {
+  body { background: white; color: black; }
+  .no-print { display: none !important; }
+}

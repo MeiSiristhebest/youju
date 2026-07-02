@@ -6,6 +6,7 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
     "jsx": "react-jsx",
+    "strict": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -14,11 +15,17 @@
     "moduleDetection": "force",
     "noEmit": true,
 
+    /* Path aliases */
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
     /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/test", "src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"]
 }

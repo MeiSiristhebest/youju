@@ -1,0 +1,35 @@
+{
+  "name": "youju-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.9.0+sha512.bd682d5d03fe525ef7c9fd6780c6884d1e756ac4c9c9fe00c538782824310dcf90e3ddc4f53835f06dfaebd5085e41855e0bcbb3b60de2ac5bbab89e5036f03b",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev:app": "pnpm --filter youju-app dev",
+    "dev:server": "pnpm --filter youju-server dev",
+    "build": "pnpm -r build",
+    "build:app": "pnpm --filter youju-app build",
+    "build:server": "pnpm --filter youju-server build",
+    "typecheck": "pnpm -r exec tsc --noEmit",
+    "typecheck:app": "pnpm --filter youju-app exec tsc --noEmit",
+    "typecheck:server": "pnpm --filter youju-server exec tsc --noEmit",
+    "lint": "pnpm biome lint .",
+    "lint:fix": "pnpm biome lint --write .",
+    "format": "pnpm biome format --write .",
+    "format:check": "pnpm biome format .",
+    "check": "pnpm biome check .",
+    "check:fix": "pnpm biome check --write .",
+    "test": "pnpm -r test",
+    "test:app": "pnpm --filter youju-app test",
+    "test:server": "pnpm --filter youju-server test",
+    "prepare": "simple-git-hooks"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "lint-staged": "^16.1.5",
+    "simple-git-hooks": "^2.13.1"
+  }
+}

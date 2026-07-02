@@ -1,10 +1,25 @@
-import React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { App } from './App'
 import './index.css'
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
+
 ReactDOM.createRoot(document.getElementById('app')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <App />
+      </TooltipProvider>
+    </QueryClientProvider>
+  </StrictMode>,
 )

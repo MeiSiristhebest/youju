@@ -1,0 +1,35 @@
+{
+  "buildCommand": "pnpm build",
+  "outputDir": "dist",
+  "framework": "vite",
+  "env": {
+    "VITE_API_BASE_URL": "/api"
+  },
+  "routes": [
+    {
+      "path": "/*",
+      "destination": "/index.html",
+      "status": 200
+    }
+  ],
+  "headers": [
+    {
+      "path": "/assets/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "path": "/",
+      "headers": {
+        "Cache-Control": "public, max-age=0, must-revalidate"
+      }
+    },
+    {
+      "path": "/*.html",
+      "headers": {
+        "Cache-Control": "public, max-age=0, must-revalidate"
+      }
+    }
+  ]
+}

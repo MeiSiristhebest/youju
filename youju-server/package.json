@@ -3,27 +3,39 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "tsx watch --env-file .env src/index.ts",
+    "build": "tsc && xcopy /E /I /Y src\\ai\\prompts\\versions dist\\ai\\prompts\\versions 2>nul || true",
+    "build:edgeone": "tsc --outDir dist-edgeone --rootDir . -p tsconfig.edgeone.json && xcopy /E /I /Y src\\ai\\prompts\\versions dist-edgeone\\src\\ai\\prompts\\versions 2>nul || true",
+    "deploy:edgeone": "edgeone pages deploy",
+    "start": "node --env-file .env dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "better-sqlite3": "^12.11.1",
     "cheerio": "^1.0.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "mammoth": "^1.12.0",
-    "multer": "^1.4.5-lts.1",
-    "node-fetch": "^3.3.2",
-    "pdf-parse": "^1.1.1"
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "jose": "^6.2.3",
+    "multer": "^2.2.0",
+    "officeparser": "^7.2.3",
+    "pino": "^10.3.1",
+    "rate-limit-redis": "^5.0.0",
+    "supertest": "^7.2.2",
+    "unpdf": "^1.6.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/multer": "^1.4.11",
-    "@types/node": "^20.11.30",
-    "tsx": "^4.7.1",
-    "typescript": "^5.4.3"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.1.0",
+    "@types/supertest": "^7.2.0",
+    "pino-pretty": "^13.1.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^3.1.1"
   }
 }

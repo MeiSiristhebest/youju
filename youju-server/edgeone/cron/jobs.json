@@ -1,0 +1,52 @@
+[
+  {
+    "name": "time-decay",
+    "schedule": "0 0 * * *",
+    "url": "/api/cron/time-decay",
+    "description": "每日场景知识权重衰减（每天 00:00 执行）",
+    "method": "POST",
+    "headers": {
+      "x-cron-secret": "${CRON_SECRET}"
+    }
+  },
+  {
+    "name": "daily-backup",
+    "schedule": "0 1 * * *",
+    "url": "/api/cron/backup/daily",
+    "description": "每日数据库备份（每天 01:00 执行）",
+    "method": "POST",
+    "headers": {
+      "x-cron-secret": "${CRON_SECRET}"
+    }
+  },
+  {
+    "name": "backup-rotate",
+    "schedule": "0 2 * * *",
+    "url": "/api/cron/backup/rotate",
+    "description": "每日备份轮转清理（每天 02:00 执行）",
+    "method": "POST",
+    "headers": {
+      "x-cron-secret": "${CRON_SECRET}"
+    }
+  },
+  {
+    "name": "weekly-cleanup",
+    "schedule": "0 3 * * 0",
+    "url": "/api/cron/cleanup",
+    "description": "每周数据清理（每周日 03:00 执行）",
+    "method": "POST",
+    "headers": {
+      "x-cron-secret": "${CRON_SECRET}"
+    }
+  },
+  {
+    "name": "weekly-backup",
+    "schedule": "0 4 * * 0",
+    "url": "/api/cron/backup/weekly",
+    "description": "每周数据库备份（每周日 04:00 执行）",
+    "method": "POST",
+    "headers": {
+      "x-cron-secret": "${CRON_SECRET}"
+    }
+  }
+]

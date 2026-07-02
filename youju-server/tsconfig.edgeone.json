@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist-edgeone",
+    "rootDir": ".",
+    "noEmit": false
+  },
+  "include": [
+    "src/**/*",
+    "edgeone/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-edgeone",
+    "tests",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}

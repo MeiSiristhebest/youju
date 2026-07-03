@@ -1,4 +1,4 @@
-import type { AIRawOutput } from '../../../domain/types.js'
+import type { AIRawOutput, ReasoningStep, ScenarioKnowledge } from '../../../domain/types.js'
 import { callAI } from '../../llm.js'
 import { mockAnalyze } from '../../mock.js'
 import {
@@ -8,6 +8,12 @@ import {
 } from '../../prompts/index.js'
 import { extractAndValidateJSON } from '../../validator.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
+
+interface ScenarioData {
+  type: string
+  description: string
+  keyDimensions: string[]
+}
 
 export const systemPromptFragment = `
 Step 1: INTENT CLASSIFICATION & SCENARIO DISCOVERY
@@ -51,7 +57,7 @@ async function ensureMainCallExecuted(input: StepInput): Promise<void> {
   if (sharedMainCallPromise) return sharedMainCallPromise
 
   sharedMainCallPromise = (async () => {
-    const isMock = !process.env.AI_API_KEY
+    const isMock = !process.env.AI_API_KEY && !input.aiConfig?.apiKey
 
     if (isMock) {
       const mockResult = mockAnalyze(input.sources)
@@ -76,10 +82,10 @@ async function ensureMainCallExecuted(input: StepInput): Promise<void> {
     const userPrompt = buildAnalysisUserPrompt(
       input.sources,
       input.scenarioType,
-      input.scenarioKnowledge as any,
+      input.scenarioKnowledge as ScenarioKnowledge[] | undefined,
       CURRENT_PROMPT_VERSION,
     )
-    const aiResponse = await callAI(userPrompt, systemPrompt, 2)
+    const aiResponse = await callAI(userPrompt, systemPrompt, 2, input.aiConfig)
     const parsed = extractAndValidateJSON(aiResponse.content)
 
     if (!parsed) {
@@ -102,8 +108,9 @@ async function ensureMainCallExecuted(input: StepInput): Promise<void> {
       return
     }
 
-    if ((parsed as any).error) {
-      console.log('[AI] Analysis error:', (parsed as any).error, (parsed as any).details)
+    const parsedWithError = parsed as AIRawOutput & { error?: string; details?: string }
+    if (parsedWithError.error) {
+      console.log('[AI] Analysis error:', parsedWithError.error, parsedWithError.details)
       const mockResult = mockAnalyze(input.sources)
       let mockParsed: AIRawOutput | null = null
       try {
@@ -155,7 +162,7 @@ export const stepScenarioDiscovery: StepExecutor = async (
   const result = sharedMainCallResult!
 
   const parsed = result.parsed
-  let scenarioData: any = null
+  let scenarioData: ScenarioData
 
   if (parsed?.scenario) {
     scenarioData = {
@@ -171,7 +178,7 @@ export const stepScenarioDiscovery: StepExecutor = async (
     }
   }
 
-  const reasoningStep = parsed?.reasoning_trace?.find((r: any) =>
+  const reasoningStep = parsed?.reasoning_trace?.find((r: ReasoningStep) =>
     String(r.step).toUpperCase().includes('SCENARIO'),
   )
 

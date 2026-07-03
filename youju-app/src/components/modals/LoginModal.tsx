@@ -14,8 +14,8 @@ interface LoginModalProps {
   qrCodeUrl: string | null
   pollingStatus: 'idle' | 'polling' | 'success' | 'failed'
   pollingMessage: string
-  emailLoginError: any
-  registerError: any
+  emailLoginError: string | null
+  registerError: string | null
 }
 
 type FormMode = 'login' | 'register' | 'wechat-qrcode'

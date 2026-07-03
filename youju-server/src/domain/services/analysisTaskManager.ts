@@ -9,7 +9,7 @@ export interface TaskStep {
   name: string
   index: number
   status: 'pending' | 'running' | 'completed' | 'failed'
-  output?: any
+  output?: unknown
   error?: string
   startedAt?: string
   completedAt?: string
@@ -19,7 +19,7 @@ export interface CompletedStepInfo {
   stepId: string
   stepName: string
   stepIndex: number
-  partialResult: any
+  partialResult: unknown
 }
 
 export interface CurrentStepInfo {
@@ -48,7 +48,7 @@ export interface TaskStatusResponse {
   status: TaskStatus
   currentStep: CurrentStepInfo | null
   completedSteps: CompletedStepInfo[]
-  partialResult?: any
+  partialResult?: unknown
   result?: AnalyzeResult
   error?: string
   createdAt: string

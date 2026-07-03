@@ -2,6 +2,15 @@ import type { SourceType } from './common'
 
 export type FileType = 'txt' | 'md' | 'html' | 'json' | 'pdf' | 'docx' | 'image' | 'unknown'
 
+export type SourceStatus = 'uploading' | 'parsing' | 'ready' | 'error'
+
+export interface ParsedSummary {
+  docType: string
+  parties: string[]
+  keyDates: string[]
+  summary: string
+}
+
 export interface ParsedSource {
   file: File
   text: string
@@ -22,4 +31,8 @@ export interface Source {
   name: string
   content: string
   meta?: string
+  status?: SourceStatus
+  progress?: number
+  parsedSummary?: ParsedSummary
+  createdAt?: number
 }

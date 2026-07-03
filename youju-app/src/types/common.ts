@@ -1,6 +1,6 @@
 export type SourceType = 'chat' | 'doc' | 'web' | 'screenshot' | 'contract'
 export type RiskLevel = 'critical' | 'warning' | 'info'
-export type ScenarioType = 'job' | 'rent' | 'homework' | 'purchase'
+export type ScenarioType = 'job' | 'rent' | 'homework' | 'purchase' | 'custom'
 
 export interface Scenario {
   id: ScenarioType
@@ -10,7 +10,7 @@ export interface Scenario {
   sourceCount: number
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   code: number
   data: T
   msg?: string

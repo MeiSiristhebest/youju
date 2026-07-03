@@ -1,6 +1,9 @@
+import type { AIRawOutput, ReasoningStep } from '../../../domain/types.js'
 import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
 import { getSharedMainCallResult } from './step-scenario-discovery.js'
+
+type ExtractedEntityRaw = AIRawOutput['extracted_entities'][number]
 
 export const systemPromptFragment = `
 Step 4: CROSS-SOURCE EXTRACTION
@@ -42,9 +45,9 @@ export const stepCrossSourceExtraction: StepExecutor = async (
   const mainResult = getSharedMainCallResult()
   const parsed = mainResult?.parsed
 
-  const extractedEntities = parsed?.extracted_entities || []
+  const extractedEntities: ExtractedEntityRaw[] = parsed?.extracted_entities || []
 
-  const byDimension: Record<string, any[]> = {}
+  const byDimension: Record<string, ExtractedEntityRaw[]> = {}
   for (const entity of extractedEntities) {
     if (!byDimension[entity.dimension]) {
       byDimension[entity.dimension] = []
@@ -53,7 +56,7 @@ export const stepCrossSourceExtraction: StepExecutor = async (
   }
 
   const reasoningStep = parsed?.reasoning_trace?.find(
-    (r: any) =>
+    (r: ReasoningStep) =>
       String(r.step).toUpperCase().includes('EXTRACTION') ||
       String(r.step).toUpperCase().includes('CROSS'),
   )

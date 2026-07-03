@@ -1,4 +1,5 @@
 import type { ScenarioKnowledge, Source } from '../../domain/types.js'
+import type { AIConfig } from '../llm.js'
 
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'retrying'
 
@@ -15,6 +16,7 @@ export interface StepInput {
   sources: Source[]
   scenarioType?: string
   scenarioKnowledge?: ScenarioKnowledge[]
+  aiConfig?: AIConfig
   previousOutputs: Record<string, unknown>
 }
 

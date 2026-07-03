@@ -1,33 +1,71 @@
 import {
   AlertTriangle,
+  BookOpen,
+  Briefcase,
   Calendar,
   Check,
   CheckCircle,
   CheckSquare,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Copy,
   DollarSign,
   FileCheck,
   FileText,
   GitBranch,
+  Home,
   LayoutGrid,
   MessageCircle,
   MessageSquare,
+  Paperclip,
   RefreshCw,
   ScrollText,
   Search,
   Sparkles,
   Square,
   Target,
+  TrendingDown,
+  TrendingUp,
+  Upload,
   X,
   Zap,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { cn } from '@/lib/utils'
-import type { AnalyzeResult, ChecklistItem, IncrementalMeta, Risk } from '../../types'
+import { SCENARIOS } from '../../constants/workspace'
+import type {
+  AnalysisDimension,
+  AnalyzeResult,
+  ChecklistItem,
+  Conflict,
+  ConflictPair,
+  DimensionPriority,
+  Evidence,
+  IncrementalMeta,
+  IncrementalPrediction,
+  ReasoningStep,
+  Risk,
+  RiskAssociation,
+  RiskStatus,
+  ScenarioType,
+  ValidationResult,
+} from '../../types'
+import { useToast } from '../common/Toast'
 import { ConfidenceBar } from '../ui/ConfidenceBar'
 import { RiskBadge } from '../ui/RiskBadge'
+import { DimensionPanel } from './DimensionPanel'
 import { IncrementalDetailPanel } from './IncrementalDetailPanel'
 
-type ResultTab = 'risks' | 'checklist' | 'aligned' | 'entities' | 'relations' | 'trace'
+type ResultTab =
+  | 'risks'
+  | 'checklist'
+  | 'aligned'
+  | 'entities'
+  | 'relations'
+  | 'trace'
+  | 'dimensions'
 
 interface ResultPanelProps {
   analyzing: boolean
@@ -36,17 +74,45 @@ interface ResultPanelProps {
   activeTab: ResultTab
   selectedRisk: Risk | null
   checklist: ChecklistItem[]
+  dimensions: AnalysisDimension[]
+  sortedRisks: Risk[]
+  showAddDimensionDialog: boolean
   incrementalMeta?: IncrementalMeta
+  incrementalPrediction?: IncrementalPrediction | null
+  showIncrementalBanner: boolean
+  previousResult: AnalyzeResult | null
+  riskStatusFilter: RiskStatus | 'all'
+  riskStatusCounts: {
+    all: number
+    pending: number
+    processing: number
+    resolved: number
+    ignored: number
+  }
   onTabChange: (tab: ResultTab) => void
   onSelectRisk: (risk: Risk | null) => void
   onToggleCheck: (id: string) => void
   onGenerateDraft?: (riskType?: string, dimension?: string) => void
   onAnalyze: () => void
+  onAnalyzeFull: () => void
   canAnalyze: boolean
   streaming: boolean
   streamProgress: number
   streamError: string | null
   onCancel?: () => void
+  onLoadScenario?: (scenarioId: ScenarioType) => void
+  onAddSource?: () => void
+  hasSources?: boolean
+  onEvidenceClick?: (sourceId: string, quote: string) => void
+  onToggleDimensionEnabled: (dimensionId: string) => void
+  onUpdateDimensionWeight: (dimensionId: string, weight: number) => void
+  onMoveDimension: (dimensionId: string, direction: 'up' | 'down') => void
+  onAddCustomDimension: (name: string, description: string, priority: DimensionPriority) => void
+  onRemoveCustomDimension: (dimensionId: string) => void
+  onResetDimensionWeights: () => void
+  onShowAddDimensionDialogChange: (show: boolean) => void
+  onDismissIncrementalBanner: () => void
+  onRiskStatusFilterChange: (filter: RiskStatus | 'all') => void
 }
 
 const STEP_LABELS = [
@@ -93,59 +159,131 @@ function AnimatedRiskItem({
   index,
   isSelected,
   onSelect,
+  onEvidenceClick,
 }: {
   risk: Risk
   index: number
   isSelected: boolean
   onSelect: () => void
+  onEvidenceClick?: (sourceId: string, quote: string) => void
 }) {
   const [isVisible, setIsVisible] = useState(false)
+  const [showEvidence, setShowEvidence] = useState(false)
+  const { showToast } = useToast()
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), index * 150)
     return () => clearTimeout(timer)
   }, [index])
 
+  const getConfidenceLevel = (confidence: number) => {
+    if (confidence >= 80) return { text: '高', color: 'text-success', bg: 'bg-success-bg' }
+    if (confidence >= 50) return { text: '中', color: 'text-warning', bg: 'bg-warning-bg' }
+    return { text: '低', color: 'text-danger', bg: 'bg-danger-bg' }
+  }
+
+  const toggleEvidence = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowEvidence(!showEvidence)
+  }
+
+  const handleCopyRisk = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const levelText =
+      risk.level === 'critical' ? '严重风险' : risk.level === 'warning' ? '待确认风险' : '信息提示'
+    const typeText =
+      risk.type === 'conflict'
+        ? '直接矛盾'
+        : risk.type === 'promise'
+          ? '承诺未落文字'
+          : risk.type === 'missing'
+            ? '信息缺失'
+            : '信息提示'
+
+    let text = `【${levelText}】${risk.title}\n`
+    text += `类型：${typeText}`
+    if (risk.dimension) text += ` · ${risk.dimension}`
+    text += '\n'
+    text += `说明：${risk.description}\n`
+
+    if (risk.evidence && risk.evidence.length > 0) {
+      text += '\n证据：\n'
+      risk.evidence.forEach((ev, idx) => {
+        text += `${idx + 1}. [${ev.sourceName}] "${ev.quote}"\n`
+      })
+    } else if (risk.sources && risk.sources.length > 0) {
+      text += `来源：${risk.sources.join('、')}\n`
+    }
+
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast('风险信息已复制到剪贴板', 'success')
+    } catch (err) {
+      showToast('复制失败，请手动复制', 'error')
+    }
+  }
+
   return (
     <div role="listitem" className="contents">
-      <button
-        key={risk.id}
-        type="button"
-        onClick={onSelect}
-        aria-expanded={isSelected}
-        aria-label={`${risk.level === 'critical' ? '严重' : risk.level === 'warning' ? '警告' : '提示'}风险：${risk.title}。类型：${risk.type === 'conflict' ? '直接矛盾' : risk.type === 'promise' ? '未兑现承诺' : risk.type === 'missing' ? '系统性缺失' : risk.type}`}
+      <div
         className={cn(
-          'w-full text-left px-4 py-3 transition-all duration-300 cursor-pointer',
-          isSelected ? 'bg-paper-dark' : 'hover:bg-paper-dark/50',
+          'w-full transition-all duration-300',
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
         )}
       >
-        <div className="flex gap-3 items-start">
-          <div
-            className={cn(
-              'w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-all duration-300',
-              risk.level === 'critical'
-                ? 'bg-danger-bg text-danger'
-                : risk.level === 'warning'
-                  ? 'bg-warning-bg text-warning'
-                  : 'bg-success-bg text-success',
-              isVisible ? 'scale-100' : 'scale-0',
-            )}
-            aria-hidden="true"
-          >
-            {risk.level === 'critical' ? (
-              <AlertTriangle size={13} strokeWidth={1.5} />
-            ) : risk.level === 'warning' ? (
-              <Zap size={13} strokeWidth={1.5} />
-            ) : (
-              <CheckCircle size={13} strokeWidth={1.5} />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1 gap-2">
+        <button
+          key={risk.id}
+          type="button"
+          onClick={onSelect}
+          aria-expanded={isSelected}
+          aria-label={`${risk.level === 'critical' ? '严重' : risk.level === 'warning' ? '警告' : '提示'}风险：${risk.title}。类型：${risk.type === 'conflict' ? '直接矛盾' : risk.type === 'promise' ? '未兑现承诺' : risk.type === 'missing' ? '系统性缺失' : risk.type}`}
+          className={cn(
+            'w-full text-left px-4 py-3 transition-all duration-300 cursor-pointer',
+            isSelected ? 'bg-paper-dark' : 'hover:bg-paper-dark/50',
+          )}
+        >
+          <div className="flex gap-3 items-start">
+            <div
+              className={cn(
+                'w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-all duration-300',
+                risk.level === 'critical'
+                  ? 'bg-danger-bg text-danger'
+                  : risk.level === 'warning'
+                    ? 'bg-warning-bg text-warning'
+                    : 'bg-success-bg text-success',
+                isVisible ? 'scale-100' : 'scale-0',
+              )}
+              aria-hidden="true"
+            >
+              {risk.level === 'critical' ? (
+                <AlertTriangle size={13} strokeWidth={1.5} />
+              ) : risk.level === 'warning' ? (
+                <Zap size={13} strokeWidth={1.5} />
+              ) : (
+                <CheckCircle size={13} strokeWidth={1.5} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0 relative">
+              {(risk.isNew || risk.levelChange) && (
+                <div className="absolute -top-1 -right-1 flex gap-1">
+                  {risk.isNew && (
+                    <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-bold text-white bg-danger rounded-md shadow-sm animate-pulse">
+                      NEW
+                    </span>
+                  )}
+                  {risk.levelChange?.upgraded && (
+                    <span
+                      className="inline-flex items-center justify-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-white bg-warning rounded-md shadow-sm"
+                      title={`${risk.levelChange.from === 'critical' ? '严重' : risk.levelChange.from === 'warning' ? '警告' : '提示'} → ${risk.levelChange.to === 'critical' ? '严重' : risk.levelChange.to === 'warning' ? '警告' : '提示'}`}
+                    >
+                      <TrendingUp size={9} />
+                    </span>
+                  )}
+                </div>
+              )}
               <div
                 className={cn(
-                  'text-sm font-medium',
+                  'text-sm font-medium mb-1',
                   risk.level === 'critical'
                     ? 'text-danger'
                     : risk.level === 'warning'
@@ -155,30 +293,278 @@ function AnimatedRiskItem({
               >
                 {risk.title}
               </div>
-              {/* 色盲友好的风险等级徽章：颜色 + 形状 + 文字三重区分 */}
-              <RiskBadge level={risk.level} title={risk.title} className="shrink-0" />
-              {risk.confidence !== undefined && (
-                <div className="shrink-0 ml-2">
-                  <ConfidenceBar confidence={risk.confidence} size="sm" />
+              {risk.levelChange && (
+                <div
+                  className={cn(
+                    'text-[10px] font-medium mb-1 flex items-center gap-0.5',
+                    risk.levelChange.upgraded ? 'text-warning' : 'text-ink-faint',
+                  )}
+                  title={`${risk.levelChange.from === 'critical' ? '严重' : risk.levelChange.from === 'warning' ? '警告' : '提示'} → ${risk.levelChange.to === 'critical' ? '严重' : risk.levelChange.to === 'warning' ? '警告' : '提示'}`}
+                >
+                  {risk.levelChange.upgraded ? (
+                    <TrendingUp size={10} />
+                  ) : (
+                    <TrendingDown size={10} />
+                  )}
+                  <span className="font-mono">
+                    {risk.levelChange.from === 'critical'
+                      ? '严重'
+                      : risk.levelChange.from === 'warning'
+                        ? '警告'
+                        : '提示'}
+                    {' → '}
+                    {risk.levelChange.to === 'critical'
+                      ? '严重'
+                      : risk.levelChange.to === 'warning'
+                        ? '警告'
+                        : '提示'}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <div className="text-[11px] text-ink-faint font-mono truncate">
+                  {risk.type === 'conflict'
+                    ? '直接矛盾'
+                    : risk.type === 'promise'
+                      ? '承诺未落文字'
+                      : risk.type === 'missing'
+                        ? '信息缺失'
+                        : '信息提示'}
+                  {risk.dimension && ` · ${risk.dimension}`}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <RiskBadge level={risk.level} title={risk.title} />
+                  {risk.confidence !== undefined && (
+                    <div className="flex items-center gap-1">
+                      <div
+                        className={cn(
+                          'w-1.5 h-1.5 rounded-full',
+                          risk.confidence >= 80
+                            ? 'bg-success'
+                            : risk.confidence >= 50
+                              ? 'bg-warning'
+                              : 'bg-danger',
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          'text-[10px] font-mono font-medium',
+                          risk.confidence >= 80
+                            ? 'text-success'
+                            : risk.confidence >= 50
+                              ? 'text-warning'
+                              : 'text-danger',
+                        )}
+                      >
+                        {risk.confidence}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="text-xs text-ink-muted leading-relaxed line-clamp-2">
+                {risk.description}
+              </div>
+            </div>
+          </div>
+        </button>
+
+        <div className="px-4 pb-3 flex items-center gap-2">
+          {risk.evidence && risk.evidence.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleEvidence}
+              className="flex items-center gap-1.5 text-[11px] text-ink-faint hover:text-accent transition-colors cursor-pointer group"
+            >
+              <Paperclip size={11} strokeWidth={1.5} />
+              <span>证据来源 ({risk.evidence.length})</span>
+              {showEvidence ? (
+                <ChevronUp
+                  size={11}
+                  strokeWidth={1.5}
+                  className="group-hover:text-accent transition-colors"
+                />
+              ) : (
+                <ChevronDown
+                  size={11}
+                  strokeWidth={1.5}
+                  className="group-hover:text-accent transition-colors"
+                />
+              )}
+            </button>
+          )}
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={handleCopyRisk}
+            className="flex items-center gap-1 text-[11px] text-ink-faint hover:text-accent transition-colors cursor-pointer group"
+            title="复制风险信息"
+          >
+            <Copy size={11} strokeWidth={1.5} />
+            <span>复制</span>
+          </button>
+        </div>
+
+        {risk.evidence && risk.evidence.length > 0 && (
+          <div className="px-4 pb-3">
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-300 ease-in-out',
+                showEvidence ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0',
+              )}
+            >
+              <div className="space-y-2 pt-2.5">
+                {risk.evidence.map((ev, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg bg-paper/[0.02] border border-rule p-2.5 hover:border-accent/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <FileText size={11} strokeWidth={1.5} className="text-ink-faint shrink-0" />
+                        <span className="text-[10px] text-ink-faint truncate">{ev.sourceName}</span>
+                      </div>
+                      {ev.confidence !== undefined && (
+                        <span
+                          className={cn(
+                            'text-[9px] px-1.5 py-0.5 rounded shrink-0',
+                            getConfidenceLevel(ev.confidence).bg,
+                            getConfidenceLevel(ev.confidence).color,
+                          )}
+                        >
+                          {ev.confidence}%
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className="text-[11px] text-ink-muted leading-relaxed italic pl-3 border-l-2 border-rule cursor-pointer hover:border-accent/50 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (onEvidenceClick && ev.sourceId) {
+                          onEvidenceClick(ev.sourceId, ev.quote)
+                        }
+                      }}
+                    >
+                      "{ev.quote}"
+                    </p>
+                    {onEvidenceClick && ev.sourceId && (
+                      <div className="mt-1.5 text-right">
+                        <span className="text-[9px] text-accent opacity-0 hover:opacity-100 transition-opacity">
+                          点击跳转 →
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ReasoningStepCard({ step, index }: { step: ReasoningStep; index: number }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const hasDetails = step.details || step.content
+
+  const getStatusColor = () => {
+    if (step.status === 'completed') return 'bg-success text-success-bg'
+    if (step.status === 'current') return 'bg-accent text-paper animate-pulse'
+    if (step.status === 'pending') return 'bg-paper-dark text-ink-faint'
+    return 'bg-accent-bg text-accent'
+  }
+
+  return (
+    <div className="relative pb-3.5 last:pb-0">
+      <div
+        className={cn(
+          'absolute -left-5 top-2 w-[9px] h-[9px] rounded-full z-10 border-2 border-paper',
+          step.status === 'completed'
+            ? 'bg-success'
+            : step.status === 'current'
+              ? 'bg-accent'
+              : 'bg-paper-dark',
+        )}
+      />
+
+      <div
+        className={cn(
+          'rounded-lg transition-all duration-300 overflow-hidden',
+          isExpanded
+            ? 'bg-paper/[0.03] border border-accent/20'
+            : 'bg-paper/[0.02] border border-rule hover:border-accent/30',
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => hasDetails && setIsExpanded(!isExpanded)}
+          className={cn(
+            'w-full text-left p-3 flex items-start gap-2.5',
+            hasDetails ? 'cursor-pointer' : 'cursor-default',
+          )}
+        >
+          <div
+            className={cn(
+              'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium shrink-0 mt-0.5',
+              getStatusColor(),
+            )}
+          >
+            {step.status === 'completed' ? <Check size={10} strokeWidth={2} /> : index + 1}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-medium text-ink truncate">
+                {step.title || step.name || step.step || `步骤 ${index + 1}`}
+              </div>
+              {hasDetails && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {step.durationMs !== undefined && (
+                    <span className="text-[10px] text-ink-faint font-mono">
+                      {step.durationMs}ms
+                    </span>
+                  )}
+                  {isExpanded ? (
+                    <ChevronUp size={12} strokeWidth={1.5} className="text-ink-faint" />
+                  ) : (
+                    <ChevronDown size={12} strokeWidth={1.5} className="text-ink-faint" />
+                  )}
                 </div>
               )}
             </div>
-            <div className="text-[11px] text-ink-faint mb-1.5 font-mono">
-              {risk.type === 'conflict'
-                ? '直接矛盾'
-                : risk.type === 'promise'
-                  ? '承诺未落文字'
-                  : risk.type === 'missing'
-                    ? '信息缺失'
-                    : '信息提示'}
-              {risk.dimension && ` · ${risk.dimension}`}
-            </div>
-            <div className="text-xs text-ink-muted leading-relaxed line-clamp-2">
-              {risk.description}
+            {(step.description || step.result) && (
+              <p className="text-[11px] text-ink-faint leading-relaxed mt-1">
+                {step.description || step.result}
+              </p>
+            )}
+          </div>
+        </button>
+
+        {hasDetails && (
+          <div
+            className={cn(
+              'overflow-hidden transition-all duration-300 ease-in-out',
+              isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0',
+            )}
+          >
+            <div className="px-3 pb-3 pl-10">
+              <div className="pt-2 border-t border-rule/60">
+                <pre className="text-[11px] text-ink-muted leading-relaxed whitespace-pre-wrap font-mono bg-black/20 rounded-md p-2.5 overflow-x-auto">
+                  {step.details || step.content}
+                </pre>
+                {step.tokenUsage !== undefined && (
+                  <div className="mt-2 flex items-center justify-between text-[10px] text-ink-faint">
+                    <span>Token 消耗</span>
+                    <span className="font-mono">{step.tokenUsage}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -190,25 +576,140 @@ export function ResultPanel({
   activeTab,
   selectedRisk,
   checklist,
+  dimensions,
+  sortedRisks,
+  showAddDimensionDialog,
   incrementalMeta,
+  incrementalPrediction,
+  showIncrementalBanner,
+  previousResult,
+  riskStatusFilter,
+  riskStatusCounts,
   onTabChange,
   onSelectRisk,
   onToggleCheck,
   onGenerateDraft,
   onAnalyze,
+  onAnalyzeFull,
   canAnalyze,
   streaming,
   streamProgress,
   streamError,
   onCancel,
+  onLoadScenario,
+  onAddSource,
+  hasSources = false,
+  onEvidenceClick,
+  onToggleDimensionEnabled,
+  onUpdateDimensionWeight,
+  onMoveDimension,
+  onAddCustomDimension,
+  onRemoveCustomDimension,
+  onResetDimensionWeights,
+  onShowAddDimensionDialogChange,
+  onDismissIncrementalBanner,
+  onRiskStatusFilterChange,
 }: ResultPanelProps) {
   const currentStep = STEP_LABELS[analysisStep - 1]
   const [showProgressDetail, setShowProgressDetail] = useState(true)
+  const [showIncrementalDetail, setShowIncrementalDetail] = useState(false)
+
+  const resultShortcuts = useMemo(
+    () => [
+      {
+        key: '1',
+        description: '切换到风险清单',
+        group: '结果面板',
+        enabled: !!result,
+        handler: () => onTabChange('risks'),
+      },
+      {
+        key: '2',
+        description: '切换到检查清单',
+        group: '结果面板',
+        enabled: !!result,
+        handler: () => onTabChange('checklist'),
+      },
+      {
+        key: '3',
+        description: '切换到统一版本',
+        group: '结果面板',
+        enabled: !!result,
+        handler: () => onTabChange('aligned'),
+      },
+      {
+        key: '4',
+        description: '切换到关键要素',
+        group: '结果面板',
+        enabled: !!result,
+        handler: () => onTabChange('entities'),
+      },
+      {
+        key: '5',
+        description: '切换到风险关联',
+        group: '结果面板',
+        enabled: !!result,
+        handler: () => onTabChange('relations'),
+      },
+      {
+        key: '6',
+        description: '切换到AI思考',
+        group: '结果面板',
+        enabled: !!result,
+        handler: () => onTabChange('trace'),
+      },
+      {
+        key: 'j',
+        description: '下一个风险',
+        group: '结果面板',
+        enabled: !!result && activeTab === 'risks' && sortedRisks.length > 0,
+        handler: () => {
+          if (sortedRisks.length === 0) return
+          const currentIndex = selectedRisk
+            ? sortedRisks.findIndex((r) => r.id === selectedRisk.id)
+            : -1
+          const nextIndex = currentIndex < sortedRisks.length - 1 ? currentIndex + 1 : 0
+          onSelectRisk(sortedRisks[nextIndex])
+        },
+      },
+      {
+        key: 'k',
+        description: '上一个风险',
+        group: '结果面板',
+        enabled: !!result && activeTab === 'risks' && sortedRisks.length > 0,
+        handler: () => {
+          if (sortedRisks.length === 0) return
+          const currentIndex = selectedRisk
+            ? sortedRisks.findIndex((r) => r.id === selectedRisk.id)
+            : 0
+          const prevIndex = currentIndex > 0 ? currentIndex - 1 : sortedRisks.length - 1
+          onSelectRisk(sortedRisks[prevIndex])
+        },
+      },
+      {
+        key: ' ',
+        description: '展开/收起当前风险',
+        group: '结果面板',
+        enabled: !!result && activeTab === 'risks' && !!selectedRisk,
+        preventDefault: true,
+        handler: () => {
+          if (selectedRisk) {
+            onSelectRisk(null)
+          } else if (sortedRisks.length > 0) {
+            onSelectRisk(sortedRisks[0])
+          }
+        },
+      },
+    ],
+    [result, activeTab, sortedRisks, selectedRisk, onTabChange, onSelectRisk],
+  )
+
+  useKeyboardShortcuts({ shortcuts: resultShortcuts, enabled: !!result && !analyzing })
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+    <div id="tour-result-panel" className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
       {analyzing ? (
-        <div className="flex-1 flex flex-col p-6">
+        <div className="flex-1 flex flex-col p-6 min-h-0">
           {streamError ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               <div className="w-16 h-16 mb-4 rounded-full bg-danger-bg/30 flex items-center justify-center text-danger">
@@ -236,7 +737,7 @@ export function ResultPanel({
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6 shrink-0">
                 <div className="flex items-center gap-3 px-4 py-2 bg-accent-bg rounded-full border border-accent-faint">
                   <div className="w-8 h-8 rounded-full bg-accent text-paper flex items-center justify-center animate-pulse">
                     {currentStep?.icon || <Sparkles size={16} strokeWidth={1.5} />}
@@ -253,129 +754,315 @@ export function ResultPanel({
                 </button>
               </div>
 
-              <div
-                id="progress-detail-panel"
-                className={cn(
-                  'transition-all duration-500 overflow-hidden',
-                  showProgressDetail ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0',
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {incrementalPrediction?.isIncremental && (
+                  <div className="mb-4 p-3 rounded-lg bg-accent-bg/50 border border-accent-faint">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-full bg-accent text-paper flex items-center justify-center">
+                        <Sparkles size={12} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-medium text-accent">增量分析预测</div>
+                        <div className="text-[10px] text-ink-faint">基于上一次结果进行增量分析</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-paper/50 rounded-md p-2 text-center">
+                        <div className="text-sm font-semibold text-danger">
+                          {incrementalPrediction.estimatedNewRiskCount}
+                        </div>
+                        <div className="text-[9px] text-ink-faint">预计新增风险</div>
+                      </div>
+                      <div className="bg-paper/50 rounded-md p-2 text-center">
+                        <div className="text-sm font-semibold text-warning">
+                          {incrementalPrediction.estimatedAffectedDimensions}
+                        </div>
+                        <div className="text-[9px] text-ink-faint">预计影响维度</div>
+                      </div>
+                    </div>
+                    {(incrementalPrediction.estimatedTimeSavingPercent ?? 0) > 0 && (
+                      <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-success">
+                        <TrendingDown size={10} />
+                        <span>
+                          预计节省 {incrementalPrediction.estimatedTimeSavingPercent}% 时间
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
-              >
-                <div className="space-y-3 mb-6">
-                  {STEP_LABELS.map((step, idx) => {
-                    const isCompleted = idx < analysisStep - 1
-                    const isCurrent = idx === analysisStep - 1
-                    const isPending = idx >= analysisStep
 
-                    return (
-                      <div
-                        key={idx}
-                        className={cn(
-                          'flex items-center gap-3 p-3 rounded-lg transition-all duration-300',
-                          isCurrent ? 'bg-accent-bg border border-accent-faint shadow-sm' : '',
-                          isCompleted ? 'opacity-80' : '',
-                          isPending ? 'opacity-50' : '',
-                        )}
-                      >
+                <div
+                  id="progress-detail-panel"
+                  className={cn(
+                    'flex-1 min-h-0 transition-all duration-500 overflow-hidden',
+                    showProgressDetail ? 'opacity-100' : 'max-h-0 opacity-0',
+                  )}
+                >
+                  <div className="space-y-3 overflow-y-auto h-full pr-1">
+                    {STEP_LABELS.map((step, idx) => {
+                      const isCompleted = idx < analysisStep - 1
+                      const isCurrent = idx === analysisStep - 1
+                      const isPending = idx >= analysisStep
+
+                      return (
                         <div
+                          key={idx}
                           className={cn(
-                            'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300',
-                            isCompleted ? 'bg-success-bg text-success' : '',
-                            isCurrent ? 'bg-accent text-paper animate-pulse' : '',
-                            isPending ? 'bg-paper-dark text-ink-faint' : '',
+                            'flex items-center gap-3 p-3 rounded-lg transition-all duration-300',
+                            isCurrent ? 'bg-accent-bg border border-accent-faint shadow-sm' : '',
+                            isCompleted ? 'opacity-80' : '',
+                            isPending ? 'opacity-50' : '',
                           )}
                         >
-                          {isCompleted ? <Check size={15} strokeWidth={2} /> : step.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <div
-                              className={cn(
-                                'text-sm font-medium transition-colors truncate',
-                                isCurrent ? 'text-accent' : '',
-                                isCompleted ? 'text-success' : '',
-                                isPending ? 'text-ink-faint' : '',
+                          <div
+                            className={cn(
+                              'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300',
+                              isCompleted ? 'bg-success-bg text-success' : '',
+                              isCurrent ? 'bg-accent text-paper animate-pulse' : '',
+                              isPending ? 'bg-paper-dark text-ink-faint' : '',
+                            )}
+                          >
+                            {isCompleted ? <Check size={15} strokeWidth={2} /> : step.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <div
+                                className={cn(
+                                  'text-sm font-medium transition-colors truncate',
+                                  isCurrent ? 'text-accent' : '',
+                                  isCompleted ? 'text-success' : '',
+                                  isPending ? 'text-ink-faint' : '',
+                                )}
+                              >
+                                {isCurrent ? (
+                                  <TypewriterText text={step.name} delay={30} />
+                                ) : (
+                                  step.name
+                                )}
+                              </div>
+                              {isCurrent && (
+                                <div className="text-xs text-accent font-mono ml-2 shrink-0">
+                                  {Math.round(streamProgress)}%
+                                </div>
                               )}
-                            >
+                            </div>
+                            <div className="text-xs text-ink-faint mt-0.5">
                               {isCurrent ? (
-                                <TypewriterText text={step.name} delay={30} />
+                                <TypewriterText text={step.desc} delay={20} />
                               ) : (
-                                step.name
+                                step.desc
                               )}
                             </div>
                             {isCurrent && (
-                              <div className="text-xs text-accent font-mono ml-2 shrink-0">
-                                {Math.round(streamProgress)}%
+                              <div className="w-full h-1.5 mt-2 bg-paper-dark rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-accent rounded-full transition-[width] duration-500 ease-out"
+                                  style={{
+                                    width: `${((streamProgress % (100 / STEP_LABELS.length)) / (100 / STEP_LABELS.length)) * 100}%`,
+                                  }}
+                                />
                               </div>
                             )}
                           </div>
-                          <div className="text-xs text-ink-faint mt-0.5">
-                            {isCurrent ? <TypewriterText text={step.desc} delay={20} /> : step.desc}
-                          </div>
                           {isCurrent && (
-                            <div className="w-full h-1.5 mt-2 bg-paper-dark rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-accent rounded-full transition-[width] duration-500 ease-out"
-                                style={{
-                                  width: `${((streamProgress % (100 / STEP_LABELS.length)) / (100 / STEP_LABELS.length)) * 100}%`,
-                                }}
-                              />
-                            </div>
+                            <div className="w-2 h-2 bg-accent rounded-full animate-bounce shrink-0"></div>
                           )}
                         </div>
-                        {isCurrent && (
-                          <div className="w-2 h-2 bg-accent rounded-full animate-bounce shrink-0"></div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-auto">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-ink-faint font-mono">
-                    步骤 {analysisStep} / {STEP_LABELS.length}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowProgressDetail(!showProgressDetail)}
-                    aria-expanded={showProgressDetail}
-                    aria-controls="progress-detail-panel"
-                    className="text-xs text-ink-faint hover:text-accent transition-colors cursor-pointer"
-                  >
-                    {showProgressDetail ? '收起详情' : '展开详情'}
-                  </button>
-                </div>
-                <div className="w-full h-3 bg-paper-dark rounded-full overflow-hidden relative">
-                  <div
-                    className="h-full bg-gradient-to-r from-accent to-accent-tertiary rounded-full transition-[width] duration-500 ease-out relative overflow-hidden"
-                    style={{ width: `${streamProgress}%` }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
+                      )
+                    })}
                   </div>
-                  <div
-                    className="absolute top-0 bottom-0 w-1 bg-white/30 rounded-full transition-[left] duration-500 ease-out"
-                    style={{ left: `${streamProgress}%` }}
-                  />
                 </div>
-                <div className="flex justify-between mt-2 text-xs font-mono">
-                  <span className="text-ink-faint">
-                    {streamProgress < 100 ? '分析中...' : '即将完成'}
-                  </span>
-                  <span className="text-accent font-medium">{Math.round(streamProgress)}%</span>
+
+                <div className="shrink-0 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-ink-faint font-mono">
+                      步骤 {analysisStep} / {STEP_LABELS.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowProgressDetail(!showProgressDetail)}
+                      aria-expanded={showProgressDetail}
+                      aria-controls="progress-detail-panel"
+                      className="text-xs text-ink-faint hover:text-accent transition-colors cursor-pointer"
+                    >
+                      {showProgressDetail ? '收起详情' : '展开详情'}
+                    </button>
+                  </div>
+                  <div className="w-full h-3 bg-paper-dark rounded-full overflow-hidden relative">
+                    <div
+                      className="h-full bg-gradient-to-r from-accent to-accent-tertiary rounded-full transition-[width] duration-500 ease-out relative overflow-hidden"
+                      style={{ width: `${streamProgress}%` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
+                    </div>
+                    <div
+                      className="absolute top-0 bottom-0 w-1 bg-white/30 rounded-full transition-[left] duration-500 ease-out"
+                      style={{ left: `${streamProgress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-2 text-xs font-mono">
+                    <span className="text-ink-faint">
+                      {streamProgress < 100 ? '分析中...' : '即将完成'}
+                    </span>
+                    <span className="text-accent font-medium">{Math.round(streamProgress)}%</span>
+                  </div>
                 </div>
               </div>
             </>
           )}
         </div>
       ) : result ? (
-        <>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {result.incrementalMeta?.isIncremental && showIncrementalBanner && (
+            <div className="px-4 py-3 bg-gradient-to-r from-accent-bg/80 to-accent-tertiary-bg/50 border-b border-accent-faint shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-accent text-paper">
+                      <Zap size={10} />
+                      增量分析
+                    </span>
+                    <span className="text-[11px] text-ink-faint">
+                      基于上一次结果，新增了{' '}
+                      {(result.incrementalMeta.newSourceCount || 0) -
+                        (result.incrementalMeta.previousSourceCount || 0)}{' '}
+                      份材料
+                    </span>
+                  </div>
+                  <div className="text-xs font-medium text-ink mb-1">
+                    本次增量分析：新增{' '}
+                    <span className="text-danger font-semibold">
+                      {result.incrementalMeta.newRiskCount || 0}
+                    </span>{' '}
+                    条风险，更新{' '}
+                    <span className="text-warning font-semibold">
+                      {result.incrementalMeta.updatedRiskCount || 0}
+                    </span>{' '}
+                    条，耗时{' '}
+                    <span className="font-mono">
+                      {result.incrementalMeta.durationMs
+                        ? (result.incrementalMeta.durationMs / 1000).toFixed(1)
+                        : '0'}
+                      s
+                    </span>
+                  </div>
+                  {result.incrementalMeta.prediction?.accuracy !== undefined && (
+                    <div className="text-[11px] text-ink-faint">
+                      预测准确率：
+                      <span className="text-success font-medium">
+                        {result.incrementalMeta.prediction.accuracy}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowIncrementalDetail(!showIncrementalDetail)}
+                    className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-paper-dark/80 text-ink-muted hover:text-ink hover:bg-paper-dark border border-rule/60 cursor-pointer transition-colors"
+                  >
+                    {showIncrementalDetail ? '收起详情' : '查看详情'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onAnalyzeFull}
+                    className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-warning-bg/80 text-warning hover:bg-warning-bg border border-warning/20 cursor-pointer transition-colors"
+                    title="重新进行完整分析"
+                  >
+                    <RefreshCw size={10} className="inline mr-1" />
+                    重新完整分析
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDismissIncrementalBanner}
+                    className="p-1 rounded-md text-ink-faint hover:text-ink hover:bg-paper-dark cursor-pointer transition-colors"
+                    aria-label="关闭横幅"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className={cn(
+                  'overflow-hidden transition-all duration-300 ease-in-out',
+                  showIncrementalDetail ? 'max-h-96 opacity-100 mt-3' : 'max-h-0 opacity-0',
+                )}
+              >
+                <div className="p-3 rounded-lg bg-paper/50 border border-rule/60">
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-danger">
+                        {result.incrementalMeta.newRiskCount || 0}
+                      </div>
+                      <div className="text-[10px] text-ink-faint">新增风险</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-warning">
+                        {result.incrementalMeta.updatedRiskCount || 0}
+                      </div>
+                      <div className="text-[10px] text-ink-faint">程度变化</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-success">
+                        {result.risks.length -
+                          (result.incrementalMeta.newRiskCount || 0) -
+                          (result.incrementalMeta.updatedRiskCount || 0)}
+                      </div>
+                      <div className="text-[10px] text-ink-faint">保持不变</div>
+                    </div>
+                  </div>
+                  {result.incrementalMeta.prediction && (
+                    <div className="pt-3 border-t border-rule/50">
+                      <div className="text-[11px] font-medium text-ink mb-2">预测 vs 实际</div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-ink-faint">新增风险预测</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-ink-muted">
+                              预计 {result.incrementalMeta.prediction.estimatedNewRiskCount} 条
+                            </span>
+                            <span className="text-[10px] text-ink-faint">→</span>
+                            <span className="text-[10px] font-medium text-danger">
+                              实际 {result.incrementalMeta.newRiskCount || 0} 条
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-ink-faint">影响维度预测</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-ink-muted">
+                              预计 {result.incrementalMeta.prediction.estimatedAffectedDimensions}{' '}
+                              个
+                            </span>
+                            <span className="text-[10px] text-ink-faint">→</span>
+                            <span className="text-[10px] font-medium text-warning">
+                              实际 {result.incrementalMeta.prediction.estimatedAffectedDimensions}{' '}
+                              个
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-1.5 border-t border-rule/30">
+                          <span className="text-[10px] text-ink-faint">预测准确率</span>
+                          <span className="text-[11px] font-semibold text-success">
+                            {result.incrementalMeta.prediction.accuracy || 0}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 标签页导航 */}
-          <div className="px-4 py-2.5 border-b border-rule flex items-center gap-1 shrink-0">
+          <div className="px-4 py-2.5 border-b border-rule flex items-center gap-1 shrink-0 flex-wrap">
             {[
               { key: 'risks', label: '风险清单' },
               { key: 'checklist', label: '检查清单' },
               { key: 'aligned', label: '统一版本' },
+              { key: 'dimensions', label: '维度管理' },
               { key: 'entities', label: '关键要素' },
               { key: 'relations', label: '风险关联' },
               { key: 'trace', label: 'AI 思考' },
@@ -399,27 +1086,65 @@ export function ResultPanel({
           <div className="flex-1 overflow-y-auto">
             {/* 风险清单视图 */}
             {activeTab === 'risks' && (
-              <div role="list" className="divide-y divide-rule">
-                {result.risks.length === 0 ? (
-                  <div className="text-center py-16 px-4">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
-                      <CheckCircle size={28} strokeWidth={1.5} />
-                    </div>
-                    <p className="text-sm font-medium text-ink mb-1">一切正常</p>
-                    <p className="text-xs text-ink-faint">没有发现风险或冲突</p>
+              <>
+                <div className="px-4 py-3 border-b border-rule bg-paper/[0.02]">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {[
+                      { key: 'all', label: '全部', color: 'text-ink' },
+                      { key: 'pending', label: '待处理', color: 'text-danger' },
+                      { key: 'processing', label: '处理中', color: 'text-warning' },
+                      { key: 'resolved', label: '已解决', color: 'text-success' },
+                      { key: 'ignored', label: '已忽略', color: 'text-ink-faint' },
+                    ].map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => onRiskStatusFilterChange(item.key as RiskStatus | 'all')}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all duration-200 flex items-center gap-1.5',
+                          riskStatusFilter === item.key
+                            ? 'bg-ink text-paper'
+                            : 'bg-paper-dark/60 text-ink-muted hover:text-ink hover:bg-paper-dark border border-rule/60',
+                        )}
+                      >
+                        {item.label}
+                        <span
+                          className={cn(
+                            'text-[10px] font-mono px-1.5 py-0.5 rounded-full',
+                            riskStatusFilter === item.key
+                              ? 'bg-paper/20 text-paper'
+                              : 'bg-paper text-ink-faint',
+                          )}
+                        >
+                          {riskStatusCounts[item.key as keyof typeof riskStatusCounts]}
+                        </span>
+                      </button>
+                    ))}
                   </div>
-                ) : (
-                  result.risks.map((risk, index) => (
-                    <AnimatedRiskItem
-                      key={risk.id}
-                      risk={risk}
-                      index={index}
-                      isSelected={selectedRisk?.id === risk.id}
-                      onSelect={() => onSelectRisk(selectedRisk?.id === risk.id ? null : risk)}
-                    />
-                  ))
-                )}
-              </div>
+                </div>
+                <div role="list" className="divide-y divide-rule">
+                  {sortedRisks.length === 0 ? (
+                    <div className="text-center py-16 px-4">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
+                        <CheckCircle size={28} strokeWidth={1.5} />
+                      </div>
+                      <p className="text-sm font-medium text-ink mb-1">一切正常</p>
+                      <p className="text-xs text-ink-faint">没有发现风险或冲突</p>
+                    </div>
+                  ) : (
+                    sortedRisks.map((risk, index) => (
+                      <AnimatedRiskItem
+                        key={risk.id}
+                        risk={risk}
+                        index={index}
+                        isSelected={selectedRisk?.id === risk.id}
+                        onSelect={() => onSelectRisk(selectedRisk?.id === risk.id ? null : risk)}
+                        onEvidenceClick={onEvidenceClick}
+                      />
+                    ))
+                  )}
+                </div>
+              </>
             )}
 
             {/* 检查清单视图 */}
@@ -549,6 +1274,21 @@ export function ResultPanel({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* 维度管理视图 */}
+            {activeTab === 'dimensions' && (
+              <DimensionPanel
+                dimensions={dimensions}
+                onToggleEnabled={onToggleDimensionEnabled}
+                onUpdateWeight={onUpdateDimensionWeight}
+                onMoveDimension={onMoveDimension}
+                onAddCustomDimension={onAddCustomDimension}
+                onRemoveCustomDimension={onRemoveCustomDimension}
+                onResetWeights={onResetDimensionWeights}
+                showAddDialog={showAddDimensionDialog}
+                onShowAddDialogChange={onShowAddDimensionDialogChange}
+              />
             )}
 
             {/* 关键要素视图 */}
@@ -690,44 +1430,46 @@ export function ResultPanel({
                         冲突风险对
                       </h4>
                       <div className="space-y-2">
-                        {result.riskRelations.conflictPairs.map((pair: any, idx: number) => {
-                          const risk1 = result.risks.find((r) => r.id === pair.risk1Id)
-                          const risk2 = result.risks.find((r) => r.id === pair.risk2Id)
-                          if (!risk1 || !risk2) return null
-                          return (
-                            <div
-                              key={idx}
-                              className="rounded-lg border border-danger/20 bg-danger-bg/30 p-3"
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <span
-                                  role="button"
-                                  tabIndex={-1}
-                                  className="px-2 py-1 rounded-md text-[11px] bg-danger-bg text-danger cursor-pointer hover:opacity-80 transition-opacity"
-                                  onClick={() => onSelectRisk(risk1)}
-                                >
-                                  {risk1.title.length > 10
-                                    ? `${risk1.title.substring(0, 10)}…`
-                                    : risk1.title}
-                                </span>
-                                <div className="text-danger text-xs">⇄</div>
-                                <span
-                                  role="button"
-                                  tabIndex={-1}
-                                  className="px-2 py-1 rounded-md text-[11px] bg-danger-bg text-danger cursor-pointer hover:opacity-80 transition-opacity"
-                                  onClick={() => onSelectRisk(risk2)}
-                                >
-                                  {risk2.title.length > 10
-                                    ? `${risk2.title.substring(0, 10)}…`
-                                    : risk2.title}
-                                </span>
+                        {result.riskRelations.conflictPairs.map(
+                          (pair: ConflictPair, idx: number) => {
+                            const risk1 = result.risks.find((r) => r.id === pair.risk1Id)
+                            const risk2 = result.risks.find((r) => r.id === pair.risk2Id)
+                            if (!risk1 || !risk2) return null
+                            return (
+                              <div
+                                key={idx}
+                                className="rounded-lg border border-danger/20 bg-danger-bg/30 p-3"
+                              >
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span
+                                    role="button"
+                                    tabIndex={-1}
+                                    className="px-2 py-1 rounded-md text-[11px] bg-danger-bg text-danger cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => onSelectRisk(risk1)}
+                                  >
+                                    {risk1.title.length > 10
+                                      ? `${risk1.title.substring(0, 10)}…`
+                                      : risk1.title}
+                                  </span>
+                                  <div className="text-danger text-xs">⇄</div>
+                                  <span
+                                    role="button"
+                                    tabIndex={-1}
+                                    className="px-2 py-1 rounded-md text-[11px] bg-danger-bg text-danger cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => onSelectRisk(risk2)}
+                                  >
+                                    {risk2.title.length > 10
+                                      ? `${risk2.title.substring(0, 10)}…`
+                                      : risk2.title}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-ink-faint leading-relaxed">
+                                  {pair.reason}
+                                </p>
                               </div>
-                              <p className="text-[11px] text-ink-faint leading-relaxed">
-                                {pair.reason}
-                              </p>
-                            </div>
-                          )
-                        })}
+                            )
+                          },
+                        )}
                       </div>
                     </div>
                   )}
@@ -739,7 +1481,7 @@ export function ResultPanel({
                     按材料查看风险
                   </h4>
                   <div className="space-y-2.5">
-                    {result.riskRelations.associations.map((assoc: any) => (
+                    {result.riskRelations.associations.map((assoc: RiskAssociation) => (
                       <div
                         key={assoc.sourceName}
                         className="rounded-lg border border-rule bg-paper/[0.02] p-3"
@@ -793,7 +1535,7 @@ export function ResultPanel({
                       </h4>
                       <div className="space-y-2">
                         {Object.entries(result.riskRelations.relatedRiskIds).map(
-                          ([riskId, relatedIds]: any) => {
+                          ([riskId, relatedIds]: [string, string[]]) => {
                             const risk = result.risks.find((r) => r.id === riskId)
                             if (!risk || relatedIds.length === 0) return null
                             return (
@@ -856,69 +1598,71 @@ export function ResultPanel({
                         证据链验证结果
                       </h4>
                       <div className="space-y-2.5">
-                        {result.riskRelations.validationResults.map((validation: any) => {
-                          const risk = result.risks.find((r) => r.id === validation.riskId)
-                          if (!risk) return null
-                          return (
-                            <div
-                              key={validation.riskId}
-                              className="rounded-lg border border-rule bg-paper/[0.02] p-3"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    role="button"
-                                    tabIndex={-1}
-                                    className={`px-2 py-0.5 rounded text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${
-                                      risk.level === 'critical'
-                                        ? 'bg-danger-bg text-danger'
-                                        : risk.level === 'warning'
-                                          ? 'bg-warning-bg text-warning'
-                                          : 'bg-success-bg text-success'
-                                    }`}
-                                    onClick={() => onSelectRisk(risk)}
-                                  >
-                                    {risk.title.length > 15
-                                      ? `${risk.title.substring(0, 15)}…`
-                                      : risk.title}
-                                  </span>
+                        {result.riskRelations.validationResults?.map(
+                          (validation: ValidationResult) => {
+                            const risk = result.risks.find((r) => r.id === validation.riskId)
+                            if (!risk) return null
+                            return (
+                              <div
+                                key={validation.riskId}
+                                className="rounded-lg border border-rule bg-paper/[0.02] p-3"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      role="button"
+                                      tabIndex={-1}
+                                      className={`px-2 py-0.5 rounded text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${
+                                        risk.level === 'critical'
+                                          ? 'bg-danger-bg text-danger'
+                                          : risk.level === 'warning'
+                                            ? 'bg-warning-bg text-warning'
+                                            : 'bg-success-bg text-success'
+                                      }`}
+                                      onClick={() => onSelectRisk(risk)}
+                                    >
+                                      {risk.title.length > 15
+                                        ? `${risk.title.substring(0, 15)}…`
+                                        : risk.title}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-ink-faint">
+                                      证据: {validation.evidenceCount}/{risk.sources.length}
+                                    </span>
+                                    {validation.confidence !== undefined && (
+                                      <ConfidenceBar confidence={validation.confidence} size="sm" />
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-ink-faint">
-                                    证据: {validation.evidenceCount}/{risk.sources.length}
-                                  </span>
-                                  {validation.confidence !== undefined && (
-                                    <ConfidenceBar confidence={validation.confidence} size="sm" />
+                                {validation.missingSources &&
+                                  validation.missingSources.length > 0 && (
+                                    <div className="text-[10px] text-warning mb-1.5">
+                                      <span className="font-medium">缺失证据来源：</span>
+                                      {validation.missingSources.join(', ')}
+                                    </div>
                                   )}
-                                </div>
-                              </div>
-                              {validation.missingSources &&
-                                validation.missingSources.length > 0 && (
-                                  <div className="text-[10px] text-warning mb-1.5">
-                                    <span className="font-medium">缺失证据来源：</span>
-                                    {validation.missingSources.join(', ')}
+                                {validation.conflicts && validation.conflicts.length > 0 && (
+                                  <div className="space-y-1">
+                                    {validation.conflicts.map((conflict: Conflict, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="text-[10px] text-danger-bg bg-danger-bg/20 rounded px-2 py-1"
+                                      >
+                                        <span className="font-medium">
+                                          冲突[{conflict.dimension}]
+                                        </span>
+                                        <span className="ml-1">
+                                          {conflict.conflictingSources.join(' vs ')}
+                                        </span>
+                                      </div>
+                                    ))}
                                   </div>
                                 )}
-                              {validation.conflicts && validation.conflicts.length > 0 && (
-                                <div className="space-y-1">
-                                  {validation.conflicts.map((conflict: any, idx: number) => (
-                                    <div
-                                      key={idx}
-                                      className="text-[10px] text-danger-bg bg-danger-bg/20 rounded px-2 py-1"
-                                    >
-                                      <span className="font-medium">
-                                        冲突[{conflict.dimension}]
-                                      </span>
-                                      <span className="ml-1">
-                                        {conflict.conflictingSources.join(' vs ')}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
+                              </div>
+                            )
+                          },
+                        )}
                       </div>
                     </div>
                   )}
@@ -931,30 +1675,25 @@ export function ResultPanel({
                 {incrementalMeta?.isIncremental && (
                   <IncrementalDetailPanel meta={incrementalMeta} />
                 )}
-                {result.reasoningTrace.map((step: any, idx: number) => (
-                  <div key={idx} className="rounded-lg bg-paper/[0.02] border border-rule p-3.5">
-                    <div className="flex items-center gap-2.5 mb-2">
-                      <div className="w-5 h-5 rounded-full bg-accent-bg text-accent flex items-center justify-center text-[11px] font-medium">
-                        {idx + 1}
-                      </div>
-                      <div className="text-xs font-medium text-ink">
-                        {step.title || step.name || step.step || `步骤 ${idx + 1}`}
-                      </div>
-                    </div>
-                    {(step.description || step.result) && (
-                      <p className="text-xs text-ink-faint pl-7.5 leading-relaxed">
-                        {step.description || step.result}
-                      </p>
-                    )}
-                    {step.content && (
-                      <div className="mt-2 pl-7.5">
-                        <pre className="text-[11px] text-ink-faint bg-black/30 p-2.5 rounded-md overflow-x-auto whitespace-pre-wrap">
-                          {step.content}
-                        </pre>
-                      </div>
-                    )}
+
+                <div className="mb-4 flex items-center gap-2.5 px-1">
+                  <div className="w-8 h-8 rounded-full bg-accent-tertiary-bg text-accent-tertiary flex items-center justify-center">
+                    <Sparkles size={15} strokeWidth={1.5} />
                   </div>
-                ))}
+                  <div>
+                    <div className="text-sm font-medium text-ink">AI 思考过程</div>
+                    <div className="text-[11px] text-ink-faint">
+                      共 {result.reasoningTrace.length} 个步骤，点击展开查看详情
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative pl-5">
+                  <div className="absolute left-[11px] top-1 bottom-1 w-px bg-rule" />
+                  {result.reasoningTrace?.map((step: ReasoningStep, idx: number) => (
+                    <ReasoningStepCard key={idx} step={step} index={idx} />
+                  ))}
+                </div>
 
                 {result.debugInfo && (
                   <div className="mt-5 rounded-lg border border-rule bg-paper/[0.02] overflow-hidden">
@@ -990,8 +1729,8 @@ export function ResultPanel({
               </div>
             )}
           </div>
-        </>
-      ) : (
+        </div>
+      ) : hasSources ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
           <div className="w-16 h-16 mb-5 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
             <Search size={28} strokeWidth={1.5} />
@@ -1003,16 +1742,140 @@ export function ResultPanel({
             准备好分析了吗？
           </h3>
           <p className="text-xs text-ink-faint mb-6 max-w-sm leading-relaxed">
-            添加材料后点击"开始分析"，AI 将自动识别冲突、缺失和风险
+            点击"开始分析"，AI 将自动识别冲突、缺失和风险
           </p>
           <button
             type="button"
-            className="px-5 py-2.5 bg-ink text-paper rounded-full text-xs font-medium cursor-pointer border-none hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 group"
+            className="px-5 py-2.5 bg-ink text-paper rounded-full text-xs font-medium cursor-pointer border-none hover:bg-accent transition-colors duration-200 group"
             onClick={onAnalyze}
-            disabled={!canAnalyze}
           >
-            {!canAnalyze ? '请先添加材料' : '开始分析'}
+            开始分析
           </button>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 overflow-y-auto">
+          <div className="w-full max-w-lg mx-auto">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-14 h-14 mb-4 rounded-2xl bg-gradient-to-br from-accent to-accent-tertiary text-paper shadow-lg shadow-accent/20">
+                <Sparkles size={28} strokeWidth={1.5} />
+              </div>
+              <div className="text-[10px] font-mono text-accent tracking-widest uppercase mb-2">
+                欢迎使用有据
+              </div>
+              <h2 className="text-xl sm:text-2xl font-semibold text-ink mb-2 font-display tracking-tight">
+                3 步开始你的分析
+              </h2>
+              <p className="text-xs text-ink-faint max-w-sm mx-auto leading-relaxed">
+                多源证据交叉验证，帮你从碎片化信息中梳理事实、识别冲突
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-8">
+              {[
+                {
+                  step: 1,
+                  icon: <Upload size={18} strokeWidth={1.5} />,
+                  title: '上传材料',
+                  desc: '聊天记录、文档、网页、截图，支持多种格式',
+                  color: 'bg-accent-bg text-accent border-accent-faint',
+                },
+                {
+                  step: 2,
+                  icon: <Zap size={18} strokeWidth={1.5} />,
+                  title: 'AI 自动分析',
+                  desc: '智能识别冲突、承诺缺失和潜在风险',
+                  color: 'bg-warning-bg text-warning border-warning/20',
+                },
+                {
+                  step: 3,
+                  icon: <CheckCircle size={18} strokeWidth={1.5} />,
+                  title: '查看结论',
+                  desc: '每条结论都可溯源，证据链清晰可见',
+                  color: 'bg-success-bg text-success border-success/20',
+                },
+              ].map((item) => (
+                <div
+                  key={item.step}
+                  className="flex items-start gap-3 p-3 sm:p-4 rounded-xl bg-paper-dark/40 border border-rule/50 hover:border-rule transition-all duration-300"
+                >
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border',
+                      item.color,
+                    )}
+                  >
+                    {item.icon}
+                  </div>
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono text-ink-faint">0{item.step}</span>
+                      <h4 className="text-sm font-medium text-ink">{item.title}</h4>
+                    </div>
+                    <p className="text-xs text-ink-faint leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <button
+                type="button"
+                onClick={() => onLoadScenario?.('job')}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-accent to-accent-tertiary text-paper rounded-xl text-sm font-medium cursor-pointer border-none hover:opacity-90 transition-all duration-200 shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+              >
+                <Sparkles size={16} strokeWidth={1.5} />
+                快速体验
+              </button>
+              <button
+                type="button"
+                onClick={onAddSource}
+                className="flex-1 px-4 py-3 bg-paper-dark text-ink rounded-xl text-sm font-medium cursor-pointer border border-rule hover:bg-ink hover:text-paper transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <Upload size={16} strokeWidth={1.5} />
+                自己上传材料
+              </button>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex-1 h-px bg-rule/60" />
+                <span className="text-[10px] font-mono text-ink-faint tracking-wider uppercase">
+                  场景模板
+                </span>
+                <div className="flex-1 h-px bg-rule/60" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                {SCENARIOS.filter((s) => s.id !== 'custom' && s.id !== 'purchase').map(
+                  (scenario) => {
+                    const Icon =
+                      scenario.icon === 'briefcase'
+                        ? Briefcase
+                        : scenario.icon === 'home'
+                          ? Home
+                          : BookOpen
+                    return (
+                      <button
+                        key={scenario.id}
+                        type="button"
+                        onClick={() => onLoadScenario?.(scenario.id as ScenarioType)}
+                        className="group p-3 sm:p-4 rounded-xl bg-paper-dark/30 border border-rule/50 hover:border-accent/50 hover:bg-accent-bg/20 cursor-pointer transition-all duration-200 text-left"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-paper-dark border border-rule/60 flex items-center justify-center text-ink-muted group-hover:text-accent group-hover:bg-accent-bg group-hover:border-accent-faint transition-all duration-200 mb-2">
+                          <Icon size={16} strokeWidth={1.5} />
+                        </div>
+                        <h5 className="text-xs font-medium text-ink mb-1 truncate">
+                          {scenario.name}
+                        </h5>
+                        <p className="text-[10px] text-ink-faint line-clamp-2 leading-relaxed">
+                          {scenario.description}
+                        </p>
+                      </button>
+                    )
+                  },
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

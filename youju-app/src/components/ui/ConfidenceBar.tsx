@@ -5,6 +5,7 @@ interface ConfidenceBarProps {
   size?: 'sm' | 'md' | 'lg'
   showLabel?: boolean
   animated?: boolean
+  fullWidth?: boolean
 }
 
 export function ConfidenceBar({
@@ -12,6 +13,7 @@ export function ConfidenceBar({
   size = 'md',
   showLabel = true,
   animated = true,
+  fullWidth = false,
 }: ConfidenceBarProps) {
   const [displayPct, setDisplayPct] = useState(0)
   const pct = Math.max(0, Math.min(100, confidence))
@@ -50,10 +52,10 @@ export function ConfidenceBar({
   const isLarge = size === 'lg'
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${fullWidth ? 'w-full' : ''}`}>
       <div
         className={`${
-          isSmall ? 'w-16 h-1.5' : isLarge ? 'w-32 h-2' : 'w-24 h-1.5'
+          fullWidth ? 'flex-1 h-2' : isSmall ? 'w-20 h-1.5' : isLarge ? 'w-32 h-2' : 'w-28 h-1.5'
         } bg-paper-dark rounded-full overflow-hidden relative`}
       >
         <div

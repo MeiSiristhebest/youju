@@ -1,7 +1,9 @@
-import type { Risk } from '../../../domain/types.js'
+import type { AIRawOutput, ReasoningStep, Risk } from '../../../domain/types.js'
 import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
 import { getSharedMainCallResult } from './step-scenario-discovery.js'
+
+type RawRisk = AIRawOutput['risks'][number]
 
 export const systemPromptFragment = `
 Step 5: DISCREPANCY DETECTION & EVIDENCE VALIDATION
@@ -76,9 +78,9 @@ export const stepDiscrepancyDetection: StepExecutor = async (
   const mainResult = getSharedMainCallResult()
   const parsed = mainResult?.parsed
 
-  const rawRisks: any[] = parsed?.risks || []
-  const risks: Risk[] = rawRisks.map((r: any, i: number) => {
-    const sourceNames: string[] = r.evidence?.map((e: any) => String(e.sourceName)) || []
+  const rawRisks: RawRisk[] = parsed?.risks || []
+  const risks: Risk[] = rawRisks.map((r: RawRisk, i: number) => {
+    const sourceNames: string[] = r.evidence?.map((e) => String(e.sourceName)) || []
     return {
       id: `r${i + 1}`,
       dimension: r.dimension,
@@ -88,7 +90,7 @@ export const stepDiscrepancyDetection: StepExecutor = async (
       description: r.description,
       sources: [...new Set(sourceNames)],
       evidence:
-        r.evidence?.map((e: any) => ({
+        r.evidence?.map((e) => ({
           sourceName: e.sourceName,
           sourceType: e.sourceType,
           quote: e.quote,
@@ -121,7 +123,7 @@ export const stepDiscrepancyDetection: StepExecutor = async (
   }
 
   const reasoningStep = parsed?.reasoning_trace?.find(
-    (r: any) =>
+    (r: ReasoningStep) =>
       String(r.step).toUpperCase().includes('DISCREPANCY') ||
       String(r.step).toUpperCase().includes('DETECTION'),
   )

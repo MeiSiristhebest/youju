@@ -86,7 +86,7 @@ export async function wechatLoginMock(code?: string) {
   }
 }
 
-export async function getUserIdFromReq(req: any): Promise<number | null> {
+export async function getUserIdFromReq(req: SimpleRequest): Promise<number | null> {
   const authHeader = req.headers.authorization
   if (!authHeader?.startsWith('Bearer ')) return null
   const token = authHeader.substring(7)

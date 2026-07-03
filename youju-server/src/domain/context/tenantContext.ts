@@ -26,7 +26,7 @@ export function buildDataScopeWhere(
   ctx: TenantContext,
   userIdColumn: string = 'user_id',
   sessionIdColumn: string = 'session_id',
-): { clause: string; params: any[] } {
+): { clause: string; params: unknown[] } {
   if (ctx.userId !== null) {
     return {
       clause: `${userIdColumn} = ?`,
@@ -77,7 +77,7 @@ export function validateTenantAccess(
 }
 
 export interface TenantScopedRepository<T> {
-  list(ctx: TenantContext, options?: Record<string, any>): T[]
+  list(ctx: TenantContext, options?: Record<string, unknown>): T[]
   getById(ctx: TenantContext, id: string): T | null
   create(ctx: TenantContext, data: Partial<T>): T
   update(ctx: TenantContext, id: string, data: Partial<T>): T | null

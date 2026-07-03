@@ -1,7 +1,32 @@
-import type { AnalyzeResult, ChecklistItem, ExtractedEntity, Risk } from '../../../domain/types.js'
+import type {
+  AIRawOutput,
+  AnalyzeResult,
+  ChecklistItem,
+  Evidence,
+  ExtractedEntity,
+  ReasoningStep,
+  Risk,
+  RiskAssociation,
+} from '../../../domain/types.js'
 import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
 import { getSharedMainCallResult } from './step-scenario-discovery.js'
+
+interface RawChecklistItem {
+  text: string
+}
+
+interface ConflictPair {
+  risk1Id: string
+  risk2Id: string
+  reason: string
+}
+
+interface RiskRelationsResult {
+  associations: RiskAssociation[]
+  relatedRiskIds: Record<string, string[]>
+  conflictPairs: ConflictPair[]
+}
 
 export const systemPromptFragment = `
 Step 7: FINAL OUTPUT GENERATION
@@ -34,7 +59,7 @@ export const stepFinalOutput: StepExecutor = async (input: StepInput): Promise<S
     | { scenario?: { type: string; description: string; keyDimensions?: string[] } }
     | undefined
   const extractionOutput = input.previousOutputs['step-cross-source-extraction'] as
-    | { entities?: Array<{ dimension: string; value: string; evidence: unknown }> }
+    | { entities?: Array<{ dimension: string; value: string; evidence: Evidence }> }
     | undefined
   const rawRisks = selfCheckOutput?.risks || discrepancyOutput?.risks || []
   const scenario = scenarioOutput?.scenario
@@ -49,11 +74,13 @@ export const stepFinalOutput: StepExecutor = async (input: StepInput): Promise<S
     total: risks.length,
   }
 
-  const checklist: ChecklistItem[] = (parsed?.checklist || []).map((c: any, i: number) => ({
-    id: `t${i + 1}`,
-    text: c.text,
-    hasDraft: true,
-  }))
+  const checklist: ChecklistItem[] = (parsed?.checklist || []).map(
+    (c: RawChecklistItem, i: number) => ({
+      id: `t${i + 1}`,
+      text: c.text,
+      hasDraft: true,
+    }),
+  )
 
   const extractedEntities = categorizeEntities(entities)
   const riskRelations = computeRiskRelations(risks, input.sources)
@@ -61,7 +88,7 @@ export const stepFinalOutput: StepExecutor = async (input: StepInput): Promise<S
   const alignedVersion = parsed?.aligned_version || ''
 
   const reasoningStep = parsed?.reasoning_trace?.find(
-    (r: any) =>
+    (r: ReasoningStep) =>
       String(r.step).toUpperCase().includes('FINAL') ||
       String(r.step).toUpperCase().includes('OUTPUT'),
   )
@@ -110,7 +137,9 @@ export const stepFinalOutput: StepExecutor = async (input: StepInput): Promise<S
   }
 }
 
-function categorizeEntities(entities: Array<{ dimension: string; value: string; evidence: any }>): {
+function categorizeEntities(
+  entities: Array<{ dimension: string; value: string; evidence: Evidence }>,
+): {
   dates: ExtractedEntity[]
   amounts: ExtractedEntity[]
   terms: ExtractedEntity[]
@@ -173,10 +202,13 @@ function categorizeEntities(entities: Array<{ dimension: string; value: string; 
   return result
 }
 
-function computeRiskRelations(risks: Risk[], sources: { name: string; type: string }[]) {
-  const associations: any[] = []
+function computeRiskRelations(
+  risks: Risk[],
+  sources: { name: string; type: string }[],
+): RiskRelationsResult {
+  const associations: RiskAssociation[] = []
   const relatedRiskIds: Record<string, string[]> = {}
-  const conflictPairs: any[] = []
+  const conflictPairs: ConflictPair[] = []
 
   for (const risk of risks) {
     relatedRiskIds[risk.id] = []

@@ -4,6 +4,7 @@ import authRouter from './routes/auth.js'
 import cronRouter from './routes/cron.js'
 import docsRouter from './routes/docs.js'
 import healthRouter from './routes/health.js'
+import modelConfigRouter from './routes/modelConfig.js'
 import preferencesRouter from './routes/preferences.js'
 import scenariosRouter from './routes/scenarios.js'
 import shareRouter from './routes/share.js'
@@ -19,6 +20,7 @@ router.use(sourcesRouter)
 router.use(analysisRouter)
 router.use(tasksRouter)
 router.use(preferencesRouter)
+router.use(modelConfigRouter)
 router.use(shareRouter)
 router.use(healthRouter)
 router.use(cronRouter)

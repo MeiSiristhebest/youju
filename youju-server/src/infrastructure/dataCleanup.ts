@@ -81,10 +81,18 @@ export function vacuumDatabase(): void {
 }
 
 export function getCleanupStats() {
-  const totalLogs = db.prepare('SELECT COUNT(*) as count FROM analysis_logs').get() as any
-  const totalSteps = db.prepare('SELECT COUNT(*) as count FROM analysis_steps').get() as any
-  const oldestLog = db.prepare('SELECT MIN(created_at) as oldest FROM analysis_logs').get() as any
-  const newestLog = db.prepare('SELECT MAX(created_at) as newest FROM analysis_logs').get() as any
+  const totalLogs = db.prepare('SELECT COUNT(*) as count FROM analysis_logs').get() as {
+    count: number
+  }
+  const totalSteps = db.prepare('SELECT COUNT(*) as count FROM analysis_steps').get() as {
+    count: number
+  }
+  const oldestLog = db.prepare('SELECT MIN(created_at) as oldest FROM analysis_logs').get() as {
+    oldest: string | null
+  }
+  const newestLog = db.prepare('SELECT MAX(created_at) as newest FROM analysis_logs').get() as {
+    newest: string | null
+  }
 
   return {
     totalLogs: totalLogs.count || 0,

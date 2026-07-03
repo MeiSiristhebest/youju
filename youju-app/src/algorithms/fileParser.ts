@@ -121,7 +121,7 @@ export class FileParser {
       const parsed = JSON.parse(content)
       const textParts: string[] = []
 
-      const extractText = (obj: any, prefix = '') => {
+      const extractText = (obj: unknown, prefix = '') => {
         if (typeof obj === 'string') {
           textParts.push(prefix ? `${prefix}: ${obj}` : obj)
         } else if (typeof obj === 'number' || typeof obj === 'boolean') {

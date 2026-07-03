@@ -4,7 +4,15 @@ import { DEMO_RESULTS } from '../constants/demoData'
 import { analysisApi } from '../services/analysisApi'
 import { apiClient } from '../services/apiClient'
 import { useAnalysisStore, useSourceStore } from '../stores'
-import type { AnalyzeResult, ChecklistItem, Risk, Source } from '../types'
+import type {
+  AnalysisDimension,
+  AnalyzeResult,
+  ChecklistItem,
+  DimensionPriority,
+  Risk,
+  RiskStatus,
+  Source,
+} from '../types'
 
 const MAX_RETRY_COUNT = 3
 const PING_INTERVAL_MS = 30000
@@ -44,6 +52,14 @@ export const useAnalysis = (sources: Source[]) => {
     incrementalPrediction,
     cacheHit,
     lastAnalysisDuration,
+    showIncrementalBanner,
+    forceFullAnalysis,
+    previousResult,
+    dimensions,
+    showAddDimensionDialog,
+    riskStatusFilter,
+    riskStatuses,
+    riskNotes,
     setResult,
     setAnalyzing,
     setAnalysisStep,
@@ -65,7 +81,23 @@ export const useAnalysis = (sources: Source[]) => {
     setIncrementalPrediction,
     setCacheHit,
     setLastAnalysisDuration,
+    setShowIncrementalBanner,
+    setForceFullAnalysis,
+    setPreviousResult,
     resetAnalysis,
+    setDimensions,
+    toggleDimensionEnabled,
+    updateDimensionWeight,
+    moveDimension,
+    addCustomDimension,
+    removeCustomDimension,
+    resetDimensionWeights,
+    setShowAddDimensionDialog,
+    setRiskStatusFilter,
+    setRiskStatus,
+    setRiskNotes,
+    getRiskStatus,
+    getRiskNotes,
   } = useAnalysisStore()
 
   const predictIncrementalChanges = (): IncrementalPrediction | null => {
@@ -80,24 +112,32 @@ export const useAnalysis = (sources: Source[]) => {
   const analyzeMutation = useMutation({
     mutationFn: async (params?: {
       onSuccess?: (result: AnalyzeResult) => void
+      forceFull?: boolean
     }): Promise<AnalyzeResult> => {
       if (sources.length === 0) throw new Error('No sources')
 
       const startTime = Date.now()
+      const forceFull = params?.forceFull || forceFullAnalysis
 
       setAnalyzing(true)
-      setResult(null)
       setAnalysisStep(0)
       setIncrementalPrediction(null)
       setCacheHit(false)
+      setShowIncrementalBanner(true)
+
+      const previousResultSnapshot = result
+      if (result) {
+        setPreviousResult(result)
+      }
 
       const sourceIds = sources.map((s) => s.id)
       const cacheKey = incrementalEngine.generateCacheKey(sources, currentScenario)
       const cachedResult = incrementalEngine.getCachedResult(cacheKey)
 
-      if (cachedResult) {
+      if (cachedResult && !forceFull) {
         setCacheHit(true)
         setResult(cachedResult)
+        setDimensions(cachedResult.dimensions || [])
         setChecklist(cachedResult.checklist.map((c: ChecklistItem) => ({ ...c, checked: false })))
         setAnalyzing(false)
         setLastAnalysisDuration(Date.now() - startTime)
@@ -107,27 +147,101 @@ export const useAnalysis = (sources: Source[]) => {
 
       const isDemo = sources.some((s) => s.id.startsWith('demo_'))
 
+      const oldSourceIds = previousResultSnapshot?.meta?.sourceIds as string[] | undefined
+      const oldSources = oldSourceIds ? sources.filter((s) => oldSourceIds.includes(s.id)) : []
+      const isIncremental = !!(
+        !forceFull &&
+        previousResultSnapshot &&
+        oldSourceIds &&
+        (() => {
+          const newIds = sourceIds.filter((id) => !oldSourceIds.includes(id))
+          return newIds.length > 0 && newIds.length < sourceIds.length
+        })()
+      )
+
+      if (isIncremental && previousResultSnapshot) {
+        const prediction = incrementalEngine.predictChanges(
+          oldSources,
+          sources,
+          previousResultSnapshot,
+        )
+        setIncrementalPrediction(prediction)
+      }
+
       if (isDemo) {
         const demoResult = DEMO_RESULTS[currentScenario as string]
         if (demoResult) {
-          for (let i = 0; i < ANALYSIS_STEPS.length; i++) {
-            await new Promise((resolve) => setTimeout(resolve, 800))
+          const totalSteps = ANALYSIS_STEPS.length
+          const stepDuration = isIncremental ? 500 : 800
+          for (let i = 0; i < totalSteps; i++) {
+            const stepStartProgress = (i / totalSteps) * 100
+            const stepEndProgress = ((i + 1) / totalSteps) * 100
+            const subSteps = 10
+            for (let j = 0; j < subSteps; j++) {
+              await new Promise((resolve) => setTimeout(resolve, stepDuration / subSteps))
+              const subProgress = (j + 1) / subSteps
+              const progress =
+                stepStartProgress + (stepEndProgress - stepStartProgress) * subProgress
+              setStreamProgress(progress)
+            }
             setAnalysisStep(i + 1)
           }
-          await new Promise((resolve) => setTimeout(resolve, 500))
-          const finalResult = {
-            ...demoResult,
-            meta: {
-              ...demoResult.meta,
-              durationMs: Date.now() - startTime,
-              isMock: true,
-            },
+          setStreamProgress(100)
+          await new Promise((resolve) => setTimeout(resolve, 300))
+
+          let finalResult: AnalyzeResult
+
+          if (isIncremental && previousResultSnapshot && !forceFull) {
+            const mergedResult = incrementalEngine.mergeResults(previousResultSnapshot, demoResult)
+            const changes = incrementalEngine.compareRisks(previousResultSnapshot, demoResult)
+            const prediction = incrementalEngine.predictChanges(
+              oldSources,
+              sources,
+              previousResultSnapshot,
+            )
+            const accuracy = incrementalEngine.calculatePredictionAccuracy(prediction, changes)
+
+            finalResult = {
+              ...mergedResult,
+              meta: {
+                ...mergedResult.meta,
+                durationMs: Date.now() - startTime,
+                isMock: true,
+                sourceCount: sources.length,
+              },
+              incrementalMeta: {
+                ...mergedResult.incrementalMeta,
+                durationMs: Date.now() - startTime,
+                previousSourceCount: previousResultSnapshot.meta?.sourceCount || 0,
+                newSourceCount: sources.length,
+                prediction: {
+                  estimatedNewRiskCount: prediction.estimatedNewRiskCount,
+                  estimatedUpdatedRiskCount: prediction.estimatedUpdatedRiskCount,
+                  estimatedAffectedDimensions: prediction.estimatedAffectedDimensions,
+                  accuracy,
+                },
+              },
+            }
+          } else {
+            finalResult = {
+              ...demoResult,
+              meta: {
+                ...demoResult.meta,
+                durationMs: Date.now() - startTime,
+                isMock: true,
+                sourceCount: sources.length,
+                isIncremental: false,
+              },
+            }
           }
+
           incrementalEngine.cacheResults(cacheKey, finalResult)
           setResult(finalResult)
+          setDimensions(finalResult.dimensions || [])
           setChecklist(finalResult.checklist.map((c: ChecklistItem) => ({ ...c, checked: false })))
           setAnalyzing(false)
           setLastAnalysisDuration(Date.now() - startTime)
+          setForceFullAnalysis(false)
           params?.onSuccess?.(finalResult)
           return finalResult
         } else {
@@ -136,23 +250,9 @@ export const useAnalysis = (sources: Source[]) => {
         }
       }
 
-      const oldSources = result?.meta?.sourceIds
-        ? sources.filter((s) => (result.meta!.sourceIds as string[]).includes(s.id))
-        : []
-      const prediction = incrementalEngine.predictChanges(oldSources, sources, result || undefined)
-      setIncrementalPrediction(prediction)
-
       const abortController = new AbortController()
 
       try {
-        const isIncremental =
-          result?.meta?.sourceIds &&
-          (() => {
-            const existingIds = result.meta.sourceIds as string[]
-            const newIds = sourceIds.filter((id) => !existingIds.includes(id))
-            return newIds.length > 0 && newIds.length < sourceIds.length
-          })()
-
         const finalResult = await streamAnalyze({
           sourceIds,
           scenarioType: currentScenario,
@@ -169,20 +269,51 @@ export const useAnalysis = (sources: Source[]) => {
           isIncremental,
         })
 
-        if (isIncremental && result) {
-          const mergedResult = incrementalEngine.mergeResults(result, finalResult)
-          incrementalEngine.cacheResults(cacheKey, mergedResult)
-          setResult(mergedResult)
-          setChecklist(mergedResult.checklist.map((c: ChecklistItem) => ({ ...c, checked: false })))
+        if (isIncremental && previousResultSnapshot) {
+          const mergedResult = incrementalEngine.mergeResults(previousResultSnapshot, finalResult)
+          const changes = incrementalEngine.compareRisks(previousResultSnapshot, finalResult)
+          const prediction = incrementalEngine.predictChanges(
+            oldSources,
+            sources,
+            previousResultSnapshot,
+          )
+          const accuracy = incrementalEngine.calculatePredictionAccuracy(prediction, changes)
+
+          const resultWithAccuracy: AnalyzeResult = {
+            ...mergedResult,
+            incrementalMeta: {
+              ...mergedResult.incrementalMeta,
+              durationMs: Date.now() - startTime,
+              previousSourceCount: previousResultSnapshot.meta?.sourceCount || 0,
+              newSourceCount: sources.length,
+              prediction: {
+                estimatedNewRiskCount: prediction.estimatedNewRiskCount,
+                estimatedUpdatedRiskCount: prediction.estimatedUpdatedRiskCount,
+                estimatedAffectedDimensions: prediction.estimatedAffectedDimensions,
+                accuracy,
+              },
+            },
+          }
+
+          incrementalEngine.cacheResults(cacheKey, resultWithAccuracy)
+          setResult(resultWithAccuracy)
+          setDimensions(resultWithAccuracy.dimensions || [])
+          setChecklist(
+            resultWithAccuracy.checklist.map((c: ChecklistItem) => ({ ...c, checked: false })),
+          )
           setLastAnalysisDuration(Date.now() - startTime)
-          params?.onSuccess?.(mergedResult)
-          return mergedResult
+          setForceFullAnalysis(false)
+          params?.onSuccess?.(resultWithAccuracy)
+          return resultWithAccuracy
         }
 
         incrementalEngine.cacheResults(cacheKey, finalResult)
+        setResult(finalResult)
+        setDimensions(finalResult.dimensions || [])
         setChecklist(finalResult.checklist.map((c: ChecklistItem) => ({ ...c, checked: false })))
         setAnalysisStep(ANALYSIS_STEPS.length)
         setLastAnalysisDuration(Date.now() - startTime)
+        setForceFullAnalysis(false)
         params?.onSuccess?.(finalResult)
         return finalResult
       } finally {
@@ -200,7 +331,7 @@ export const useAnalysis = (sources: Source[]) => {
       stepId: string,
       stepName: string,
       stepIndex: number,
-      partialResult: any,
+      partialResult: unknown,
     ) => void
     onProgress?: (progress: number, message?: string) => void
     abortController?: AbortController
@@ -563,6 +694,7 @@ ${risk.description}
       })
 
       setResult(resumedResult)
+      setDimensions(resumedResult.dimensions || [])
       setChecklist(
         resumedResult.checklist?.map((c: ChecklistItem) => ({ ...c, checked: false })) || [],
       )
@@ -580,6 +712,67 @@ ${risk.description}
   const clearFailedAnalysisLog = () => {
     localStorage.removeItem('youju_last_failed_analysis_log')
   }
+
+  const sortedRisks = (() => {
+    if (!result?.risks || dimensions.length === 0) {
+      const risks = result?.risks || []
+      if (riskStatusFilter === 'all') return risks
+      return risks.filter((r) => getRiskStatus(r.id) === riskStatusFilter)
+    }
+    const dimensionWeightMap = new Map(dimensions.map((d) => [d.name, d.weight]))
+    let filtered = [...result.risks]
+    if (riskStatusFilter !== 'all') {
+      filtered = filtered.filter((r) => getRiskStatus(r.id) === riskStatusFilter)
+    }
+    return filtered.sort((a, b) => {
+      const weightA = dimensionWeightMap.get(a.dimension || '') || 0
+      const weightB = dimensionWeightMap.get(b.dimension || '') || 0
+      if (weightB !== weightA) return weightB - weightA
+      const levelOrder = { critical: 3, warning: 2, info: 1 }
+      return (
+        (levelOrder[b.level as keyof typeof levelOrder] || 0) -
+        (levelOrder[a.level as keyof typeof levelOrder] || 0)
+      )
+    })
+  })()
+
+  const riskStatusCounts = (() => {
+    if (!result?.risks) return { all: 0, pending: 0, processing: 0, resolved: 0, ignored: 0 }
+    const counts = { all: result.risks.length, pending: 0, processing: 0, resolved: 0, ignored: 0 }
+    result.risks.forEach((r) => {
+      const status = getRiskStatus(r.id)
+      counts[status]++
+    })
+    return counts
+  })()
+
+  const pendingRisks = (() => {
+    if (!result?.risks) return []
+    const dimensionWeightMap = new Map(dimensions.map((d) => [d.name, d.weight]))
+    return result.risks
+      .filter((r) => {
+        const status = getRiskStatus(r.id)
+        return status === 'pending' || status === 'processing'
+      })
+      .sort((a, b) => {
+        const weightA = dimensionWeightMap.get(a.dimension || '') || 0
+        const weightB = dimensionWeightMap.get(b.dimension || '') || 0
+        if (weightB !== weightA) return weightB - weightA
+        const levelOrder = { critical: 3, warning: 2, info: 1 }
+        return (
+          (levelOrder[b.level as keyof typeof levelOrder] || 0) -
+          (levelOrder[a.level as keyof typeof levelOrder] || 0)
+        )
+      })
+  })()
+
+  const totalUnresolved = (() => {
+    if (!result?.risks) return 0
+    return result.risks.filter((r) => {
+      const status = getRiskStatus(r.id)
+      return status === 'pending' || status === 'processing'
+    }).length
+  })()
 
   return {
     result,
@@ -602,8 +795,20 @@ ${risk.description}
     incrementalPrediction,
     cacheHit,
     lastAnalysisDuration,
+    showIncrementalBanner,
+    forceFullAnalysis,
+    previousResult,
+    dimensions,
+    sortedRisks,
+    showAddDimensionDialog,
+    riskStatusFilter,
+    riskStatusCounts,
+    pendingRisks,
+    totalUnresolved,
     ANALYSIS_STEPS,
     analyze: analyzeMutation.mutate,
+    analyzeFull: (params?: { onSuccess?: (result: AnalyzeResult) => void }) =>
+      analyzeMutation.mutate({ ...params, forceFull: true }),
     isAnalyzing: analyzeMutation.isPending,
     cancelAnalysis: () => {
       analyzeMutation.reset()
@@ -624,10 +829,24 @@ ${risk.description}
     setShowDraft,
     setShowDebug,
     setDebugTab,
+    setShowIncrementalBanner,
+    setForceFullAnalysis,
     resumeAnalysis: resumeAnalysisMutation.mutate,
     isResuming: resumeAnalysisMutation.isPending,
     getLastFailedAnalysisLog,
     clearFailedAnalysisLog,
     predictIncrementalChanges,
+    toggleDimensionEnabled,
+    updateDimensionWeight,
+    moveDimension,
+    addCustomDimension,
+    removeCustomDimension,
+    resetDimensionWeights,
+    setShowAddDimensionDialog,
+    setRiskStatusFilter,
+    setRiskStatus,
+    setRiskNotes,
+    getRiskStatus,
+    getRiskNotes,
   }
 }

@@ -2,6 +2,7 @@ import express from 'express'
 import { clearAnalysisCache, getAnalysisCacheStats } from '../../domain/services/analysisCache.js'
 import * as analysisService from '../../domain/services/analysisService.js'
 import * as analysisTaskManager from '../../domain/services/analysisTaskManager.js'
+import * as modelConfigService from '../../domain/services/modelConfigService.js'
 import * as observabilityService from '../../domain/services/observabilityService.js'
 import * as preferenceService from '../../domain/services/preferenceService.js'
 import * as sourceService from '../../domain/services/sourceService.js'
@@ -33,6 +34,16 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
 
   try {
     const scenarioKnowledge = await observabilityService.getScenarioKnowledge(scenarioType, 10)
+    const defaultModelConfig = await modelConfigService.getDefaultModelConfig(userId, sessionId)
+    const aiConfig = defaultModelConfig
+      ? {
+          apiKey: defaultModelConfig.apiKey,
+          baseURL: defaultModelConfig.baseURL,
+          model: defaultModelConfig.model,
+          provider: defaultModelConfig.provider,
+        }
+      : undefined
+
     const result = await analysisService.analyzeSources(
       selectedSources,
       scenarioType,
@@ -42,10 +53,11 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
         sessionId,
         taskId: null,
         persist: true,
+        aiConfig,
       },
     )
 
-    isMock = !process.env.AI_API_KEY
+    isMock = !process.env.AI_API_KEY && !defaultModelConfig
     const durationMs = Date.now() - startTime
 
     const riskWeights = await preferenceService.getUserRiskWeights(userId, sessionId)
@@ -98,6 +110,15 @@ router.post('/analyze/stream', async (req, res) => {
   }
 
   const scenarioKnowledge = await observabilityService.getScenarioKnowledge(scenarioType, 10)
+  const defaultModelConfig = await modelConfigService.getDefaultModelConfig(userId, sessionId)
+  const aiConfig = defaultModelConfig
+    ? {
+        apiKey: defaultModelConfig.apiKey,
+        baseURL: defaultModelConfig.baseURL,
+        model: defaultModelConfig.model,
+        provider: defaultModelConfig.provider,
+      }
+    : undefined
 
   const initialLog = await analysisService.createAnalysisLogEntry({
     userId,
@@ -109,50 +130,59 @@ router.post('/analyze/stream', async (req, res) => {
 
   sendEvent('init', { analysisLogId, sourceCount: selectedSources.length })
 
+  const isMockMode = !process.env.AI_API_KEY && !defaultModelConfig
+
   analysisService
-    .analyzeSourcesStreamWithLog(analysisLogId, selectedSources, scenarioType, scenarioKnowledge, {
-      onStepStart: (step) => {
-        sendEvent('step_start', {
-          stepId: step.id,
-          stepName: step.name,
-          stepIndex: step.index,
-          analysisLogId,
-        })
-      },
-      onStepComplete: (step) => {
-        sendEvent('step_complete', {
-          stepId: step.id,
-          stepName: step.name,
-          stepIndex: step.index,
-          partialResult: step.output?.data || null,
-          analysisLogId,
-        })
-      },
-      onComplete: async (result) => {
-        const riskWeights = await preferenceService.getUserRiskWeights(userId, sessionId)
-        const sortedRisks = preferenceService.sortRisksByPreference(result.risks, riskWeights)
-        const finalResult = {
-          ...result,
-          risks: sortedRisks,
-          meta: {
-            ...result.meta,
-            isMock: !process.env.AI_API_KEY,
-            sourceCount: selectedSources.length,
-            sourceIds,
+    .analyzeSourcesStreamWithLog(
+      analysisLogId,
+      selectedSources,
+      scenarioType,
+      scenarioKnowledge,
+      {
+        onStepStart: (step) => {
+          sendEvent('step_start', {
+            stepId: step.id,
+            stepName: step.name,
+            stepIndex: step.index,
             analysisLogId,
-          },
-          preferences: {
-            riskWeights,
-          },
-        }
-        sendEvent('complete', finalResult)
-        res.end()
+          })
+        },
+        onStepComplete: (step) => {
+          sendEvent('step_complete', {
+            stepId: step.id,
+            stepName: step.name,
+            stepIndex: step.index,
+            partialResult: step.output?.data || null,
+            analysisLogId,
+          })
+        },
+        onComplete: async (result) => {
+          const riskWeights = await preferenceService.getUserRiskWeights(userId, sessionId)
+          const sortedRisks = preferenceService.sortRisksByPreference(result.risks, riskWeights)
+          const finalResult = {
+            ...result,
+            risks: sortedRisks,
+            meta: {
+              ...result.meta,
+              isMock: isMockMode,
+              sourceCount: selectedSources.length,
+              sourceIds,
+              analysisLogId,
+            },
+            preferences: {
+              riskWeights,
+            },
+          }
+          sendEvent('complete', finalResult)
+          res.end()
+        },
+        onError: (error) => {
+          sendEvent('error', { message: error.message, analysisLogId })
+          res.end()
+        },
       },
-      onError: (error) => {
-        sendEvent('error', { message: error.message, analysisLogId })
-        res.end()
-      },
-    })
+      aiConfig,
+    )
     .catch((error) => {
       if (!res.writableEnded) {
         sendEvent('error', { message: error.message, analysisLogId })

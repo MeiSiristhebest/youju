@@ -4,6 +4,7 @@ import {
   BookOpen,
   Briefcase,
   ChevronDown,
+  ChevronLeft,
   ChevronUp,
   History,
   Home,
@@ -11,6 +12,7 @@ import {
   Moon,
   PenLine,
   Plus,
+  Server,
   Settings,
   Sparkles,
   Sun,
@@ -19,6 +21,7 @@ import {
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { SCENARIOS } from '../../constants/workspace'
+import { useTranslation } from '../../i18n'
 import { useUIPreferenceStore } from '../../stores'
 import type { Scenario } from '../../types'
 
@@ -38,7 +41,9 @@ interface WorkspaceSidebarProps {
   onShowLogin: () => void
   onLogout: () => void
   onShowPreference: () => void
+  onShowModelSettings: () => void
   onShowMonitor: () => void
+  onCollapse?: () => void
 }
 
 export function WorkspaceSidebar({
@@ -51,13 +56,17 @@ export function WorkspaceSidebar({
   onShowLogin,
   onLogout,
   onShowPreference,
+  onShowModelSettings,
   onShowMonitor,
+  onCollapse,
 }: WorkspaceSidebarProps) {
   const { theme, toggleTheme } = useUIPreferenceStore()
+  const { t } = useTranslation()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   return (
     <aside
+      id="tour-sidebar"
       className="w-60 bg-paper border-r border-rule flex flex-col shrink-0"
       aria-label="主导航"
     >
@@ -71,12 +80,13 @@ export function WorkspaceSidebar({
           <div className="w-7 h-7 bg-ink rounded-md flex items-center justify-center">
             <Sparkles size={13} className="text-paper" strokeWidth={1.5} />
           </div>
-          <span className="text-sm font-medium text-ink font-display tracking-tight">有据</span>
+          <span className="text-sm font-medium text-ink font-display tracking-tight">YouJu</span>
         </button>
       </div>
 
       <div className="px-3 py-3 border-b border-rule">
         <button
+          id="tour-new-analysis-btn"
           type="button"
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-ink text-paper cursor-pointer border-none hover:bg-accent transition-colors duration-200 group"
           onClick={onNewAnalysis}
@@ -86,7 +96,7 @@ export function WorkspaceSidebar({
             strokeWidth={1.5}
             className="group-hover:scale-110 transition-transform duration-200"
           />
-          新建分析
+          {t('nav.newAnalysis')}
         </button>
       </div>
 
@@ -95,7 +105,7 @@ export function WorkspaceSidebar({
           className="text-[10px] font-medium text-ink-faint uppercase tracking-[0.15em] px-3 mb-2 font-mono"
           id="workspace-nav-label"
         >
-          工作区
+          {t('nav.workspace')}
         </div>
         <nav aria-labelledby="workspace-nav-label">
           <ul className="space-y-0.5 list-none p-0 m-0">
@@ -107,7 +117,7 @@ export function WorkspaceSidebar({
               >
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-accent rounded-r-full"></div>
                 <BarChart3 size={15} strokeWidth={1.5} />
-                分析工作台
+                {t('nav.analysisDesk')}
               </button>
             </li>
             <li>
@@ -117,7 +127,7 @@ export function WorkspaceSidebar({
                 onClick={onShowHistory}
               >
                 <History size={15} strokeWidth={1.5} />
-                历史记录
+                {t('nav.history')}
               </button>
             </li>
           </ul>
@@ -133,7 +143,7 @@ export function WorkspaceSidebar({
           className="text-[10px] font-medium text-ink-faint uppercase tracking-[0.15em] px-3 mb-2 flex items-center justify-between font-mono"
           id="scenario-nav-label"
         >
-          <span>场景模板</span>
+          <span>{t('nav.scenarioTemplates')}</span>
         </div>
         <nav aria-labelledby="scenario-nav-label">
           <ul className="space-y-0.5 list-none p-0 m-0">
@@ -172,7 +182,7 @@ export function WorkspaceSidebar({
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-accent rounded-r-full"></div>
                 )}
                 <PenLine size={15} strokeWidth={1.5} />
-                <span className="flex-1 text-left truncate">自定义</span>
+                <span className="flex-1 text-left truncate">{t('nav.custom')}</span>
               </button>
             </li>
           </ul>
@@ -186,7 +196,16 @@ export function WorkspaceSidebar({
           className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
         >
           <Settings size={15} strokeWidth={1.5} />
-          <span className="flex-1 text-left">偏好设置</span>
+          <span className="flex-1 text-left">{t('nav.preferences')}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onShowModelSettings}
+          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
+        >
+          <Server size={15} strokeWidth={1.5} />
+          <span className="flex-1 text-left">模型设置</span>
         </button>
 
         <button
@@ -195,7 +214,7 @@ export function WorkspaceSidebar({
           className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
         >
           <Activity size={15} strokeWidth={1.5} />
-          <span className="flex-1 text-left">系统监控</span>
+          <span className="flex-1 text-left">{t('nav.systemMonitor')}</span>
         </button>
 
         <button
@@ -208,7 +227,9 @@ export function WorkspaceSidebar({
           ) : (
             <Sun size={15} strokeWidth={1.5} />
           )}
-          <span className="flex-1 text-left">{theme === 'light' ? '深色模式' : '浅色模式'}</span>
+          <span className="flex-1 text-left">
+            {theme === 'light' ? t('nav.darkMode') : t('nav.lightMode')}
+          </span>
         </button>
 
         {user ? (
@@ -235,7 +256,7 @@ export function WorkspaceSidebar({
               <div className="flex-1 min-w-0 text-left">
                 <div className="text-xs font-medium text-ink truncate">{user.nickname}</div>
                 <div className="text-[11px] text-ink-faint truncate">
-                  {user.phone || '未绑定手机'}
+                  {user.phone || t('auth.notBoundPhone')}
                 </div>
               </div>
               {userMenuOpen ? (
@@ -261,7 +282,7 @@ export function WorkspaceSidebar({
                   role="menuitem"
                 >
                   <Settings size={13} strokeWidth={1.5} />
-                  <span className="flex-1 text-left">账号设置</span>
+                  <span className="flex-1 text-left">{t('nav.accountSettings')}</span>
                 </button>
                 <button
                   type="button"
@@ -273,7 +294,7 @@ export function WorkspaceSidebar({
                   role="menuitem"
                 >
                   <LogOut size={13} strokeWidth={1.5} />
-                  <span className="flex-1 text-left">退出登录</span>
+                  <span className="flex-1 text-left">{t('nav.logout')}</span>
                 </button>
               </div>
             )}
@@ -284,10 +305,24 @@ export function WorkspaceSidebar({
             className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium bg-ink text-paper cursor-pointer border-none hover:bg-accent transition-colors duration-200"
             onClick={onShowLogin}
           >
-            登录 / 注册
+            {t('nav.loginRegister')}
           </button>
         )}
       </div>
+      {onCollapse && (
+        <div className="px-2 py-2 border-t border-rule">
+          <button
+            type="button"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-ink-muted hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
+            onClick={onCollapse}
+            aria-label="折叠侧边栏"
+            title="折叠侧边栏"
+          >
+            <ChevronLeft size={14} strokeWidth={1.5} />
+            <span>折叠</span>
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

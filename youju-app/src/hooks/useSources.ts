@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fileParser } from '../algorithms/fileParser'
 import { sourceApi } from '../services/sourceApi'
 import { useAnalysisStore, useSourceStore } from '../stores'
-import type { ParsedSource, ScenarioType, SourceType } from '../types'
+import type { ParsedSource, ParsedSummary, ScenarioType, SourceStatus, SourceType } from '../types'
 
 export interface ParseProgress {
   status: 'idle' | 'detecting' | 'parsing' | 'completed' | 'error'
@@ -28,6 +28,7 @@ export const useSources = () => {
     screenshotPreview,
     currentScenario,
     isDemo,
+    editingSourceId,
     setSources: setSourcesStore,
     setSelectedSourceId,
     setShowAddSource,
@@ -43,6 +44,10 @@ export const useSources = () => {
     setScreenshotPreview,
     setCurrentScenario,
     setIsDemo,
+    updateSource,
+    updateSourceStatus,
+    updateSourceSummary,
+    setEditingSourceId,
     resetNewSourceForm,
   } = useSourceStore()
   const { resetAnalysis } = useAnalysisStore()
@@ -228,6 +233,28 @@ export const useSources = () => {
     }
   }
 
+  const reparseSource = async (sourceId: string) => {
+    updateSourceStatus(sourceId, 'parsing', 10)
+
+    const source = sources.find((s) => s.id === sourceId)
+    if (!source) return
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      updateSourceStatus(sourceId, 'parsing', 50)
+
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      updateSourceStatus(sourceId, 'parsing', 80)
+
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      updateSourceStatus(sourceId, 'ready', 100)
+
+      resetAnalysis()
+    } catch (error) {
+      updateSourceStatus(sourceId, 'error', 0)
+    }
+  }
+
   return {
     sources,
     sourcesLoading: sourcesQuery.isLoading,
@@ -244,6 +271,7 @@ export const useSources = () => {
     ocrProgress,
     screenshotPreview,
     currentScenario,
+    editingSourceId,
     setSelectedSourceId,
     setShowAddSource,
     setAddSourceTab,
@@ -254,6 +282,10 @@ export const useSources = () => {
     setFileDragOver,
     setOcrProgress,
     setScreenshotPreview,
+    setEditingSourceId,
+    updateSource,
+    updateSourceStatus,
+    updateSourceSummary,
     addTextSource: addTextSourceMutation.mutate,
     uploadFile: uploadFileMutation.mutate,
     addUrlSource: addUrlSourceMutation.mutate,
@@ -264,6 +296,7 @@ export const useSources = () => {
     parseUrlWithProgress,
     parseFileLoading: parseFileMutation.isPending,
     parseUrlLoading: parseUrlMutation.isPending,
+    reparseSource,
     loadScenario,
     refetchSources: sourcesQuery.refetch,
   }

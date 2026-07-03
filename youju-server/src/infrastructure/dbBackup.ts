@@ -189,7 +189,7 @@ export async function restoreFromBackup(
     const testDb = new Database(backupPath, { readonly: true })
     const tableCount = testDb
       .prepare("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table'")
-      .get() as any
+      .get() as { c: number }
     testDb.close()
     if (tableCount.c === 0) {
       return { success: false, message: '备份文件不包含任何表，可能已损坏' }

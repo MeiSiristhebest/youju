@@ -1,5 +1,6 @@
 import { BarChart3, CheckCheck, FileText, Loader2, Ruler, Search, Target, Zap } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from '../../i18n'
 import { apiClient } from '../../services/apiClient'
 
 type StepStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -34,6 +35,7 @@ export function StepControlPanel({
   onSkipStep,
   onResumeAnalysis,
 }: StepControlPanelProps) {
+  const { t } = useTranslation()
   const [steps, setSteps] = useState<StepStatus[]>(
     ANALYSIS_STEPS.map(() => 'pending' as StepStatus),
   )
@@ -103,10 +105,22 @@ export function StepControlPanel({
 
   const StepIcon = stepIcons
 
+  const stepNames = [
+    t('steps.scenarioRecognition'),
+    t('steps.materialParsing'),
+    t('steps.dimensionExtraction'),
+    t('steps.elementExtraction'),
+    t('steps.conflictDetection'),
+    t('steps.resultValidation'),
+    t('steps.reportGeneration'),
+  ]
+
   return (
     <div className="bg-paper border border-rule rounded-xl p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-semibold text-ink font-display tracking-tight">步骤控制</h3>
+        <h3 className="text-xs font-semibold text-ink font-display tracking-tight">
+          {t('steps.stepControl')}
+        </h3>
         {analysisLogId && (
           <span className="text-[10px] text-ink-faint font-mono">{analysisLogId.slice(0, 8)}</span>
         )}
@@ -147,7 +161,7 @@ export function StepControlPanel({
                         : 'text-ink-faint'
                 }`}
               >
-                {step.name}
+                {stepNames[index]}
               </span>
               {steps[index] === 'failed' && (
                 <div className="flex items-center gap-1">
@@ -157,7 +171,7 @@ export function StepControlPanel({
                     onClick={() => handleRetry(index)}
                     disabled={retrying === index}
                   >
-                    {retrying === index ? '重试中…' : '重试'}
+                    {retrying === index ? t('steps.retrying') : t('common.retry')}
                   </button>
                   <button
                     type="button"
@@ -165,12 +179,12 @@ export function StepControlPanel({
                     onClick={() => handleSkip(index)}
                     disabled={skipping === index}
                   >
-                    {skipping === index ? '跳过中…' : '跳过'}
+                    {skipping === index ? t('steps.skipping') : t('common.skip')}
                   </button>
                 </div>
               )}
               {steps[index] === 'running' && (
-                <span className="text-[10px] text-accent font-medium">执行中…</span>
+                <span className="text-[10px] text-accent font-medium">{t('steps.running')}</span>
               )}
             </div>
           )
@@ -183,7 +197,7 @@ export function StepControlPanel({
           className="w-full mt-4 px-3 py-2.5 rounded-lg text-xs font-medium bg-accent text-paper border-none cursor-pointer hover:bg-accent-soft transition-colors duration-200"
           onClick={onResumeAnalysis}
         >
-          从断点恢复
+          {t('steps.resumeFromBreakpoint')}
         </button>
       )}
     </div>

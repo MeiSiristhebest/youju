@@ -3,9 +3,13 @@ import type { RiskLevel } from './common'
 export interface Evidence {
   sourceName: string
   sourceType: string
+  sourceId: string
   quote: string
+  highlightedText?: string
   confidence?: number
 }
+
+export type RiskStatus = 'pending' | 'processing' | 'resolved' | 'ignored'
 
 export interface Risk {
   id: string
@@ -17,6 +21,15 @@ export interface Risk {
   sources: string[]
   evidence?: Evidence[]
   confidence?: number
+  isNew?: boolean
+  levelChange?: {
+    from: RiskLevel
+    to: RiskLevel
+    upgraded: boolean
+  }
+  status?: RiskStatus
+  notes?: string
+  notesUpdatedAt?: string
 }
 
 export interface ChecklistItem {
@@ -29,8 +42,16 @@ export interface ChecklistItem {
 }
 
 export interface ReasoningStep {
-  step: string
-  result: string
+  step?: string | number
+  name?: string
+  result?: string
+  title?: string
+  description?: string
+  details?: string
+  content?: string
+  status?: 'completed' | 'current' | 'pending'
+  durationMs?: number
+  tokenUsage?: number
 }
 
 export interface ExtractedEntities {
@@ -78,11 +99,25 @@ export interface RiskRelations {
   validationResults?: ValidationResult[]
 }
 
+export interface AnalysisDimension {
+  id: string
+  name: string
+  description?: string
+  weight: number
+  enabled: boolean
+  riskCount: number
+  isCustom: boolean
+  order: number
+}
+
+export type DimensionPriority = 'high' | 'medium' | 'low'
+
 export interface AnalyzeResult {
   summary: { critical: number; warning: number; info: number; total: number }
   risks: Risk[]
   checklist: ChecklistItem[]
   alignedVersion: string
+  dimensions?: AnalysisDimension[]
   extractedEntities?: ExtractedEntities
   riskRelations?: RiskRelations
   reasoningTrace?: ReasoningStep[]
@@ -132,6 +167,15 @@ export interface AnalyzeResult {
   }
 }
 
+export interface IncrementalPrediction {
+  isIncremental?: boolean
+  estimatedNewRiskCount: number
+  estimatedUpdatedRiskCount: number
+  estimatedAffectedDimensions: number
+  estimatedTimeSavingPercent?: number
+  accuracy?: number
+}
+
 export interface IncrementalMeta {
   affectedSteps?: string[]
   recomputedSteps?: string[]
@@ -144,6 +188,12 @@ export interface IncrementalMeta {
   isIncremental?: boolean
   isFullRecompute?: boolean
   newRiskCount?: number
+  updatedRiskCount?: number
+  previousResultId?: string
+  previousSourceCount?: number
+  newSourceCount?: number
+  durationMs?: number
+  prediction?: IncrementalPrediction
 }
 
 export interface SharedReport {
@@ -176,7 +226,7 @@ export interface SSEStepCompleteEvent {
   stepId: string
   stepName: string
   stepIndex: number
-  partialResult?: any
+  partialResult?: unknown
 }
 
 export interface SSECompleteEvent {
@@ -206,7 +256,7 @@ export interface AsyncTaskStepInfo {
   stepId: string
   stepName: string
   stepIndex: number
-  partialResult?: any
+  partialResult?: unknown
 }
 
 export interface AsyncTaskCurrentStep {
@@ -220,7 +270,7 @@ export interface AsyncTaskStatusResponse {
   status: AsyncTaskStatus
   currentStep: AsyncTaskCurrentStep | null
   completedSteps: AsyncTaskStepInfo[]
-  partialResult?: any
+  partialResult?: unknown
   result?: AnalyzeResult
   error?: string
   createdAt: string

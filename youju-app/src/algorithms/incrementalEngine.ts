@@ -1,4 +1,4 @@
-import type { AnalyzeResult, IncrementalMeta, Risk, Source } from '../types'
+import type { AnalyzeResult, IncrementalMeta, Risk, RiskLevel, Source } from '../types'
 
 export interface SourceDiff {
   added: Source[]
@@ -12,6 +12,8 @@ export interface RiskChange {
   type: 'added' | 'removed' | 'modified' | 'unchanged'
   oldRisk?: Risk
   newRisk?: Risk
+  levelChanged?: boolean
+  levelUpgraded?: boolean
 }
 
 export interface IncrementalPrediction {
@@ -19,8 +21,16 @@ export interface IncrementalPrediction {
   diff: SourceDiff
   estimatedAffectedRiskCount: number
   estimatedNewRiskCount: number
+  estimatedUpdatedRiskCount: number
+  estimatedAffectedDimensions: number
   estimatedRecomputedSteps: string[]
   estimatedTimeSavingPercent: number
+}
+
+const LEVEL_ORDER: Record<RiskLevel, number> = {
+  critical: 3,
+  warning: 2,
+  info: 1,
 }
 
 export class IncrementalEngine {
@@ -114,11 +124,118 @@ export class IncrementalEngine {
     return changes
   }
 
+  compareRisks(oldResult: AnalyzeResult, newResult: AnalyzeResult): RiskChange[] {
+    const oldRiskMap = new Map(oldResult.risks.map((r) => [r.id, r]))
+    const newRiskMap = new Map(newResult.risks.map((r) => [r.id, r]))
+    const changes: RiskChange[] = []
+
+    for (const [id, newRisk] of newRiskMap) {
+      const oldRisk = oldRiskMap.get(id)
+      if (!oldRisk) {
+        changes.push({ riskId: id, type: 'added', newRisk })
+      } else {
+        const levelChanged = oldRisk.level !== newRisk.level
+        const levelUpgraded =
+          levelChanged && LEVEL_ORDER[newRisk.level] > LEVEL_ORDER[oldRisk.level]
+        changes.push({
+          riskId: id,
+          type: 'modified',
+          oldRisk,
+          newRisk,
+          levelChanged,
+          levelUpgraded,
+        })
+      }
+    }
+
+    for (const [id, oldRisk] of oldRiskMap) {
+      if (!newRiskMap.has(id)) {
+        changes.push({ riskId: id, type: 'removed', oldRisk })
+      }
+    }
+
+    return changes
+  }
+
+  markRisksWithChanges(risks: Risk[], changes: RiskChange[]): Risk[] {
+    const changeMap = new Map(changes.map((c) => [c.riskId, c]))
+    return risks.map((risk) => {
+      const change = changeMap.get(risk.id)
+      if (!change) return risk
+      if (change.type === 'added') {
+        return { ...risk, isNew: true }
+      }
+      if (change.type === 'modified' && change.levelChanged && change.oldRisk && change.newRisk) {
+        return {
+          ...risk,
+          levelChange: {
+            from: change.oldRisk.level,
+            to: change.newRisk.level,
+            upgraded: change.levelUpgraded || false,
+          },
+        }
+      }
+      return risk
+    })
+  }
+
+  sortRisksByPriority(risks: Risk[]): Risk[] {
+    return [...risks].sort((a, b) => {
+      const aScore = this.getRiskPriorityScore(a)
+      const bScore = this.getRiskPriorityScore(b)
+      if (bScore !== aScore) return bScore - aScore
+      return LEVEL_ORDER[b.level] - LEVEL_ORDER[a.level]
+    })
+  }
+
+  private getRiskPriorityScore(risk: Risk): number {
+    let score = 0
+    if (risk.isNew) score += 100
+    if (risk.levelChange?.upgraded) score += 80
+    if (risk.levelChange && !risk.levelChange.upgraded) score += 30
+    return score
+  }
+
+  calculatePredictionAccuracy(
+    prediction: IncrementalPrediction,
+    actualChanges: RiskChange[],
+  ): number {
+    const actualNewCount = actualChanges.filter((c) => c.type === 'added').length
+    const actualUpdatedCount = actualChanges.filter(
+      (c) => c.type === 'modified' && c.levelChanged,
+    ).length
+
+    const predictedNew = prediction.estimatedNewRiskCount
+    const predictedUpdated = prediction.estimatedUpdatedRiskCount || 0
+
+    const newDiff = Math.abs(actualNewCount - predictedNew)
+    const updatedDiff = Math.abs(actualUpdatedCount - predictedUpdated)
+
+    const maxNew = Math.max(actualNewCount, predictedNew, 1)
+    const maxUpdated = Math.max(actualUpdatedCount, predictedUpdated, 1)
+
+    const newAccuracy = Math.max(0, 1 - newDiff / maxNew)
+    const updatedAccuracy = Math.max(0, 1 - updatedDiff / maxUpdated)
+
+    return Math.round(((newAccuracy + updatedAccuracy) / 2) * 100)
+  }
+
+  getAffectedDimensionCount(risks: Risk[]): number {
+    const dimensions = new Set<string>()
+    for (const risk of risks) {
+      if (risk.dimension) {
+        dimensions.add(risk.dimension)
+      }
+    }
+    return dimensions.size
+  }
+
   mergeResults(oldResult: AnalyzeResult, newResult: AnalyzeResult): AnalyzeResult {
     const oldRiskMap = new Map(oldResult.risks.map((r) => [r.id, r]))
     const _newRiskMap = new Map(newResult.risks.map((r) => [r.id, r]))
 
-    const mergedRisks: Risk[] = []
+    const changes = this.compareRisks(oldResult, newResult)
+    let mergedRisks: Risk[] = []
     const newRiskIds = new Set<string>()
 
     for (const risk of newResult.risks) {
@@ -140,6 +257,12 @@ export class IncrementalEngine {
       }
     }
 
+    mergedRisks = this.markRisksWithChanges(mergedRisks, changes)
+    mergedRisks = this.sortRisksByPriority(mergedRisks)
+
+    const newRiskCount = changes.filter((c) => c.type === 'added').length
+    const updatedRiskCount = changes.filter((c) => c.type === 'modified' && c.levelChanged).length
+
     const incrementalMeta: IncrementalMeta = {
       affectedSteps: newResult.incrementalMeta?.affectedSteps || [],
       recomputedSteps: newResult.incrementalMeta?.recomputedSteps || [],
@@ -147,7 +270,11 @@ export class IncrementalEngine {
       change: newResult.incrementalMeta?.change || { added: [], removed: [], modified: [] },
       isIncremental: true,
       isFullRecompute: false,
-      newRiskCount: newResult.incrementalMeta?.newRiskCount || 0,
+      newRiskCount,
+      updatedRiskCount,
+      previousSourceCount: oldResult.meta?.sourceCount,
+      newSourceCount: newResult.meta?.sourceCount,
+      durationMs: newResult.meta?.durationMs,
     }
 
     return {
@@ -194,6 +321,8 @@ export class IncrementalEngine {
         diff,
         estimatedAffectedRiskCount: 0,
         estimatedNewRiskCount: 0,
+        estimatedUpdatedRiskCount: 0,
+        estimatedAffectedDimensions: 0,
         estimatedRecomputedSteps: [],
         estimatedTimeSavingPercent: 0,
       }
@@ -209,12 +338,18 @@ export class IncrementalEngine {
 
     const newSourceCount = diff.added.length
     const estimatedNewRiskCount = Math.min(Math.floor(newSourceCount * 1.5), 5)
+    const estimatedUpdatedRiskCount = Math.min(affectedRiskCount, 3)
+
+    const affectedRisks = existingResult.risks.filter((r) => affectedRiskIds.includes(r.id))
+    const estimatedAffectedDimensions = this.getAffectedDimensionCount(affectedRisks)
 
     return {
       isIncremental: true,
       diff,
       estimatedAffectedRiskCount: affectedRiskCount,
       estimatedNewRiskCount,
+      estimatedUpdatedRiskCount,
+      estimatedAffectedDimensions,
       estimatedRecomputedSteps: affectedSteps,
       estimatedTimeSavingPercent: timeSavingPercent > 0 ? timeSavingPercent : 0,
     }

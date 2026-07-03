@@ -1,9 +1,11 @@
+import type { AIConfig } from '../../ai/llm.js'
 import type { AnalyzeResult, Evidence, ScenarioKnowledge, Source } from '../types.js'
 
 export interface AIStepInput {
   sources: Source[]
   scenarioType?: string
   scenarioKnowledge?: ScenarioKnowledge[]
+  aiConfig?: AIConfig
   previousOutputs: Record<string, unknown>
 }
 
@@ -33,6 +35,7 @@ export interface AIAnalysisPort {
     options: {
       scenarioType?: string
       scenarioKnowledge?: ScenarioKnowledge[]
+      aiConfig?: AIConfig
       onStepStart?: (step: { id: string; name: string }) => void
       onStepComplete?: (step: { id: string; name: string; output: AIStepOutput }) => void
       onStepError?: (step: { id: string; name: string; error: string }) => void

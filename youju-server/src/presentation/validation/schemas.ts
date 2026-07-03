@@ -58,6 +58,57 @@ export const checklistPreferenceSchema = z.object({
   checked: z.boolean(),
 })
 
+const PROVIDER_ENUM = z.enum([
+  'openai',
+  'anthropic',
+  'deepseek',
+  'zhipu',
+  'moonshot',
+  'qwen',
+  'custom',
+])
+
+export const modelConfigCreateSchema = z.object({
+  name: z.string().min(1).max(100),
+  provider: PROVIDER_ENUM.default('openai'),
+  apiKey: z.string().min(1).max(500),
+  baseURL: z.string().url().max(500),
+  model: z.string().min(1).max(100),
+  modelMappings: z
+    .array(
+      z.object({
+        alias: z.string().min(1).max(50),
+        model: z.string().min(1).max(100),
+      }),
+    )
+    .default([]),
+  isDefault: z.boolean().default(false),
+})
+
+export const modelConfigUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  provider: PROVIDER_ENUM.optional(),
+  apiKey: z.string().min(1).max(500).optional(),
+  baseURL: z.string().url().max(500).optional(),
+  model: z.string().min(1).max(100).optional(),
+  modelMappings: z
+    .array(
+      z.object({
+        alias: z.string().min(1).max(50),
+        model: z.string().min(1).max(100),
+      }),
+    )
+    .optional(),
+  isDefault: z.boolean().optional(),
+})
+
+export const modelConfigTestSchema = z.object({
+  provider: PROVIDER_ENUM.default('openai'),
+  apiKey: z.string().min(1).max(500),
+  baseURL: z.string().url().max(500),
+  model: z.string().min(1).max(100),
+})
+
 export const draftCopySchema = z.object({
   riskType: z.string().min(1).max(50),
 })

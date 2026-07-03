@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
+import { ToastProvider } from './components/common/Toast'
 import { SkipLink } from './components/ui/SkipLink'
 import { useShareUtils } from './hooks/useShare'
+import { I18nProvider } from './i18n'
 import { HomePage } from './pages/HomePage'
 import { SharePage } from './pages/SharePage'
 import { WorkspacePage } from './pages/WorkspacePage'
@@ -34,20 +36,24 @@ export function App() {
   const handleGoWorkspace = () => setPage('workspace')
 
   return (
-    <div className="min-h-screen bg-paper">
-      <SkipLink targetId="main-content" />
-      <main id="main-content">
-        {page === 'home' && <HomePage onStart={handleGoWorkspace} />}
-        {page === 'workspace' && <WorkspacePage onGoHome={handleGoHome} />}
-        {page === 'share' && (
-          <SharePage
-            sharedReport={sharedReport}
-            result={result}
-            error={shareError || ''}
-            loading={!sharedReport && !shareError}
-          />
-        )}
-      </main>
-    </div>
+    <I18nProvider>
+      <ToastProvider>
+        <div className="min-h-screen bg-paper">
+          <SkipLink targetId="main-content" />
+          <main id="main-content">
+            {page === 'home' && <HomePage onStart={handleGoWorkspace} />}
+            {page === 'workspace' && <WorkspacePage onGoHome={handleGoHome} />}
+            {page === 'share' && (
+              <SharePage
+                sharedReport={sharedReport}
+                result={result}
+                error={shareError || ''}
+                loading={!sharedReport && !shareError}
+              />
+            )}
+          </main>
+        </div>
+      </ToastProvider>
+    </I18nProvider>
   )
 }

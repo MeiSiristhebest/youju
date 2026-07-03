@@ -73,7 +73,7 @@ export const stepSelfCheck: StepExecutor = async (input: StepInput): Promise<Ste
   const mainResult = getSharedMainCallResult()
   const parsed = mainResult?.parsed
 
-  const isMock = !process.env.AI_API_KEY
+  const isMock = !process.env.AI_API_KEY && !input.aiConfig?.apiKey
 
   let validatedRisks: Risk[] = risks
   let model = mainResult?.model || ''
@@ -170,7 +170,7 @@ ${JSON.stringify(risks, null, 2)}
 
 请输出校验后的风险列表（JSON 格式）。`
 
-    const aiResponse = await callAI(userPrompt, systemPrompt, 1)
+    const aiResponse = await callAI(userPrompt, systemPrompt, 1, input.aiConfig)
     model = aiResponse.model
     tokenPrompt = aiResponse.tokenPrompt
     tokenCompletion = aiResponse.tokenCompletion

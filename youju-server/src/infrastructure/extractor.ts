@@ -140,10 +140,9 @@ export async function validateUrlForFetch(inputUrl: string): Promise<UrlValidati
 }
 
 async function getRemoteAddress(response: Response): Promise<string | null> {
-  const socket = (response as any).socket
-  if (!socket) return null
-  const remoteAddress = socket.remoteAddress
-  return remoteAddress || null
+  const res = response as unknown as { socket?: { remoteAddress?: string } }
+  if (!res.socket) return null
+  return res.socket.remoteAddress || null
 }
 
 export async function extractFromUrl(url: string): Promise<string> {

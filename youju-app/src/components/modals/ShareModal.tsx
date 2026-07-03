@@ -1,4 +1,5 @@
-import { Check, Copy, Link2 } from 'lucide-react'
+import { Check, Clock, Copy, Eye, Link2 } from 'lucide-react'
+import { useState } from 'react'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -8,7 +9,17 @@ interface ShareModalProps {
   onCopy: () => void
   copied: boolean
   creatingShare: boolean
+  viewCount?: number
+  isShared?: boolean
+  onExpiryChange?: (days: number | null) => void
+  selectedExpiry?: number | null
 }
+
+const EXPIRY_OPTIONS = [
+  { value: 1, label: '1 天' },
+  { value: 7, label: '7 天' },
+  { value: null, label: '永久有效' },
+]
 
 export function ShareModal({
   isOpen,
@@ -18,8 +29,21 @@ export function ShareModal({
   onCopy,
   copied,
   creatingShare,
+  viewCount = 0,
+  isShared = false,
+  onExpiryChange,
+  selectedExpiry = 7,
 }: ShareModalProps) {
+  const [localExpiry, setLocalExpiry] = useState<number | null>(selectedExpiry)
+
   if (!isOpen) return null
+
+  const handleExpiryChange = (days: number | null) => {
+    setLocalExpiry(days)
+    if (onExpiryChange) {
+      onExpiryChange(days)
+    }
+  }
 
   return (
     <div
@@ -40,6 +64,29 @@ export function ShareModal({
           </h2>
           <p className="text-sm text-ink-faint">将报告分享给相关方查看</p>
         </div>
+
+        {isShared && (
+          <div className="mb-6 p-3 bg-success-bg/50 border border-success/20 rounded-lg flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded-full bg-success-bg text-success flex items-center justify-center shrink-0">
+              <Check size={12} strokeWidth={2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium text-success">已分享</div>
+              <div className="flex items-center gap-3 text-[11px] text-ink-faint mt-0.5">
+                <span className="flex items-center gap-1">
+                  <Eye size={11} strokeWidth={1.5} />
+                  {viewCount} 次访问
+                </span>
+                {shareExpired && (
+                  <span className="flex items-center gap-1">
+                    <Clock size={11} strokeWidth={1.5} />
+                    有效期至 {shareExpired}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mb-6">
           <label
@@ -74,15 +121,41 @@ export function ShareModal({
           </div>
         </div>
 
-        {shareExpired && (
+        {onExpiryChange && (
+          <div className="mb-6">
+            <label className="block text-xs text-ink-faint mb-2.5 font-medium font-mono tracking-wide uppercase">
+              有效期
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {EXPIRY_OPTIONS.map((option) => (
+                <button
+                  key={option.value ?? 'permanent'}
+                  type="button"
+                  onClick={() => handleExpiryChange(option.value)}
+                  className={
+                    'px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 border ' +
+                    (localExpiry === option.value
+                      ? 'bg-accent-bg border-accent/30 text-accent'
+                      : 'bg-paper-dark/60 border-rule/60 text-ink-muted hover:bg-paper-dark hover:text-ink')
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {shareExpired && !onExpiryChange && (
           <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-paper-dark rounded-lg border border-rule">
+            <Clock size={14} strokeWidth={1.5} className="text-ink-faint shrink-0" />
             <span className="text-sm text-ink-faint">有效期至：</span>
             <span className="text-sm text-ink font-medium">{shareExpired}</span>
           </div>
         )}
 
         <div className="text-center text-xs text-ink-faint mb-4">
-          分享链接有效期为 7 天，过期后自动失效
+          分享页面为只读模式，接收方无法编辑
         </div>
 
         <div className="flex justify-center gap-3">

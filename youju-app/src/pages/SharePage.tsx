@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import type { AnalyzeResult, SharedReport } from '../types'
 
 const SharePageComponent = lazy(() =>
   import('../components/SharePage').then((m) => ({ default: m.SharePage })),
@@ -11,8 +12,8 @@ const PageFallback = () => (
 )
 
 interface SharePageProps {
-  sharedReport: any
-  result: any
+  sharedReport: SharedReport | null
+  result: AnalyzeResult | null
   error: string | null
   loading: boolean
 }

@@ -1,3 +1,4 @@
+import type { ReasoningStep } from '../../../domain/types.js'
 import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
 import { getSharedMainCallResult } from './step-scenario-discovery.js'
@@ -42,7 +43,7 @@ export const stepInputParsing: StepExecutor = async (input: StepInput): Promise<
   }))
 
   const reasoningStep = mainResult?.parsed?.reasoning_trace?.find(
-    (r: any) =>
+    (r: ReasoningStep) =>
       String(r.step).toUpperCase().includes('INPUT') ||
       String(r.step).toUpperCase().includes('PARSING'),
   )

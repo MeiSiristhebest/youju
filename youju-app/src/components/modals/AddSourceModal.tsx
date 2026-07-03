@@ -169,10 +169,10 @@ export function AddSourceModal({
       const Tesseract = await import('tesseract.js')
 
       const result = await Tesseract.recognize(file, 'chi_sim+eng', {
-        logger: (m: any) => {
+        logger: (m: { status: string; progress?: number }) => {
           const statusText = statusMap[m.status] || m.status
           if (m.status === 'recognizing text') {
-            setOcrProgress(`${statusText} ${Math.round(m.progress * 100)}%`)
+            setOcrProgress(`${statusText} ${Math.round((m.progress || 0) * 100)}%`)
           } else {
             setOcrProgress(statusText)
           }

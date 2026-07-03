@@ -5,6 +5,7 @@ import { draftAdapter } from './ai/adapters/draftAdapter.js'
 import type { DatabaseDriver } from './data/DatabaseDriver.js'
 import { createAnalysisLogRepository } from './data/repositories/analysisLogRepository.js'
 import { createAnalysisStepRepository } from './data/repositories/analysisStepRepository.js'
+import { createModelConfigRepository } from './data/repositories/modelConfigRepository.js'
 import { createObservabilityRepository } from './data/repositories/observabilityRepository.js'
 import { createScenarioKnowledgeRepository } from './data/repositories/scenarioKnowledgeRepository.js'
 import { createShareRepository } from './data/repositories/shareRepository.js'
@@ -20,6 +21,7 @@ import {
   setScenarioKnowledgeRepository,
   setTaskResultRepository,
 } from './domain/services/analysisService.js'
+import { setModelConfigRepository } from './domain/services/modelConfigService.js'
 import {
   setObservabilityRepository,
   setScenarioKnowledgeRepositoryForObservability,
@@ -60,6 +62,7 @@ export function createApp(driver: DatabaseDriver) {
   const analysisStepRepository = createAnalysisStepRepository(driver)
   const scenarioKnowledgeRepository = createScenarioKnowledgeRepository(driver)
   const observabilityRepository = createObservabilityRepository(driver)
+  const modelConfigRepository = createModelConfigRepository(driver)
 
   setAnalysisLogRepository(
     analysisLogRepository as unknown as Parameters<typeof setAnalysisLogRepository>[0],
@@ -85,6 +88,9 @@ export function createApp(driver: DatabaseDriver) {
   setShareRepository(shareRepository as unknown as Parameters<typeof setShareRepository>[0])
   setObservabilityRepository(
     observabilityRepository as unknown as Parameters<typeof setObservabilityRepository>[0],
+  )
+  setModelConfigRepository(
+    modelConfigRepository as unknown as Parameters<typeof setModelConfigRepository>[0],
   )
 
   const app = express()

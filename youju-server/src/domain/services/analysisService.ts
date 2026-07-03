@@ -1,3 +1,4 @@
+import type { AIConfig } from '../../ai/llm.js'
 import type {
   AnalysisLogRepository,
   AnalysisStepRepository,
@@ -163,6 +164,7 @@ export async function analyzeSourcesStreamWithLog(
   scenarioType?: string,
   scenarioKnowledge?: ScenarioKnowledge[],
   callbacks: StreamAnalysisCallbacks = {},
+  aiConfig?: AIConfig,
 ): Promise<AnalyzeResult> {
   const startTime = Date.now()
   const port = getAnalysisPort()
@@ -174,6 +176,7 @@ export async function analyzeSourcesStreamWithLog(
     const aiResult = await port.analyze(sources, {
       scenarioType,
       scenarioKnowledge,
+      aiConfig,
       onStepStart: (step: { id: string; name: string }) => {
         const stepIndex = Object.keys(stepIndexMap).length
         stepIndexMap[step.id] = stepIndex
@@ -339,6 +342,7 @@ export async function analyzeSources(
     sessionId?: string | null
     taskId?: string | null
     persist?: boolean
+    aiConfig?: AIConfig
   },
 ): Promise<AnalyzeResult> {
   const persist = options?.persist ?? true
@@ -388,6 +392,7 @@ export async function analyzeSources(
   const aiResult = await port.analyze(sources, {
     scenarioType,
     scenarioKnowledge,
+    aiConfig: options?.aiConfig,
     onStepStart: (step: { id: string; name: string }) => {
       if (!persist || !logGroupId) return
       // 回调中的数据库操作用 fire-and-forget 模式
@@ -428,7 +433,7 @@ export async function analyzeSources(
         })
         .catch((e) => console.error('[analysisService] getLatestAnalysisLog error:', e))
     },
-    onStepComplete: (step: { id: string; name: string; output: any }) => {
+    onStepComplete: (step: { id: string; name: string; output: AIStepOutput }) => {
       if (!persist || !logGroupId) return
       // 回调中的数据库操作用 fire-and-forget 模式
       getAnalysisLogRepo()
@@ -619,6 +624,7 @@ export async function analyzeSourcesStream(
     sessionId?: string | null
     taskId?: string | null
     persist?: boolean
+    aiConfig?: AIConfig
   },
 ): Promise<AnalyzeResult> {
   const persist = options?.persist ?? true
@@ -654,6 +660,7 @@ export async function analyzeSourcesStream(
     const aiResult = await port.analyze(sources, {
       scenarioType,
       scenarioKnowledge,
+      aiConfig: options?.aiConfig,
       onStepStart: (step: { id: string; name: string }) => {
         const stepIndex = Object.keys(stepIndexMap).length
         stepIndexMap[step.id] = stepIndex

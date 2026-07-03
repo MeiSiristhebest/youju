@@ -1,9 +1,11 @@
 import type {
   AIAnalysisPort,
+  AIStepOutput,
   AnalyzeResult,
   ScenarioKnowledge,
   Source,
 } from '../../domain/types.js'
+import type { AIConfig } from '../llm.js'
 import { PipelineExecutor } from '../pipeline/executor.js'
 import { stepCrossSourceExtraction } from '../pipeline/steps/step-cross-source-extraction.js'
 import { stepDimensionDiscovery } from '../pipeline/steps/step-dimension-discovery.js'
@@ -73,11 +75,12 @@ export class AnalysisAdapter implements AIAnalysisPort {
     options: {
       scenarioType?: string
       scenarioKnowledge?: ScenarioKnowledge[]
+      aiConfig?: AIConfig
       onStepStart?: (step: { id: string; name: string }) => void
-      onStepComplete?: (step: { id: string; name: string; output: any }) => void
+      onStepComplete?: (step: { id: string; name: string; output: AIStepOutput }) => void
       onStepError?: (step: { id: string; name: string; error: string }) => void
-      onProgress?: (state: any) => void
-    } = {},
+      onProgress?: (state: Record<string, unknown>) => void
+    },
   ): Promise<{
     result: AnalyzeResult
     steps: Array<{
@@ -101,11 +104,13 @@ export class AnalysisAdapter implements AIAnalysisPort {
         options.onStepStart?.({ id: step.id, name: step.name })
       },
       onStepComplete: (step: PipelineStep) => {
-        options.onStepComplete?.({
-          id: step.id,
-          name: step.name,
-          output: step.output,
-        })
+        if (step.output) {
+          options.onStepComplete?.({
+            id: step.id,
+            name: step.name,
+            output: step.output as AIStepOutput,
+          })
+        }
       },
       onStepError: (step: PipelineStep, error: Error) => {
         options.onStepError?.({
@@ -115,7 +120,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
         })
       },
       onProgress: (state) => {
-        options.onProgress?.(state)
+        options.onProgress?.(state as unknown as Record<string, unknown>)
       },
     })
 
@@ -123,6 +128,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
       sources,
       scenarioType: options.scenarioType,
       scenarioKnowledge: options.scenarioKnowledge,
+      aiConfig: options.aiConfig,
     })
 
     const finalStep = finalState.steps.find((s) => s.id === 'step-final-output')
@@ -149,7 +155,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
     const totalTokens = steps.reduce((sum, s) => sum + s.tokenPrompt + s.tokenCompletion, 0)
     const totalLatencyMs = steps.reduce((sum, s) => sum + s.latencyMs, 0)
 
-    const isMock = !process.env.AI_API_KEY
+    const isMock = !process.env.AI_API_KEY && !options.aiConfig?.apiKey
 
     return {
       result,
@@ -163,17 +169,18 @@ export class AnalysisAdapter implements AIAnalysisPort {
   async resumeFromCheckpoint(
     sources: Source[],
     checkpoint: {
-      stepOutputs: Record<string, any>
+      stepOutputs: Record<string, unknown>
       lastCompletedStepId: string
       lastCompletedStepIndex: number
     },
     options: {
       scenarioType?: string
       scenarioKnowledge?: ScenarioKnowledge[]
+      aiConfig?: AIConfig
       onStepStart?: (step: { id: string; name: string }) => void
-      onStepComplete?: (step: { id: string; name: string; output: any }) => void
+      onStepComplete?: (step: { id: string; name: string; output: AIStepOutput }) => void
       onStepError?: (step: { id: string; name: string; error: string }) => void
-    } = {},
+    },
   ): Promise<{
     result: AnalyzeResult
     steps: Array<{
@@ -197,11 +204,13 @@ export class AnalysisAdapter implements AIAnalysisPort {
         options.onStepStart?.({ id: step.id, name: step.name })
       },
       onStepComplete: (step: PipelineStep) => {
-        options.onStepComplete?.({
-          id: step.id,
-          name: step.name,
-          output: step.output,
-        })
+        if (step.output) {
+          options.onStepComplete?.({
+            id: step.id,
+            name: step.name,
+            output: step.output as AIStepOutput,
+          })
+        }
       },
       onStepError: (step: PipelineStep, error: Error) => {
         options.onStepError?.({
@@ -221,6 +230,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
       sources,
       scenarioType: options.scenarioType,
       scenarioKnowledge: options.scenarioKnowledge,
+      aiConfig: options.aiConfig,
     }
     const exec = executor as unknown as {
       initialInput: Omit<StepInput, 'previousOutputs'> | null
@@ -263,7 +273,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
     const totalTokens = steps.reduce((sum, s) => sum + s.tokenPrompt + s.tokenCompletion, 0)
     const totalLatencyMs = steps.reduce((sum, s) => sum + s.latencyMs, 0)
 
-    const isMock = !process.env.AI_API_KEY
+    const isMock = !process.env.AI_API_KEY && !options.aiConfig?.apiKey
 
     return {
       result,

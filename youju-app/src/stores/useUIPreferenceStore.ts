@@ -1,9 +1,17 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { User } from '../types'
+import type { SharedReport, User } from '../types'
 
 type PageType = 'home' | 'workspace' | 'share'
 type Theme = 'light' | 'dark'
+
+interface SystemStats {
+  totalAnalyses?: number
+  totalUsers?: number
+  totalSources?: number
+  avgDurationMs?: number
+  [key: string]: unknown
+}
 
 interface UIPreferenceState {
   page: PageType
@@ -16,15 +24,18 @@ interface UIPreferenceState {
   shareLink: string
   shareExpired: string
   creatingShare: boolean
-  sharedReport: any
+  sharedReport: SharedReport | null
   shareError: string
   copied: boolean
-  sysStats: any
+  shareViewCount: number
+  shareExpiryDays: number | null
+  sysStats: SystemStats | null
   loadingStats: boolean
   globalDragOver: boolean
   theme: Theme
   showPreferencePanel: boolean
   showMonitorPanel: boolean
+  showKeyboardShortcuts: boolean
 
   setPage: (page: PageType) => void
   setUser: (user: User | null) => void
@@ -36,16 +47,19 @@ interface UIPreferenceState {
   setShareLink: (link: string) => void
   setShareExpired: (expired: string) => void
   setCreatingShare: (creating: boolean) => void
-  setSharedReport: (report: any) => void
+  setSharedReport: (report: SharedReport | null) => void
   setShareError: (error: string) => void
   setCopied: (copied: boolean) => void
-  setSysStats: (stats: any) => void
+  setShareViewCount: (count: number) => void
+  setShareExpiryDays: (days: number | null) => void
+  setSysStats: (stats: SystemStats | null) => void
   setLoadingStats: (loading: boolean) => void
   setGlobalDragOver: (over: boolean) => void
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
   setShowPreferencePanel: (show: boolean) => void
   setShowMonitorPanel: (show: boolean) => void
+  setShowKeyboardShortcuts: (show: boolean) => void
 }
 
 const getInitialTheme = (): Theme => {
@@ -81,12 +95,15 @@ export const useUIPreferenceStore = create<UIPreferenceState>()(
       sharedReport: null,
       shareError: '',
       copied: false,
+      shareViewCount: 0,
+      shareExpiryDays: 7,
       sysStats: null,
       loadingStats: false,
       globalDragOver: false,
       theme: getInitialTheme(),
       showPreferencePanel: false,
       showMonitorPanel: false,
+      showKeyboardShortcuts: false,
 
       setPage: (page) => set({ page }),
       setUser: (user) => set({ user }),
@@ -101,6 +118,8 @@ export const useUIPreferenceStore = create<UIPreferenceState>()(
       setSharedReport: (sharedReport) => set({ sharedReport }),
       setShareError: (shareError) => set({ shareError }),
       setCopied: (copied) => set({ copied }),
+      setShareViewCount: (shareViewCount) => set({ shareViewCount }),
+      setShareExpiryDays: (shareExpiryDays) => set({ shareExpiryDays }),
       setSysStats: (sysStats) => set({ sysStats }),
       setLoadingStats: (loadingStats) => set({ loadingStats }),
       setGlobalDragOver: (globalDragOver) => set({ globalDragOver }),
@@ -115,6 +134,7 @@ export const useUIPreferenceStore = create<UIPreferenceState>()(
       },
       setShowPreferencePanel: (showPreferencePanel) => set({ showPreferencePanel }),
       setShowMonitorPanel: (showMonitorPanel) => set({ showMonitorPanel }),
+      setShowKeyboardShortcuts: (showKeyboardShortcuts) => set({ showKeyboardShortcuts }),
     }),
     {
       name: 'youju-ui-preferences',

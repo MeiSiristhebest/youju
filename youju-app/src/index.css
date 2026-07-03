@@ -318,21 +318,40 @@ select:focus {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--paper-dark);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+:hover::-webkit-scrollbar-thumb {
   background: var(--rule);
-  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--ink-faint);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
+}
+
+*:hover {
+  scrollbar-color: var(--rule) transparent;
 }
 
 /* Display/Editorial headings */
@@ -638,10 +657,111 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Print */
+/* Toast animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Kami print report — shared typography */
+#print-report-root {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+#print-report-root p,
+#print-report-root div,
+#print-report-root span,
+#print-report-root li {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Chinese body text needs 0.3pt letter-spacing for readability (Kami spec) */
+#print-report-root [style*="sansFont"],
+#print-report-root [style*="PingFang"] {
+  letter-spacing: 0.3pt;
+}
+
+/* Print — Kami design system */
 @media print {
-  body { background: white; color: black; }
-  .no-print { display: none !important; }
+  /* Hide everything except the print preview overlay */
+  body > *:not(.print-preview-overlay) {
+    display: none !important;
+  }
+
+  /* Reset overlay to fill the page without background/blurred backdrop */
+  .print-preview-overlay {
+    position: static !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    display: block !important;
+    z-index: auto !important;
+  }
+
+  /* Hide toolbar and footer */
+  .print-preview-toolbar,
+  .print-preview-footer {
+    display: none !important;
+  }
+
+  /* Reset preview scroll area — no padding, no scroll */
+  .print-preview-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+    display: block !important;
+    flex: none !important;
+  }
+
+  /* Reset the page wrapper — no shadow, no fixed width, no min-height */
+  .print-preview-page {
+    box-shadow: none !important;
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+  }
+
+  html, body {
+    background: #f5f4ed !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  table, img, pre, blockquote {
+    page-break-inside: avoid;
+  }
+
+  @page {
+    margin: 0;
+    size: A4;
+  }
 }
 
 /* Focus styles */

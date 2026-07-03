@@ -154,7 +154,7 @@ export const useAuth = () => {
       setQrCodeUrl(result.qrCodeUrl)
       setQrState(result.state)
       setPollingStatus('idle')
-    } catch (error: any) {
+    } catch (error) {
       console.error('获取二维码失败:', error)
     }
   }

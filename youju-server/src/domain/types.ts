@@ -1,4 +1,32 @@
 export type SourceType = 'chat' | 'doc' | 'web' | 'contract' | 'screenshot' | 'other'
+export type ModelProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'deepseek'
+  | 'zhipu'
+  | 'moonshot'
+  | 'qwen'
+  | 'custom'
+
+export interface ModelMapping {
+  alias: string
+  model: string
+}
+
+export interface UserModelConfig {
+  id: string
+  userId: string | null
+  sessionId: string | null
+  name: string
+  provider: ModelProvider
+  apiKey: string
+  baseURL: string
+  model: string
+  modelMappings: ModelMapping[]
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
 
 export interface Source {
   id: string

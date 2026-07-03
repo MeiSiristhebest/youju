@@ -2,19 +2,26 @@ import {
   AlertTriangle,
   Check,
   CheckCircle,
+  ChevronDown,
   ChevronLeft,
+  ChevronRight,
+  Clock,
   FileText,
   Lightbulb,
+  Maximize2,
   Paperclip,
   Sparkles,
+  TrendingUp,
   User,
   X,
   XCircle,
   Zap,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
 import { cn } from '@/lib/utils'
-import type { Risk, RiskLevel } from '../../types'
+import type { Evidence, Risk, RiskLevel, RiskStatus } from '../../types'
 
 interface ContextPanelProps {
   selectedRisk: Risk | null
@@ -23,6 +30,14 @@ interface ContextPanelProps {
   onClose: () => void
   onGenerateDraft: (risk: Risk) => void
   onFeedback: (riskId: string, feedback: 'accurate' | 'inaccurate') => void
+  onEvidenceClick?: (sourceId: string, quote: string) => void
+  riskStatus: RiskStatus
+  onStatusChange: (riskId: string, status: RiskStatus) => void
+  notes: string | null
+  notesUpdatedAt: string | null
+  onNotesChange: (riskId: string, notes: string) => void
+  onOpenRiskDetail?: (risk: Risk) => void
+  onCollapse?: () => void
 }
 
 const RISK_TYPE_LABELS: Record<string, string> = {
@@ -38,6 +53,20 @@ const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
   info: '提示',
 }
 
+const RISK_STATUS_LABELS: Record<RiskStatus, string> = {
+  pending: '待处理',
+  processing: '处理中',
+  resolved: '已解决',
+  ignored: '已忽略',
+}
+
+const RISK_STATUS_STYLES: Record<RiskStatus, string> = {
+  pending: 'bg-danger-bg text-danger border-danger/30',
+  processing: 'bg-warning-bg text-warning border-warning/30',
+  resolved: 'bg-success-bg text-success border-success/30',
+  ignored: 'bg-paper-dark text-ink-faint border-rule',
+}
+
 export function ContextPanel({
   selectedRisk,
   hasResult,
@@ -45,9 +74,38 @@ export function ContextPanel({
   onClose,
   onGenerateDraft,
   onFeedback,
+  onEvidenceClick,
+  riskStatus,
+  onStatusChange,
+  notes,
+  notesUpdatedAt,
+  onNotesChange,
+  onOpenRiskDetail,
+  onCollapse,
 }: ContextPanelProps) {
+  const [showStatusMenu, setShowStatusMenu] = useState(false)
+  const [notesText, setNotesText] = useState(notes || '')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleNotesChange = (value: string) => {
+    setNotesText(value)
+    setIsSaving(true)
+    clearTimeout((window as any)._notesSaveTimer)
+    ;(window as any)._notesSaveTimer = setTimeout(() => {
+      if (selectedRisk) {
+        onNotesChange(selectedRisk.id, value)
+        setIsSaving(false)
+      }
+    }, 800)
+  }
+
+  useEffect(() => {
+    setNotesText(notes || '')
+    setShowStatusMenu(false)
+  }, [selectedRisk?.id, notes])
+
   return (
-    <div className="w-72 bg-paper border-l border-rule flex flex-col shrink-0">
+    <div className="w-full bg-paper border-l border-rule flex flex-col shrink-0 h-full overflow-hidden">
       {selectedRisk ? (
         <>
           <div className="px-4 py-3 border-b border-rule">
@@ -55,46 +113,148 @@ export function ContextPanel({
               <div className="text-[10px] font-mono text-accent tracking-widest uppercase">
                 风险详情
               </div>
-              <button
-                type="button"
-                className="w-6 h-6 rounded-md flex items-center justify-center text-xs cursor-pointer border border-rule/60 bg-paper-dark/60 text-ink-muted hover:bg-paper-dark hover:text-ink transition-colors duration-200"
-                onClick={onClose}
-                aria-label="关闭"
-              >
-                <X size={13} strokeWidth={1.5} />
-              </button>
+              <div className="flex items-center gap-1">
+                {onOpenRiskDetail && (
+                  <button
+                    type="button"
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-xs cursor-pointer border border-rule/60 bg-paper-dark/60 text-ink-muted hover:bg-paper-dark hover:text-ink transition-colors duration-200"
+                    onClick={() => onOpenRiskDetail(selectedRisk)}
+                    aria-label="放大查看"
+                    title="放大查看"
+                  >
+                    <Maximize2 size={13} strokeWidth={1.5} />
+                  </button>
+                )}
+                {onCollapse && (
+                  <button
+                    type="button"
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-xs cursor-pointer border border-rule/60 bg-paper-dark/60 text-ink-muted hover:bg-paper-dark hover:text-ink transition-colors duration-200"
+                    onClick={onCollapse}
+                    aria-label="折叠面板"
+                    title="折叠面板"
+                  >
+                    <ChevronRight size={13} strokeWidth={1.5} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-xs cursor-pointer border border-rule/60 bg-paper-dark/60 text-ink-muted hover:bg-paper-dark hover:text-ink transition-colors duration-200"
+                  onClick={onClose}
+                  aria-label="关闭"
+                >
+                  <X size={13} strokeWidth={1.5} />
+                </button>
+              </div>
             </div>
-            <Badge
-              variant="ghost"
-              className={cn(
-                'gap-1.5',
-                selectedRisk.level === 'critical'
-                  ? 'bg-danger-bg text-danger hover:bg-danger-bg'
-                  : selectedRisk.level === 'warning'
-                    ? 'bg-warning-bg text-warning hover:bg-warning-bg'
-                    : 'bg-success-bg text-success hover:bg-success-bg',
-              )}
-            >
-              {selectedRisk.level === 'critical' ? (
-                <AlertTriangle data-icon="inline-start" />
-              ) : selectedRisk.level === 'warning' ? (
-                <Zap data-icon="inline-start" />
-              ) : (
-                <CheckCircle data-icon="inline-start" />
-              )}
-              {RISK_LEVEL_LABELS[selectedRisk.level]}
-            </Badge>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant="ghost"
+                className={cn(
+                  'gap-1.5',
+                  selectedRisk.level === 'critical'
+                    ? 'bg-danger-bg text-danger hover:bg-danger-bg'
+                    : selectedRisk.level === 'warning'
+                      ? 'bg-warning-bg text-warning hover:bg-warning-bg'
+                      : 'bg-success-bg text-success hover:bg-success-bg',
+                )}
+              >
+                {selectedRisk.level === 'critical' ? (
+                  <AlertTriangle data-icon="inline-start" />
+                ) : selectedRisk.level === 'warning' ? (
+                  <Zap data-icon="inline-start" />
+                ) : (
+                  <CheckCircle data-icon="inline-start" />
+                )}
+                {RISK_LEVEL_LABELS[selectedRisk.level]}
+              </Badge>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowStatusMenu(!showStatusMenu)}
+                  className={cn(
+                    'inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium border cursor-pointer transition-colors',
+                    RISK_STATUS_STYLES[riskStatus],
+                  )}
+                >
+                  {RISK_STATUS_LABELS[riskStatus]}
+                  <ChevronDown size={10} />
+                </button>
+                {showStatusMenu && (
+                  <div className="absolute top-full right-0 mt-1 py-1 bg-paper border border-rule rounded-lg shadow-lg z-10 min-w-[100px]">
+                    {(['pending', 'processing', 'resolved', 'ignored'] as RiskStatus[]).map(
+                      (status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => {
+                            onStatusChange(selectedRisk.id, status)
+                            setShowStatusMenu(false)
+                          }}
+                          className={cn(
+                            'w-full text-left px-3 py-1.5 text-[11px] cursor-pointer transition-colors flex items-center gap-2',
+                            riskStatus === status
+                              ? 'bg-accent-bg text-accent'
+                              : 'text-ink-muted hover:bg-paper-dark hover:text-ink',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'w-2 h-2 rounded-full',
+                              status === 'pending'
+                                ? 'bg-danger'
+                                : status === 'processing'
+                                  ? 'bg-warning'
+                                  : status === 'resolved'
+                                    ? 'bg-success'
+                                    : 'bg-ink-faint',
+                            )}
+                          />
+                          {RISK_STATUS_LABELS[status]}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-5">
             <div>
+              <div className="flex items-center gap-2 mb-2">
+                {selectedRisk.isNew && (
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold text-white bg-danger rounded-md shadow-sm">
+                    NEW
+                  </span>
+                )}
+                {selectedRisk.levelChange?.upgraded && (
+                  <span
+                    className="inline-flex items-center justify-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white bg-warning rounded-md shadow-sm"
+                    title={`${RISK_LEVEL_LABELS[selectedRisk.levelChange.from]} → ${RISK_LEVEL_LABELS[selectedRisk.levelChange.to]}`}
+                  >
+                    <TrendingUp size={10} />
+                    程度升级
+                  </span>
+                )}
+              </div>
               <h3 className="text-sm font-medium text-ink mb-2 leading-snug font-display tracking-tight">
                 {selectedRisk.title}
               </h3>
               <p className="text-xs text-ink-faint leading-relaxed">{selectedRisk.description}</p>
+              {selectedRisk.levelChange?.upgraded && (
+                <div className="mt-2 p-2 rounded-md bg-warning-bg/50 border border-warning/20">
+                  <div className="flex items-center gap-1.5 text-[10px] text-warning font-medium">
+                    <TrendingUp size={10} />
+                    <span>
+                      风险程度从「{RISK_LEVEL_LABELS[selectedRisk.levelChange.from]}」升级为「
+                      {RISK_LEVEL_LABELS[selectedRisk.levelChange.to]}」
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-ink-faint">类型</span>
                 <span className="text-[11px] text-ink-muted font-medium">
@@ -115,24 +275,103 @@ export function ContextPanel({
                   {selectedRisk.sources?.length || 0} 份
                 </span>
               </div>
+              {selectedRisk.confidence !== undefined && (
+                <div className="pt-1.5 border-t border-rule/50">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-ink-faint">置信度</span>
+                    <span
+                      className={cn(
+                        'text-[11px] font-mono font-medium',
+                        selectedRisk.confidence >= 80
+                          ? 'text-success'
+                          : selectedRisk.confidence >= 50
+                            ? 'text-warning'
+                            : 'text-danger',
+                      )}
+                    >
+                      {selectedRisk.confidence}%
+                    </span>
+                  </div>
+                  <ConfidenceBar confidence={selectedRisk.confidence} showLabel={false} fullWidth />
+                </div>
+              )}
             </div>
 
             {selectedRisk.evidence && selectedRisk.evidence.length > 0 && (
               <div>
                 <h4 className="text-[11px] font-semibold text-ink mb-2.5 flex items-center gap-1.5">
                   <Paperclip size={13} strokeWidth={1.5} />
-                  证据 ({selectedRisk.evidence.length})
+                  证据来源 ({selectedRisk.evidence.length})
                 </h4>
-                <div className="space-y-3">
-                  {selectedRisk.evidence.map((ev: any, idx: number) => (
-                    <div key={idx} className="pl-3 border-l border-rule">
-                      <div className="text-[10px] text-ink-faint mb-1 flex items-center gap-1.5">
-                        <FileText size={11} strokeWidth={1.5} />
-                        <span className="truncate">{ev.sourceName}</span>
+                <div className="space-y-2.5">
+                  {selectedRisk.evidence.map((ev: Evidence, idx: number) => (
+                    <div
+                      key={idx}
+                      className={cn(
+                        'rounded-lg border bg-paper/[0.02] p-2.5 transition-all duration-200',
+                        onEvidenceClick && ev.sourceId
+                          ? 'cursor-pointer hover:border-accent/40 hover:bg-accent-bg/20'
+                          : 'border-rule',
+                      )}
+                      onClick={() => {
+                        if (onEvidenceClick && ev.sourceId) {
+                          onEvidenceClick(ev.sourceId, ev.quote)
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <FileText
+                            size={11}
+                            strokeWidth={1.5}
+                            className="text-ink-faint shrink-0"
+                          />
+                          <span className="text-[10px] text-ink-faint truncate">
+                            {ev.sourceName}
+                          </span>
+                        </div>
+                        {ev.confidence !== undefined && (
+                          <span
+                            className={cn(
+                              'text-[9px] px-1.5 py-0.5 rounded shrink-0 font-medium',
+                              ev.confidence >= 80
+                                ? 'bg-success-bg text-success'
+                                : ev.confidence >= 50
+                                  ? 'bg-warning-bg text-warning'
+                                  : 'bg-danger-bg text-danger',
+                            )}
+                          >
+                            {ev.confidence}%
+                          </span>
+                        )}
                       </div>
-                      <p className="text-[11px] text-ink-muted leading-relaxed italic">
-                        "{ev.quote}"
+                      <p className="text-[11px] text-ink-muted leading-relaxed italic pl-2 border-l-2 border-accent/40">
+                        "
+                        {ev.highlightedText ? (
+                          <>
+                            {ev.quote
+                              .split(ev.highlightedText)
+                              .map((part: string, i: number, arr: string[]) => (
+                                <span key={i}>
+                                  {part}
+                                  {i < arr.length - 1 && (
+                                    <mark className="bg-accent/20 text-accent px-0.5 rounded font-medium not-italic">
+                                      {ev.highlightedText}
+                                    </mark>
+                                  )}
+                                </span>
+                              ))}
+                          </>
+                        ) : (
+                          ev.quote
+                        )}
+                        "
                       </p>
+                      {onEvidenceClick && ev.sourceId && (
+                        <div className="mt-1.5 flex items-center justify-end">
+                          <span className="text-[9px] text-accent font-medium">查看原文 →</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -194,6 +433,36 @@ export function ContextPanel({
                   不准
                 </button>
               </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <h4 className="text-[11px] font-semibold text-ink flex items-center gap-1.5">
+                  <FileText size={13} strokeWidth={1.5} /> 备注
+                </h4>
+                <div className="flex items-center gap-1">
+                  {isSaving && (
+                    <span className="text-[9px] text-ink-faint font-mono">保存中...</span>
+                  )}
+                  {notesUpdatedAt && !isSaving && (
+                    <span className="text-[9px] text-ink-faint font-mono flex items-center gap-1">
+                      <Clock size={9} />
+                      {new Date(notesUpdatedAt).toLocaleString('zh-CN', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <textarea
+                value={notesText}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                placeholder="添加处理备注、跟进记录..."
+                className="w-full h-28 px-3 py-2 text-[11px] text-ink bg-paper-dark/60 border border-rule/60 rounded-md resize-none focus:outline-none focus:border-accent/50 focus:bg-paper-dark transition-colors placeholder:text-ink-faint"
+              />
             </div>
           </div>
         </>

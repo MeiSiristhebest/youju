@@ -1,5 +1,4 @@
 import type {
-  AIRawOutput,
   AnalyzeResult,
   ChecklistItem,
   Evidence,
@@ -7,10 +6,10 @@ import type {
   ReasoningStep,
   Risk,
   RiskAssociation,
+  SharedMainCallResult,
 } from '../../../domain/types.js'
 import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
-import { getSharedMainCallResult } from './step-scenario-discovery.js'
 
 interface RawChecklistItem {
   text: string
@@ -49,20 +48,26 @@ export const outputSchema = {
 
 export const stepFinalOutput: StepExecutor = async (input: StepInput): Promise<StepOutput> => {
   const startTime = Date.now()
-  const mainResult = getSharedMainCallResult()
+
+  const scenarioOutput = input.previousOutputs['step-scenario-discovery'] as
+    | {
+        mainCallResult?: SharedMainCallResult
+        scenario?: { type: string; description: string; keyDimensions?: string[] }
+      }
+    | undefined
+  const mainResult = scenarioOutput?.mainCallResult
   const parsed = mainResult?.parsed
+  const scenario = scenarioOutput?.scenario
+
   const selfCheckOutput = input.previousOutputs['step-self-check'] as { risks?: Risk[] } | undefined
   const discrepancyOutput = input.previousOutputs['step-discrepancy-detection'] as
     | { risks?: Risk[] }
     | undefined
-  const scenarioOutput = input.previousOutputs['step-scenario-discovery'] as
-    | { scenario?: { type: string; description: string; keyDimensions?: string[] } }
-    | undefined
   const extractionOutput = input.previousOutputs['step-cross-source-extraction'] as
     | { entities?: Array<{ dimension: string; value: string; evidence: Evidence }> }
     | undefined
+
   const rawRisks = selfCheckOutput?.risks || discrepancyOutput?.risks || []
-  const scenario = scenarioOutput?.scenario
   const entities = extractionOutput?.entities || []
 
   const risks: Risk[] = rawRisks

@@ -1,17 +1,30 @@
 import express from 'express'
-import * as analysisService from '../../domain/services/analysisService.js'
-import * as sourceService from '../../domain/services/sourceService.js'
-import * as taskService from '../../domain/services/taskService.js'
+import type { AnalysisService } from '../../domain/services/analysisService.js'
+import type { SourceService } from '../../domain/services/sourceService.js'
+import type { TaskService } from '../../domain/services/taskService.js'
 import type { AnalyzeResult, Source, Task } from '../../domain/types.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
+import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
 import { validateBody } from '../middleware/zodValidator.js'
 import { checklistUpdateSchema, taskCreateSchema } from '../validation/schemas.js'
+
+function getAnalysisService(): AnalysisService {
+  return getService<AnalysisService>(Tokens.AnalysisService)
+}
+
+function getSourceService(): SourceService {
+  return getService<SourceService>(Tokens.SourceService)
+}
+
+function getTaskService(): TaskService {
+  return getService<TaskService>(Tokens.TaskService)
+}
 
 const router = express.Router()
 
 router.get('/tasks', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const tasks = await taskService.listTasks(userId, sessionId)
+  const tasks = await getTaskService().listTasks(userId, sessionId)
   const taskList = tasks
     .sort((a: Task, b: Task) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((t: Task) => ({
@@ -28,7 +41,7 @@ router.post('/tasks', validateBody(taskCreateSchema), async (req, res) => {
   const { title, scenarioType, sourceIds } = req.body
 
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await sourceService.listSources(userId, sessionId)
+  const allSources = await getSourceService().listSources(userId, sessionId)
   const selectedSources = sourceIds
     .map((id: string) => allSources.find((s: Source) => s.id === id))
     .filter(Boolean)
@@ -38,8 +51,8 @@ router.post('/tasks', validateBody(taskCreateSchema), async (req, res) => {
   }
 
   try {
-    const task = await taskService.createTask(userId, sessionId, title, scenarioType)
-    const result = await analysisService.analyzeSources(selectedSources, scenarioType, [], {
+    const task = await getTaskService().createTask(userId, sessionId, title, scenarioType)
+    const result = await getAnalysisService().analyzeSources(selectedSources, scenarioType, [], {
       userId,
       sessionId,
       taskId: task.id,
@@ -54,7 +67,7 @@ router.post('/tasks', validateBody(taskCreateSchema), async (req, res) => {
 
 router.get('/tasks/:id', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const task = await taskService.getTask(userId, sessionId, req.params.id)
+  const task = await getTaskService().getTask(userId, sessionId, req.params.id)
   if (!task) {
     return res.status(404).json({ code: 404, msg: '任务不存在' })
   }
@@ -63,35 +76,35 @@ router.get('/tasks/:id', async (req, res) => {
 
 router.delete('/tasks/:id', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const success = await taskService.deleteTask(userId, sessionId, req.params.id)
+  const success = await getTaskService().deleteTask(userId, sessionId, req.params.id)
   res.json({ code: 200, data: { success } })
 })
 
 router.get('/tasks/:id/checklist', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const task = await taskService.getTask(userId, sessionId, req.params.id)
+  const task = await getTaskService().getTask(userId, sessionId, req.params.id)
   if (!task) {
     return res.status(404).json({ code: 404, msg: '任务不存在' })
   }
-  const checkedItems = await taskService.getTaskChecklistState(req.params.id)
+  const checkedItems = await getTaskService().getTaskChecklistState(req.params.id)
   res.json({ code: 200, data: { checkedItems } })
 })
 
 router.put('/tasks/:id/checklist', validateBody(checklistUpdateSchema), async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
   const taskId = String(req.params.id)
-  const task = await taskService.getTask(userId, sessionId, taskId)
+  const task = await getTaskService().getTask(userId, sessionId, taskId)
   if (!task) {
     return res.status(404).json({ code: 404, msg: '任务不存在' })
   }
   const { checkedItems } = req.body
-  await taskService.updateTaskChecklistState(taskId, checkedItems)
+  await getTaskService().updateTaskChecklistState(taskId, checkedItems)
   res.json({ code: 200, data: { success: true } })
 })
 
 router.get('/report/:taskId', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const task = await taskService.getTask(userId, sessionId, req.params.taskId)
+  const task = await getTaskService().getTask(userId, sessionId, req.params.taskId)
   if (!task) {
     return res.status(404).json({ code: 404, msg: '任务不存在' })
   }

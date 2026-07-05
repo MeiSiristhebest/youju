@@ -16,7 +16,7 @@ export { detectFileType, getFileTypeLabel } from './types.js'
  * 3. Office 文档 → officeparser（统一支持 docx/pptx/xlsx/odt/rtf 等）
  * 4. 文本格式 → 本地解析（轻量，零额外依赖）
  * 5. 图片 → 占位提示（前端 tesseract.js 负责 OCR）
- * 6. URL 抓取 → extractor（cheerio）
+ * 6. URL 抓取 → urlFetcher（cheerio）
  *
  * 架构约束：5 层隔离中的 Infrastructure 层，被 Domain 层的 sourceService 调用。
  */
@@ -73,5 +73,5 @@ function parseImagePlaceholder(file: FileInput, fileType: FileType): ParseResult
   }
 }
 
-export { extractFromUrl } from '../extractor.js'
+export { fetchUrl } from '../urlFetcher.js'
 export type { FileType as DetectedFileType } from './types.js'

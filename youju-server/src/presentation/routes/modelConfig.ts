@@ -1,7 +1,8 @@
 import express from 'express'
 import { testModelConnection } from '../../ai/llm.js'
-import * as modelConfigService from '../../domain/services/modelConfigService.js'
+import type { ModelConfigService } from '../../domain/services/modelConfigService.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
+import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
 import { validateBody } from '../middleware/zodValidator.js'
 import {
   modelConfigCreateSchema,
@@ -9,18 +10,22 @@ import {
   modelConfigUpdateSchema,
 } from '../validation/schemas.js'
 
+function getModelConfigService(): ModelConfigService {
+  return getService<ModelConfigService>(Tokens.ModelConfigService)
+}
+
 const router = express.Router()
 
 router.get('/model-configs', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const configs = await modelConfigService.listModelConfigs(userId, sessionId)
+  const configs = await getModelConfigService().listModelConfigs(userId, sessionId)
   const safeConfigs = configs.map(({ apiKey, ...rest }) => rest)
   res.json({ code: 200, data: safeConfigs })
 })
 
 router.get('/model-configs/default', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const config = await modelConfigService.getDefaultModelConfig(userId, sessionId)
+  const config = await getModelConfigService().getDefaultModelConfig(userId, sessionId)
   if (!config) {
     return res.json({ code: 200, data: null })
   }
@@ -30,14 +35,14 @@ router.get('/model-configs/default', async (req, res) => {
 
 router.post('/model-configs', validateBody(modelConfigCreateSchema), async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const config = await modelConfigService.createModelConfig(userId, sessionId, req.body)
+  const config = await getModelConfigService().createModelConfig(userId, sessionId, req.body)
   const { apiKey, ...safeConfig } = config
   res.json({ code: 200, data: safeConfig })
 })
 
 router.put('/model-configs/:id', validateBody(modelConfigUpdateSchema), async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const config = await modelConfigService.updateModelConfig(
+  const config = await getModelConfigService().updateModelConfig(
     String(req.params.id),
     userId,
     sessionId,
@@ -52,7 +57,7 @@ router.put('/model-configs/:id', validateBody(modelConfigUpdateSchema), async (r
 
 router.delete('/model-configs/:id', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const success = await modelConfigService.deleteModelConfig(
+  const success = await getModelConfigService().deleteModelConfig(
     String(req.params.id),
     userId,
     sessionId,
@@ -65,7 +70,7 @@ router.delete('/model-configs/:id', async (req, res) => {
 
 router.post('/model-configs/:id/set-default', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const success = await modelConfigService.setDefaultModelConfig(
+  const success = await getModelConfigService().setDefaultModelConfig(
     String(req.params.id),
     userId,
     sessionId,

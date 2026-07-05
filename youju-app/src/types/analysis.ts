@@ -129,12 +129,14 @@ export interface AnalyzeResult {
   }
   meta?: {
     durationMs: number
-    isMock: boolean
+    isMock?: boolean
     sourceCount: number
     sourceIds?: string[]
     isIncremental?: boolean
     newRiskCount?: number
     analysisLogId?: string
+    analysisId?: string
+    model?: string
   }
   incrementalMeta?: IncrementalMeta
   debugInfo?: {
@@ -142,9 +144,10 @@ export interface AnalyzeResult {
     tokenPrompt: number
     tokenCompletion: number
     tokenTotal: number
-    rawOutput: string
-    systemPromptPreview: string
-    userPromptPreview: string
+    estimatedCost?: number
+    rawOutput?: string
+    systemPromptPreview?: string
+    userPromptPreview?: string
     isMock?: boolean
   }
   preferences?: {
@@ -196,12 +199,15 @@ export interface IncrementalMeta {
   prediction?: IncrementalPrediction
 }
 
+export type SharePermission = 'view' | 'comment' | 'edit'
+
 export interface SharedReport {
   title: string
   scenarioType: string
   createdAt: string
   viewCount: number
   expiresAt: string | null
+  permission?: SharePermission
   result: AnalyzeResult
 }
 

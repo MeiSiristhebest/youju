@@ -1,5 +1,15 @@
-import { Check, Clock, Copy, Eye, Link2 } from 'lucide-react'
+import { Check, Clock, Copy, Eye, Link2, MessageSquare, Pencil } from 'lucide-react'
 import { useState } from 'react'
+import type { SharePermission } from '../../types'
+import { Button } from '../ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -13,12 +23,26 @@ interface ShareModalProps {
   isShared?: boolean
   onExpiryChange?: (days: number | null) => void
   selectedExpiry?: number | null
+  onPermissionChange?: (permission: SharePermission) => void
+  selectedPermission?: SharePermission
 }
 
 const EXPIRY_OPTIONS = [
   { value: 1, label: '1 天' },
   { value: 7, label: '7 天' },
+  { value: 30, label: '30 天' },
   { value: null, label: '永久有效' },
+]
+
+const PERMISSION_OPTIONS: {
+  value: SharePermission
+  label: string
+  description: string
+  icon: typeof Eye
+}[] = [
+  { value: 'view', label: '查看', description: '仅可查看报告', icon: Eye },
+  { value: 'comment', label: '评论', description: '可查看并添加评论', icon: MessageSquare },
+  { value: 'edit', label: '编辑', description: '可查看、评论和编辑', icon: Pencil },
 ]
 
 export function ShareModal({
@@ -33,10 +57,11 @@ export function ShareModal({
   isShared = false,
   onExpiryChange,
   selectedExpiry = 7,
+  onPermissionChange,
+  selectedPermission = 'view',
 }: ShareModalProps) {
   const [localExpiry, setLocalExpiry] = useState<number | null>(selectedExpiry)
-
-  if (!isOpen) return null
+  const [localPermission, setLocalPermission] = useState<SharePermission>(selectedPermission)
 
   const handleExpiryChange = (days: number | null) => {
     setLocalExpiry(days)
@@ -45,25 +70,27 @@ export function ShareModal({
     }
   }
 
+  const handlePermissionChange = (permission: SharePermission) => {
+    setLocalPermission(permission)
+    if (onPermissionChange) {
+      onPermissionChange(permission)
+    }
+  }
+
   return (
-    <div
-      role="button"
-      tabIndex={-1}
-      className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="bg-paper border border-rule rounded-xl p-8 w-[480px] shadow-lg">
-        <div className="text-center mb-6">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader className="text-center mb-2">
           <div className="w-16 h-16 bg-accent-bg rounded-xl mx-auto mb-4 flex items-center justify-center text-accent">
             <Link2 size={24} strokeWidth={1.5} />
           </div>
-          <h2 className="text-xl font-semibold text-ink mb-2 font-display tracking-tight">
+          <DialogTitle className="text-xl font-semibold text-ink font-display tracking-tight">
             分享报告
-          </h2>
-          <p className="text-sm text-ink-faint">将报告分享给相关方查看</p>
-        </div>
+          </DialogTitle>
+          <DialogDescription className="text-sm text-ink-faint">
+            将报告分享给相关方查看
+          </DialogDescription>
+        </DialogHeader>
 
         {isShared && (
           <div className="mb-6 p-3 bg-success-bg/50 border border-success/20 rounded-lg flex items-center gap-2.5">
@@ -105,11 +132,12 @@ export function ShareModal({
               onClick={(e) => (e.target as HTMLInputElement).select()}
               placeholder={creatingShare ? '生成中…' : ''}
             />
-            <button
+            <Button
               type="button"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer border-none bg-ink text-paper hover:bg-accent transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="default"
               onClick={onCopy}
               disabled={!shareLink || creatingShare}
+              data-icon="inline-start"
             >
               {copied ? (
                 <Check size={15} strokeWidth={1.5} />
@@ -117,7 +145,7 @@ export function ShareModal({
                 <Copy size={15} strokeWidth={1.5} />
               )}
               {copied ? '已复制' : '复制'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -126,14 +154,14 @@ export function ShareModal({
             <label className="block text-xs text-ink-faint mb-2.5 font-medium font-mono tracking-wide uppercase">
               有效期
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {EXPIRY_OPTIONS.map((option) => (
                 <button
                   key={option.value ?? 'permanent'}
                   type="button"
                   onClick={() => handleExpiryChange(option.value)}
                   className={
-                    'px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 border ' +
+                    'px-2 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 border ' +
                     (localExpiry === option.value
                       ? 'bg-accent-bg border-accent/30 text-accent'
                       : 'bg-paper-dark/60 border-rule/60 text-ink-muted hover:bg-paper-dark hover:text-ink')
@@ -146,6 +174,39 @@ export function ShareModal({
           </div>
         )}
 
+        {onPermissionChange && (
+          <div className="mb-6">
+            <label className="block text-xs text-ink-faint mb-2.5 font-medium font-mono tracking-wide uppercase">
+              权限
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {PERMISSION_OPTIONS.map((option) => {
+                const Icon = option.icon
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handlePermissionChange(option.value)}
+                    title={option.description}
+                    className={
+                      'flex flex-col items-center gap-1.5 px-2 py-3 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 border ' +
+                      (localPermission === option.value
+                        ? 'bg-accent-bg border-accent/30 text-accent'
+                        : 'bg-paper-dark/60 border-rule/60 text-ink-muted hover:bg-paper-dark hover:text-ink')
+                    }
+                  >
+                    <Icon size={16} strokeWidth={1.5} />
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[11px] text-ink-faint mt-2">
+              {PERMISSION_OPTIONS.find((o) => o.value === localPermission)?.description}
+            </p>
+          </div>
+        )}
+
         {shareExpired && !onExpiryChange && (
           <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-paper-dark rounded-lg border border-rule">
             <Clock size={14} strokeWidth={1.5} className="text-ink-faint shrink-0" />
@@ -155,19 +216,19 @@ export function ShareModal({
         )}
 
         <div className="text-center text-xs text-ink-faint mb-4">
-          分享页面为只读模式，接收方无法编辑
+          {localPermission === 'view'
+            ? '分享页面为只读模式，接收方无法编辑'
+            : localPermission === 'comment'
+              ? '接收方可在风险条目旁添加评论'
+              : '接收方拥有完整编辑权限，请谨慎分享'}
         </div>
 
-        <div className="flex justify-center gap-3">
-          <button
-            type="button"
-            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer border bg-paper-dark/60 text-ink-muted border-rule hover:bg-paper-dark hover:text-ink transition-colors duration-200"
-            onClick={onClose}
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             关闭
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

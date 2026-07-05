@@ -8,6 +8,16 @@ export type ModelProvider =
   | 'qwen'
   | 'custom'
 
+/**
+ * AI 调用配置（迁移自 ai/llm.ts，消除 domain ports 反向依赖 ai/infrastructure 的反模式）
+ */
+export interface AIConfig {
+  provider?: ModelProvider
+  apiKey: string
+  baseURL: string
+  model: string
+}
+
 export interface ModelMapping {
   alias: string
   model: string
@@ -369,4 +379,94 @@ export type {
   AIPipelineStep,
   AIStepInput,
   AIStepOutput,
+  EmbeddingPort,
+  EmbeddingResult,
+  SparseVector,
 } from './ports/aiPorts.js'
+
+export interface SourceChunk {
+  id: string
+  sourceId: string
+  parentChunkId: string | null
+  chunkIndex: number
+  content: string
+  charOffsetStart: number
+  charOffsetEnd: number
+  headingPath: string | null
+  tokenCount: number
+  embedding?: number[]
+  embedStatus: 'pending' | 'processing' | 'completed' | 'failed'
+  userId: string | null
+  sessionId: string | null
+  createdAt: string
+}
+
+export interface Conversation {
+  id: string
+  userId: string | null
+  sessionId: string | null
+  title: string
+  scenarioType: string | null
+  sourceIds: string[]
+  contextSourceIds: string[]
+  deletedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type MessageRole = 'user' | 'assistant' | 'system'
+export type MessageFeedback = 'positive' | 'negative' | null
+
+export interface ChatMessage {
+  id: string
+  conversationId: string
+  role: MessageRole
+  content: string
+  toolCalls: unknown[] | null
+  citations: unknown[] | null
+  parentMessageId: string | null
+  isArchived: boolean
+  isPartial: boolean
+  feedback: MessageFeedback
+  langfuseTraceId: string | null
+  createdAt: string
+}
+
+// SubTask 22.1: 跨会话长期记忆条目
+export interface ChatMemory {
+  id: string
+  userId: string | null
+  sessionId: string | null
+  content: string
+  embedding?: number[] | null
+  createdAt: string
+}
+
+export interface VectorSearchParams {
+  queryVector: number[]
+  limit: number
+  userId: number | null
+  sessionId: string | null
+  sourceFilter?: string[]
+}
+
+export interface RetrievedChunk {
+  chunk: SourceChunk
+  score: number
+  parentChunk?: SourceChunk | null
+}
+
+export interface SharedMainCallResult {
+  parsed: AIRawOutput | null
+  model: string
+  tokenPrompt: number
+  tokenCompletion: number
+  rawOutput: string
+  isMock: boolean
+}
+
+export interface IncrementalChange {
+  addedSources: Source[]
+  removedSources: Source[]
+  modifiedSources: Source[]
+}

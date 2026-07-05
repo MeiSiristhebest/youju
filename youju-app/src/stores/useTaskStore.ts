@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { TaskRecord } from '../types'
 
 interface TaskState {
@@ -15,17 +16,28 @@ interface TaskState {
   setTaskSaved: (saved: boolean) => void
 }
 
-export const useTaskStore = create<TaskState>((set) => ({
-  taskHistory: [],
-  showHistory: false,
-  savingTask: false,
-  taskSaved: false,
+export const useTaskStore = create<TaskState>()(
+  persist(
+    (set) => ({
+      taskHistory: [],
+      showHistory: false,
+      savingTask: false,
+      taskSaved: false,
 
-  setTaskHistory: (taskHistory) => set({ taskHistory }),
-  addTask: (task) => set((state) => ({ taskHistory: [task, ...state.taskHistory] })),
-  removeTask: (id) =>
-    set((state) => ({ taskHistory: state.taskHistory.filter((t) => t.id !== id) })),
-  setShowHistory: (showHistory) => set({ showHistory }),
-  setSavingTask: (savingTask) => set({ savingTask }),
-  setTaskSaved: (taskSaved) => set({ taskSaved }),
-}))
+      setTaskHistory: (taskHistory) => set({ taskHistory }),
+      addTask: (task) => set((state) => ({ taskHistory: [task, ...state.taskHistory] })),
+      removeTask: (id) =>
+        set((state) => ({ taskHistory: state.taskHistory.filter((t) => t.id !== id) })),
+      setShowHistory: (showHistory) => set({ showHistory }),
+      setSavingTask: (savingTask) => set({ savingTask }),
+      setTaskSaved: (taskSaved) => set({ taskSaved }),
+    }),
+    {
+      name: 'youju-task-store',
+      version: 1,
+      partialize: (state) => ({
+        taskHistory: state.taskHistory,
+      }),
+    },
+  ),
+)

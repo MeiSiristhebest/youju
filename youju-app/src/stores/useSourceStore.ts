@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { ParsedSummary, ScenarioType, Source, SourceStatus, SourceType } from '../types'
 
 interface SourceState {
@@ -51,75 +52,94 @@ interface SourceState {
 
 export interface IntentAnalysisResult {
   scenarioType: string
+  scenarioId: string
   summary: string
+  confidence: number
   keyDimensions: string[]
   suggestedSources: string[]
   riskAreas: string[]
+  reasoningSteps: string[]
+  keywords: string[]
 }
 
-export const useSourceStore = create<SourceState>((set) => ({
-  sources: [],
-  selectedSourceId: null,
-  showAddSource: false,
-  addSourceTab: 'text',
-  newSourceType: 'chat',
-  newSourceName: '',
-  newSourceContent: '',
-  newSourceUrl: '',
-  uploading: false,
-  deletingId: null,
-  fileDragOver: false,
-  ocrProgress: '',
-  screenshotPreview: null,
-  currentScenario: null,
-  isDemo: false,
-  scenarioDescription: '',
-  analyzingIntent: false,
-  intentAnalysis: null,
-  editingSourceId: null,
-
-  setSources: (sources) => set({ sources }),
-  addSource: (source) =>
-    set((state) => ({
-      sources: [...state.sources, { createdAt: Date.now(), ...source }],
-    })),
-  removeSource: (id) => set((state) => ({ sources: state.sources.filter((s) => s.id !== id) })),
-  updateSource: (id, updates) =>
-    set((state) => ({
-      sources: state.sources.map((s) => (s.id === id ? { ...s, ...updates } : s)),
-    })),
-  updateSourceStatus: (id, status, progress) =>
-    set((state) => ({
-      sources: state.sources.map((s) =>
-        s.id === id ? { ...s, status, progress: progress ?? s.progress } : s,
-      ),
-    })),
-  updateSourceSummary: (id, summary) =>
-    set((state) => ({
-      sources: state.sources.map((s) => (s.id === id ? { ...s, parsedSummary: summary } : s)),
-    })),
-  setSelectedSourceId: (id) => set({ selectedSourceId: id }),
-  setShowAddSource: (show) => set({ showAddSource: show }),
-  setAddSourceTab: (tab) => set({ addSourceTab: tab }),
-  setNewSourceType: (type) => set({ newSourceType: type }),
-  setNewSourceName: (name) => set({ newSourceName: name }),
-  setNewSourceContent: (content) => set({ newSourceContent: content }),
-  setNewSourceUrl: (url) => set({ newSourceUrl: url }),
-  setUploading: (uploading) => set({ uploading }),
-  setDeletingId: (id) => set({ deletingId: id }),
-  setFileDragOver: (over) => set({ fileDragOver: over }),
-  setOcrProgress: (progress) => set({ ocrProgress: progress }),
-  setScreenshotPreview: (preview) => set({ screenshotPreview: preview }),
-  setCurrentScenario: (scenario) => set({ currentScenario: scenario }),
-  setIsDemo: (isDemo) => set({ isDemo }),
-  setScenarioDescription: (desc) => set({ scenarioDescription: desc }),
-  setAnalyzingIntent: (analyzing) => set({ analyzingIntent: analyzing }),
-  setIntentAnalysis: (result) => set({ intentAnalysis: result }),
-  setEditingSourceId: (id) => set({ editingSourceId: id }),
-  resetNewSourceForm: () =>
-    set({
+export const useSourceStore = create<SourceState>()(
+  persist(
+    (set) => ({
+      sources: [],
+      selectedSourceId: null,
+      showAddSource: false,
+      addSourceTab: 'text',
+      newSourceType: 'chat',
       newSourceName: '',
       newSourceContent: '',
       newSourceUrl: '',
+      uploading: false,
+      deletingId: null,
+      fileDragOver: false,
+      ocrProgress: '',
+      screenshotPreview: null,
+      currentScenario: null,
+      isDemo: false,
+      scenarioDescription: '',
+      analyzingIntent: false,
+      intentAnalysis: null,
+      editingSourceId: null,
+
+      setSources: (sources) => set({ sources }),
+      addSource: (source) =>
+        set((state) => ({
+          sources: [...state.sources, { createdAt: Date.now(), ...source }],
+        })),
+      removeSource: (id) => set((state) => ({ sources: state.sources.filter((s) => s.id !== id) })),
+      updateSource: (id, updates) =>
+        set((state) => ({
+          sources: state.sources.map((s) => (s.id === id ? { ...s, ...updates } : s)),
+        })),
+      updateSourceStatus: (id, status, progress) =>
+        set((state) => ({
+          sources: state.sources.map((s) =>
+            s.id === id ? { ...s, status, progress: progress ?? s.progress } : s,
+          ),
+        })),
+      updateSourceSummary: (id, summary) =>
+        set((state) => ({
+          sources: state.sources.map((s) => (s.id === id ? { ...s, parsedSummary: summary } : s)),
+        })),
+      setSelectedSourceId: (id) => set({ selectedSourceId: id }),
+      setShowAddSource: (show) => set({ showAddSource: show }),
+      setAddSourceTab: (tab) => set({ addSourceTab: tab }),
+      setNewSourceType: (type) => set({ newSourceType: type }),
+      setNewSourceName: (name) => set({ newSourceName: name }),
+      setNewSourceContent: (content) => set({ newSourceContent: content }),
+      setNewSourceUrl: (url) => set({ newSourceUrl: url }),
+      setUploading: (uploading) => set({ uploading }),
+      setDeletingId: (id) => set({ deletingId: id }),
+      setFileDragOver: (over) => set({ fileDragOver: over }),
+      setOcrProgress: (progress) => set({ ocrProgress: progress }),
+      setScreenshotPreview: (preview) => set({ screenshotPreview: preview }),
+      setCurrentScenario: (scenario) => set({ currentScenario: scenario }),
+      setIsDemo: (isDemo) => set({ isDemo }),
+      setScenarioDescription: (desc) => set({ scenarioDescription: desc }),
+      setAnalyzingIntent: (analyzing) => set({ analyzingIntent: analyzing }),
+      setIntentAnalysis: (result) => set({ intentAnalysis: result }),
+      setEditingSourceId: (id) => set({ editingSourceId: id }),
+      resetNewSourceForm: () =>
+        set({
+          newSourceName: '',
+          newSourceContent: '',
+          newSourceUrl: '',
+        }),
     }),
-}))
+    {
+      name: 'youju-source-store',
+      version: 1,
+      partialize: (state) => ({
+        sources: state.sources,
+        selectedSourceId: state.selectedSourceId,
+        currentScenario: state.currentScenario,
+        scenarioDescription: state.scenarioDescription,
+        isDemo: state.isDemo,
+      }),
+    },
+  ),
+)

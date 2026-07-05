@@ -46,6 +46,18 @@ export function LandingNav({ scrolled, onStart }: LandingNavProps) {
             >
               原理
             </a>
+            <a
+              href="#pricing"
+              className="px-4 py-2 rounded-full text-ink-muted bg-paper-dark/50 hover:text-ink hover:bg-paper-dark transition-colors duration-300"
+            >
+              定价
+            </a>
+            <a
+              href="#faq"
+              className="px-4 py-2 rounded-full text-ink-muted bg-paper-dark/50 hover:text-ink hover:bg-paper-dark transition-colors duration-300"
+            >
+              FAQ
+            </a>
           </div>
 
           <div className="flex items-center gap-2">

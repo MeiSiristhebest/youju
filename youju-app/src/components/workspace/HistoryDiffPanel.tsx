@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from 'react'
 import { compareRisks, formatDuration, getLevelOrder } from '../../lib/history'
 import { cn } from '../../lib/utils'
-import type { Risk, RiskLevel } from '../../types'
+import type { RiskLevel } from '../../types'
 import type { HistorySnapshot, RiskDiffItem, RiskDiffResult } from '../../types/history'
 
 interface HistoryDiffPanelProps {

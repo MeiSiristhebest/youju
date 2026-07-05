@@ -1,11 +1,55 @@
+import { cva, type VariantProps } from 'class-variance-authority'
 import { useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
 
-interface ConfidenceBarProps {
+const confidenceBarVariants = cva('bg-paper-dark rounded-full overflow-hidden relative', {
+  variants: {
+    size: {
+      sm: 'w-20 h-1.5',
+      md: 'w-28 h-1.5',
+      lg: 'w-32 h-2',
+    },
+    fullWidth: {
+      true: 'flex-1 h-2',
+      false: '',
+    },
+  },
+  defaultVariants: {
+    size: 'md',
+    fullWidth: false,
+  },
+})
+
+const labelVariants = cva('font-mono font-medium', {
+  variants: {
+    size: {
+      sm: 'text-[10px]',
+      md: 'text-xs',
+      lg: 'text-sm',
+    },
+  },
+  defaultVariants: {
+    size: 'md',
+  },
+})
+
+const badgeVariants = cva('px-1.5 py-0.5 rounded', {
+  variants: {
+    size: {
+      sm: 'text-[9px]',
+      md: 'text-[10px]',
+      lg: 'text-xs',
+    },
+  },
+  defaultVariants: {
+    size: 'md',
+  },
+})
+
+interface ConfidenceBarProps extends VariantProps<typeof confidenceBarVariants> {
   confidence: number
-  size?: 'sm' | 'md' | 'lg'
   showLabel?: boolean
   animated?: boolean
-  fullWidth?: boolean
 }
 
 export function ConfidenceBar({
@@ -48,15 +92,16 @@ export function ConfidenceBar({
 
   const level = getLevel()
   const gradient = getGradient()
-  const isSmall = size === 'sm'
-  const isLarge = size === 'lg'
 
   return (
-    <div className={`flex items-center gap-2 ${fullWidth ? 'w-full' : ''}`}>
+    <div className={cn('flex items-center gap-2', fullWidth && 'w-full')}>
       <div
-        className={`${
-          fullWidth ? 'flex-1 h-2' : isSmall ? 'w-20 h-1.5' : isLarge ? 'w-32 h-2' : 'w-28 h-1.5'
-        } bg-paper-dark rounded-full overflow-hidden relative`}
+        role="progressbar"
+        aria-valuenow={Math.round(displayPct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="置信度"
+        className={cn(confidenceBarVariants({ size, fullWidth }))}
       >
         <div
           className="h-full rounded-full transition-[width] duration-700 ease-out relative overflow-hidden"
@@ -73,14 +118,11 @@ export function ConfidenceBar({
       </div>
       {showLabel && (
         <div className="flex items-center gap-1.5">
-          <span
-            className={`${isSmall ? 'text-[10px]' : isLarge ? 'text-sm' : 'text-xs'} font-mono font-medium`}
-            style={{ color: level.color }}
-          >
+          <span className={cn(labelVariants({ size }))} style={{ color: level.color }}>
             {Math.round(displayPct)}%
           </span>
           <span
-            className={`${isSmall ? 'text-[9px]' : isLarge ? 'text-xs' : 'text-[10px]'} px-1.5 py-0.5 rounded ${level.bgClass}`}
+            className={cn(badgeVariants({ size }), level.bgClass)}
             style={{ color: level.color }}
           >
             {level.text}
@@ -90,3 +132,5 @@ export function ConfidenceBar({
     </div>
   )
 }
+
+export { confidenceBarVariants }

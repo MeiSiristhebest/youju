@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 export type ModifierKey = 'ctrl' | 'meta' | 'alt' | 'shift'
 
@@ -10,6 +10,8 @@ export interface ShortcutConfig {
   handler: (e: KeyboardEvent) => void
   enabled?: boolean
   preventDefault?: boolean
+  isChord?: boolean
+  chordPrefix?: string
 }
 
 const isInputFocused = (): boolean => {
@@ -49,11 +51,46 @@ export interface UseKeyboardShortcutsOptions {
 }
 
 export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardShortcutsOptions) {
+  const chordPrefixRef = useRef<string | null>(null)
+  const chordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearChordState = useCallback(() => {
+    chordPrefixRef.current = null
+    if (chordTimeoutRef.current) {
+      clearTimeout(chordTimeoutRef.current)
+      chordTimeoutRef.current = null
+    }
+  }, [])
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!enabled) return
 
-      for (const shortcut of shortcuts) {
+      const chordShortcuts = shortcuts.filter((s) => s.isChord && s.chordPrefix)
+      const normalShortcuts = shortcuts.filter((s) => !s.isChord)
+
+      if (chordPrefixRef.current) {
+        chordShortcuts.forEach((shortcut) => {
+          if (
+            shortcut.chordPrefix === chordPrefixRef.current &&
+            e.key.toLowerCase() === shortcut.key.toLowerCase() &&
+            matchesModifiers(e, shortcut.modifiers) &&
+            shortcut.enabled !== false
+          ) {
+            if (shortcut.preventDefault !== false) {
+              e.preventDefault()
+            }
+            shortcut.handler(e)
+            clearChordState()
+          }
+        })
+
+        if (!e.defaultPrevented) return
+
+        clearChordState()
+      }
+
+      for (const shortcut of normalShortcuts) {
         if (shortcut.enabled === false) continue
 
         if (e.key.toLowerCase() !== shortcut.key.toLowerCase()) continue
@@ -74,13 +111,59 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
         shortcut.handler(e)
         break
       }
+
+      const matchingPrefix = chordShortcuts.find(
+        (s) => s.chordPrefix === e.key.toLowerCase() && !s.modifiers?.length,
+      )
+      if (matchingPrefix && !isInputFocused()) {
+        e.preventDefault()
+        chordPrefixRef.current = e.key.toLowerCase()
+        if (chordTimeoutRef.current) {
+          clearTimeout(chordTimeoutRef.current)
+        }
+        chordTimeoutRef.current = setTimeout(clearChordState, 1500)
+      }
     },
-    [shortcuts, enabled],
+    [shortcuts, enabled, clearChordState],
   )
 
   useEffect(() => {
     if (!enabled) return
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown, enabled])
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      clearChordState()
+    }
+  }, [handleKeyDown, enabled, clearChordState])
+}
+
+export function formatShortcutKeys(shortcut: ShortcutConfig): string[] {
+  const parts: string[] = []
+  if (shortcut.modifiers) {
+    if (shortcut.modifiers.includes('ctrl') || shortcut.modifiers.includes('meta')) {
+      parts.push('Ctrl')
+    }
+    if (shortcut.modifiers.includes('alt')) {
+      parts.push('Alt')
+    }
+    if (shortcut.modifiers.includes('shift')) {
+      parts.push('Shift')
+    }
+  }
+  if (shortcut.isChord && shortcut.chordPrefix) {
+    parts.push(shortcut.chordPrefix.toUpperCase())
+    parts.push(shortcut.key.toUpperCase())
+  } else {
+    const keyMap: Record<string, string> = {
+      enter: 'Enter',
+      escape: 'Esc',
+      ' ': 'Space',
+      arrowup: '↑',
+      arrowdown: '↓',
+      arrowleft: '←',
+      arrowright: '→',
+    }
+    parts.push(keyMap[shortcut.key.toLowerCase()] || shortcut.key.toUpperCase())
+  }
+  return parts
 }

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import db from '../data/db.js'
+import { DB_DRIVER, sqliteDriver } from '../data/db.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -45,6 +45,18 @@ function parseBackupFilename(filename: string): { type: BackupType; date: Date }
  * 使用 better-sqlite3 的 backup API，不阻塞读写操作
  */
 export async function backupDatabase(type: BackupType = 'manual'): Promise<BackupInfo> {
+  if (DB_DRIVER === 'neon') {
+    console.log('[Backup] Neon 数据库备份由云平台托管，跳过本地备份')
+    return {
+      filename: 'neon-managed-backup.db',
+      path: 'neon-cloud',
+      sizeBytes: 0,
+      sizeMB: 0,
+      createdAt: new Date().toISOString(),
+      type,
+    }
+  }
+
   ensureBackupDir()
 
   const now = new Date()
@@ -68,7 +80,12 @@ export async function backupDatabase(type: BackupType = 'manual'): Promise<Backu
   const start = Date.now()
   try {
     // better-sqlite3 backup: 原子性在线备份，WAL 模式下不阻塞
-    await db.backup(finalPath, {
+    // 通过 sqliteDriver 懒获取原始 DB 实例，避免在 neon 驱动下 null 引用
+    const rawDb = sqliteDriver?.getRawWriter()
+    if (!rawDb) {
+      throw new Error('[Backup] SQLite driver 未初始化，无法执行本地备份')
+    }
+    await rawDb.backup(finalPath, {
       progress: (info: { totalPages: number; remainingPages: number }) => {
         const pct = (((info.totalPages - info.remainingPages) / info.totalPages) * 100).toFixed(1)
         if (Number(pct) % 25 === 0) {
@@ -178,6 +195,10 @@ export function rotateBackups(): { deleted: string[]; kept: number } {
 export async function restoreFromBackup(
   backupFilename: string,
 ): Promise<{ success: boolean; message: string }> {
+  if (DB_DRIVER === 'neon') {
+    return { success: false, message: '云端 Neon PostgreSQL 不支持直接从本地 SQLite 备份恢复' }
+  }
+
   const backupPath = path.join(BACKUP_DIR, backupFilename)
   if (!fs.existsSync(backupPath)) {
     return { success: false, message: `备份文件不存在: ${backupFilename}` }

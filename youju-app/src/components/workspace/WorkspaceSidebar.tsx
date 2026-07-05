@@ -5,30 +5,46 @@ import {
   Briefcase,
   ChevronDown,
   ChevronLeft,
-  ChevronUp,
+  ChevronRight,
+  Code2,
+  Crown,
+  Gavel,
   History,
   Home,
+  LayoutGrid,
   LogOut,
+  MessageCircle,
   Moon,
+  Newspaper,
   PenLine,
   Plus,
   Server,
   Settings,
   Sparkles,
   Sun,
+  Terminal,
   User,
+  Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import { SCENARIOS } from '../../constants/workspace'
 import { useTranslation } from '../../i18n'
 import { useUIPreferenceStore } from '../../stores'
-import type { Scenario } from '../../types'
+import { ChatHistorySidebar } from '../chat/ChatHistorySidebar'
+import { Button } from '../ui/button'
+import { MagneticButton } from '../ui/MagneticButton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
-const scenarioIcons: Record<string, ReactNode> = {
-  job: <Briefcase size={16} strokeWidth={1.5} />,
-  rent: <Home size={16} strokeWidth={1.5} />,
-  homework: <BookOpen size={16} strokeWidth={1.5} />,
+const scenarioIconMap: Record<string, ReactNode> = {
+  legal_case: <Gavel size={15} strokeWidth={1.5} />,
+  academic_research: <BookOpen size={15} strokeWidth={1.5} />,
+  due_diligence: <Briefcase size={15} strokeWidth={1.5} />,
+  fact_check: <Newspaper size={15} strokeWidth={1.5} />,
+  job_offer: <Briefcase size={15} strokeWidth={1.5} />,
+  rental: <Home size={15} strokeWidth={1.5} />,
+  homework: <Activity size={15} strokeWidth={1.5} />,
 }
 
 interface WorkspaceSidebarProps {
@@ -43,7 +59,86 @@ interface WorkspaceSidebarProps {
   onShowPreference: () => void
   onShowModelSettings: () => void
   onShowMonitor: () => void
+  onShowChat: () => void
+  onShowTeam?: () => void
+  onShowTemplates?: () => void
+  onShowApiSettings?: () => void
+  onShowApiLogs?: () => void
+  onShowBilling?: () => void
   onCollapse?: () => void
+}
+
+interface CollapsibleSectionProps {
+  title: string
+  defaultOpen?: boolean
+  children: ReactNode
+}
+
+function CollapsibleSection({ title, defaultOpen = true, children }: CollapsibleSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <div className="mb-3">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full justify-start gap-1 px-1.5 py-1 h-auto text-[11px] font-medium text-ink-faint hover:text-ink-muted hover:bg-paper-dark/50"
+        aria-expanded={isOpen}
+      >
+        <ChevronRight
+          size={12}
+          strokeWidth={2}
+          className={cn('shrink-0 transition-transform duration-150', isOpen && 'rotate-90')}
+        />
+        <span className="flex-1 text-left tracking-wide">{title}</span>
+      </Button>
+      {isOpen && (
+        <div className="mt-0.5 ml-0.5 space-y-0.5 animate-[fadeIn_0.15s_ease-out]">{children}</div>
+      )}
+    </div>
+  )
+}
+
+interface SidebarNavButtonProps {
+  icon: ReactNode
+  label: string
+  active?: boolean
+  onClick?: () => void
+  ariaCurrent?: 'page' | undefined
+  variant?: 'default' | 'accent'
+}
+
+function SidebarNavButton({
+  icon,
+  label,
+  active,
+  onClick,
+  ariaCurrent,
+  variant = 'default',
+}: SidebarNavButtonProps) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onClick}
+      aria-current={ariaCurrent}
+      className={cn(
+        'relative w-full justify-start gap-2 px-2 py-1 h-auto text-sm transition-colors duration-150',
+        active
+          ? 'bg-paper-dark text-ink hover:bg-paper-dark hover:text-ink'
+          : variant === 'accent'
+            ? 'text-accent hover:bg-accent-bg/50 hover:text-accent'
+            : 'text-ink-muted hover:bg-paper-dark hover:text-ink',
+      )}
+    >
+      {active && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3 bg-accent rounded-r-full" />
+      )}
+      {icon}
+      <span className="flex-1 text-left truncate">{label}</span>
+    </Button>
+  )
 }
 
 export function WorkspaceSidebar({
@@ -58,185 +153,206 @@ export function WorkspaceSidebar({
   onShowPreference,
   onShowModelSettings,
   onShowMonitor,
+  onShowChat,
+  onShowTeam,
+  onShowTemplates,
+  onShowApiSettings,
+  onShowApiLogs,
+  onShowBilling,
   onCollapse,
 }: WorkspaceSidebarProps) {
   const { theme, toggleTheme } = useUIPreferenceStore()
   const { t } = useTranslation()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  // AI 对话历史侧栏展开状态
+  const [showChatHistory, setShowChatHistory] = useState(false)
+
+  const isCustomScenario = currentScenario === null
+
+  // 点击"AI 对话"入口：切换到对话 tab + 展开/收起会话历史
+  const handleToggleChat = () => {
+    onShowChat()
+    setShowChatHistory((prev) => !prev)
+  }
 
   return (
     <aside
       id="tour-sidebar"
-      className="w-60 bg-paper border-r border-rule flex flex-col shrink-0"
+      className="w-60 bg-paper border-r border-rule flex flex-col shrink-0 h-full"
       aria-label="主导航"
     >
-      <div className="h-14 px-4 flex items-center gap-2.5 border-b border-rule">
-        <button
-          type="button"
-          className="flex items-center gap-2.5 cursor-pointer bg-transparent border-none hover:opacity-80 transition-opacity"
+      {/* 顶部 Logo */}
+      <div className="h-12 px-3 flex items-center gap-2 shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 px-1.5 h-auto hover:bg-transparent"
           onClick={onGoHome}
           aria-label="返回首页"
         >
-          <div className="w-7 h-7 bg-ink rounded-md flex items-center justify-center">
-            <Sparkles size={13} className="text-paper" strokeWidth={1.5} />
+          <div className="w-6 h-6 bg-ink rounded-md flex items-center justify-center">
+            <Sparkles size={12} className="text-paper" strokeWidth={1.5} />
           </div>
           <span className="text-sm font-medium text-ink font-display tracking-tight">YouJu</span>
-        </button>
+        </Button>
       </div>
 
-      <div className="px-3 py-3 border-b border-rule">
-        <button
+      {/* 新建分析按钮 */}
+      <div className="px-3 pb-3 shrink-0">
+        <MagneticButton
           id="tour-new-analysis-btn"
-          type="button"
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-ink text-paper cursor-pointer border-none hover:bg-accent transition-colors duration-200 group"
+          variant="primary"
+          size="md"
           onClick={onNewAnalysis}
+          iconLeft={<Plus size={14} strokeWidth={1.5} />}
+          className="w-full"
+          strength={0.3}
+          radius={100}
         >
-          <Plus
-            size={14}
-            strokeWidth={1.5}
-            className="group-hover:scale-110 transition-transform duration-200"
-          />
           {t('nav.newAnalysis')}
-        </button>
+        </MagneticButton>
       </div>
 
-      <div className="px-2 py-3 space-y-0.5">
-        <div
-          className="text-[10px] font-medium text-ink-faint uppercase tracking-[0.15em] px-3 mb-2 font-mono"
-          id="workspace-nav-label"
-        >
-          {t('nav.workspace')}
-        </div>
-        <nav aria-labelledby="workspace-nav-label">
-          <ul className="space-y-0.5 list-none p-0 m-0">
-            <li>
-              <button
-                type="button"
-                className="relative w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium bg-accent-bg text-accent cursor-pointer border border-transparent transition-colors duration-200"
-                aria-current="page"
-              >
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-accent rounded-r-full"></div>
-                <BarChart3 size={15} strokeWidth={1.5} />
-                {t('nav.analysisDesk')}
-              </button>
-            </li>
-            <li>
-              <button
-                type="button"
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
-                onClick={onShowHistory}
-              >
-                <History size={15} strokeWidth={1.5} />
-                {t('nav.history')}
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+      {/* 中间可滚动区域 */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
+        <CollapsibleSection title={t('nav.workspace')}>
+          <SidebarNavButton
+            icon={<BarChart3 size={14} strokeWidth={1.5} />}
+            label={t('nav.analysisDesk')}
+            active
+            ariaCurrent="page"
+          />
+          <SidebarNavButton
+            icon={<History size={14} strokeWidth={1.5} />}
+            label={t('nav.history')}
+            onClick={onShowHistory}
+          />
+        </CollapsibleSection>
 
-      <div className="px-3">
-        <div className="h-px bg-rule-soft"></div>
-      </div>
+        {['专业场景', '个人事务'].map((category) => {
+          const categoryScenarios = SCENARIOS.filter((s) => s.category === category)
+          if (categoryScenarios.length === 0) return null
+          return (
+            <CollapsibleSection key={category} title={category}>
+              {categoryScenarios.map((s) => {
+                const isActive = currentScenario === s.id
+                return (
+                  <SidebarNavButton
+                    key={s.id}
+                    icon={scenarioIconMap[s.id] || <PenLine size={14} strokeWidth={1.5} />}
+                    label={s.name}
+                    active={isActive}
+                    onClick={() => onLoadScenario(s.id)}
+                    ariaCurrent={isActive ? 'page' : undefined}
+                  />
+                )
+              })}
+            </CollapsibleSection>
+          )
+        })}
 
-      <div className="px-2 py-3 flex-1 overflow-y-auto">
-        <div
-          className="text-[10px] font-medium text-ink-faint uppercase tracking-[0.15em] px-3 mb-2 flex items-center justify-between font-mono"
-          id="scenario-nav-label"
-        >
-          <span>{t('nav.scenarioTemplates')}</span>
-        </div>
-        <nav aria-labelledby="scenario-nav-label">
-          <ul className="space-y-0.5 list-none p-0 m-0">
-            {SCENARIOS.map((s: Scenario) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  className={`relative w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors duration-200 ${
-                    currentScenario === s.id
-                      ? 'bg-paper-dark text-ink border border-rule'
-                      : 'text-ink-muted bg-paper-dark/40 hover:bg-paper-dark hover:text-ink border border-rule/40'
-                  }`}
-                  onClick={() => onLoadScenario(s.id)}
-                  aria-current={currentScenario === s.id ? 'page' : undefined}
-                >
-                  {currentScenario === s.id && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-accent rounded-r-full"></div>
-                  )}
-                  {scenarioIcons[s.id] || <PenLine size={15} strokeWidth={1.5} />}
-                  <span className="flex-1 text-left truncate">{s.name}</span>
-                </button>
-              </li>
-            ))}
-            <li>
-              <button
-                type="button"
-                className={`relative w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors duration-200 ${
-                  currentScenario === null
-                    ? 'bg-paper-dark text-ink border border-rule'
-                    : 'text-ink-muted bg-paper-dark/40 hover:bg-paper-dark hover:text-ink border border-rule/40'
-                }`}
-                onClick={onNewAnalysis}
-                aria-current={currentScenario === null ? 'page' : undefined}
-              >
-                {currentScenario === null && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-accent rounded-r-full"></div>
-                )}
-                <PenLine size={15} strokeWidth={1.5} />
-                <span className="flex-1 text-left truncate">{t('nav.custom')}</span>
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+        <CollapsibleSection title="自定义">
+          <SidebarNavButton
+            icon={<PenLine size={14} strokeWidth={1.5} />}
+            label={t('nav.custom')}
+            active={isCustomScenario}
+            onClick={onNewAnalysis}
+            ariaCurrent={isCustomScenario ? 'page' : undefined}
+          />
+        </CollapsibleSection>
 
-      <div className="px-2 py-2 border-t border-rule space-y-0.5">
-        <button
-          type="button"
-          onClick={onShowPreference}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
-        >
-          <Settings size={15} strokeWidth={1.5} />
-          <span className="flex-1 text-left">{t('nav.preferences')}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onShowModelSettings}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
-        >
-          <Server size={15} strokeWidth={1.5} />
-          <span className="flex-1 text-left">模型设置</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onShowMonitor}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
-        >
-          <Activity size={15} strokeWidth={1.5} />
-          <span className="flex-1 text-left">{t('nav.systemMonitor')}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
-        >
-          {theme === 'light' ? (
-            <Moon size={15} strokeWidth={1.5} />
-          ) : (
-            <Sun size={15} strokeWidth={1.5} />
+        <CollapsibleSection title="工具" defaultOpen={false}>
+          <Tooltip>
+            <TooltipTrigger render={<span className="block w-full" />}>
+              <SidebarNavButton
+                icon={<MessageCircle size={14} strokeWidth={1.5} />}
+                label="AI 对话"
+                active={showChatHistory}
+                onClick={handleToggleChat}
+              />
+            </TooltipTrigger>
+            <TooltipContent>Ctrl+J</TooltipContent>
+          </Tooltip>
+          <SidebarNavButton
+            icon={<Settings size={14} strokeWidth={1.5} />}
+            label={t('nav.preferences')}
+            onClick={onShowPreference}
+          />
+          <SidebarNavButton
+            icon={
+              theme === 'light' ? (
+                <Moon size={14} strokeWidth={1.5} />
+              ) : (
+                <Sun size={14} strokeWidth={1.5} />
+              )
+            }
+            label={theme === 'light' ? t('nav.darkMode') : t('nav.lightMode')}
+            onClick={toggleTheme}
+          />
+          <SidebarNavButton
+            icon={<Server size={14} strokeWidth={1.5} />}
+            label="模型设置"
+            onClick={onShowModelSettings}
+          />
+          <SidebarNavButton
+            icon={<Activity size={14} strokeWidth={1.5} />}
+            label={t('nav.systemMonitor')}
+            onClick={onShowMonitor}
+          />
+          {onShowTemplates && (
+            <SidebarNavButton
+              icon={<LayoutGrid size={14} strokeWidth={1.5} />}
+              label="模板市场"
+              onClick={onShowTemplates}
+            />
           )}
-          <span className="flex-1 text-left">
-            {theme === 'light' ? t('nav.darkMode') : t('nav.lightMode')}
-          </span>
-        </button>
+          {onShowTeam && (
+            <SidebarNavButton
+              icon={<Users size={14} strokeWidth={1.5} />}
+              label="团队协作"
+              onClick={onShowTeam}
+            />
+          )}
+          {onShowApiSettings && (
+            <SidebarNavButton
+              icon={<Code2 size={14} strokeWidth={1.5} />}
+              label="API / Webhook"
+              onClick={onShowApiSettings}
+            />
+          )}
+          {onShowApiLogs && (
+            <SidebarNavButton
+              icon={<Terminal size={14} strokeWidth={1.5} />}
+              label="API 日志"
+              onClick={onShowApiLogs}
+            />
+          )}
+          {onShowBilling && (
+            <SidebarNavButton
+              icon={<Crown size={14} strokeWidth={1.5} />}
+              label="升级 Pro"
+              variant="accent"
+              onClick={onShowBilling}
+            />
+          )}
+        </CollapsibleSection>
 
+        {/* AI 对话历史侧栏：点击"AI 对话"入口后展开 */}
+        {showChatHistory && (
+          <div className="mb-3 mx-0.5 h-64 rounded-lg overflow-hidden border border-rule/60 animate-[fadeIn_0.15s_ease-out]">
+            <ChatHistorySidebar className="border-r-0" />
+          </div>
+        )}
+      </div>
+
+      {/* 底部区域 */}
+      <div className="px-2 py-2 border-t border-rule/60 shrink-0 space-y-1">
         {user ? (
           <div className="relative">
-            <button
-              type="button"
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md hover:bg-paper-dark cursor-pointer transition-colors duration-200"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 px-2 py-1 h-auto"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               aria-haspopup="menu"
               aria-expanded={userMenuOpen}
@@ -246,83 +362,74 @@ export function WorkspaceSidebar({
                 <img
                   src={user.avatar}
                   alt={user.nickname}
-                  className="w-6 h-6 rounded-md border border-rule"
+                  className="w-5 h-5 rounded-md border border-rule/60 shrink-0"
                 />
               ) : (
-                <div className="w-6 h-6 rounded-md border border-rule bg-paper-dark flex items-center justify-center">
-                  <User size={12} strokeWidth={1.5} className="text-ink-muted" />
+                <div className="w-5 h-5 rounded-md border border-rule/60 bg-paper-dark flex items-center justify-center shrink-0">
+                  <User size={11} strokeWidth={1.5} className="text-ink-muted" />
                 </div>
               )}
               <div className="flex-1 min-w-0 text-left">
                 <div className="text-xs font-medium text-ink truncate">{user.nickname}</div>
-                <div className="text-[11px] text-ink-faint truncate">
-                  {user.phone || t('auth.notBoundPhone')}
-                </div>
               </div>
-              {userMenuOpen ? (
-                <ChevronUp size={14} strokeWidth={1.5} className="text-ink-muted" />
-              ) : (
-                <ChevronDown size={14} strokeWidth={1.5} className="text-ink-muted" />
-              )}
-            </button>
+              <ChevronDown size={12} strokeWidth={1.5} className="text-ink-faint" />
+            </Button>
 
             {userMenuOpen && (
               <div
-                className="absolute bottom-full left-2 right-2 mb-1 bg-paper border border-rule rounded-lg shadow-lg py-1 z-10"
+                className="absolute bottom-full left-1 right-1 mb-1 bg-paper border border-rule rounded-lg shadow-lg py-1 z-10"
                 role="menu"
                 aria-label="用户操作菜单"
               >
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs text-ink-muted hover:bg-paper-dark hover:text-ink cursor-pointer border border-transparent transition-colors duration-200"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start gap-2 px-3 py-1.5 h-auto text-xs text-ink-muted hover:text-ink"
                   onClick={() => {
                     setUserMenuOpen(false)
                     onShowPreference()
                   }}
                   role="menuitem"
                 >
-                  <Settings size={13} strokeWidth={1.5} />
+                  <Settings size={12} strokeWidth={1.5} />
                   <span className="flex-1 text-left">{t('nav.accountSettings')}</span>
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs text-danger hover:bg-danger-bg/60 cursor-pointer border border-transparent transition-colors duration-200"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start gap-2 px-3 py-1.5 h-auto text-xs text-danger hover:bg-danger-bg/60"
                   onClick={() => {
                     setUserMenuOpen(false)
                     onLogout()
                   }}
                   role="menuitem"
                 >
-                  <LogOut size={13} strokeWidth={1.5} />
+                  <LogOut size={12} strokeWidth={1.5} />
                   <span className="flex-1 text-left">{t('nav.logout')}</span>
-                </button>
+                </Button>
               </div>
             )}
           </div>
         ) : (
-          <button
-            type="button"
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium bg-ink text-paper cursor-pointer border-none hover:bg-accent transition-colors duration-200"
-            onClick={onShowLogin}
-          >
+          <Button variant="default" size="sm" className="w-full" onClick={onShowLogin}>
             {t('nav.loginRegister')}
-          </button>
+          </Button>
         )}
-      </div>
-      {onCollapse && (
-        <div className="px-2 py-2 border-t border-rule">
-          <button
-            type="button"
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-ink-muted hover:bg-paper-dark hover:text-ink cursor-pointer border border-rule/60 transition-colors duration-200"
+
+        {onCollapse && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-center gap-1.5 px-3 py-1 h-auto text-xs text-ink-faint hover:text-ink-muted"
             onClick={onCollapse}
             aria-label="折叠侧边栏"
             title="折叠侧边栏"
           >
-            <ChevronLeft size={14} strokeWidth={1.5} />
+            <ChevronLeft size={13} strokeWidth={1.5} />
             <span>折叠</span>
-          </button>
-        </div>
-      )}
+          </Button>
+        )}
+      </div>
     </aside>
   )
 }

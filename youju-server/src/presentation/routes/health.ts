@@ -1,5 +1,5 @@
 import express from 'express'
-import * as observabilityService from '../../domain/services/observabilityService.js'
+import type { ObservabilityService } from '../../domain/services/observabilityService.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
 import { getBackgroundJobsStatus } from '../../infrastructure/backgroundJobs.js'
 import { getCleanupStats } from '../../infrastructure/dataCleanup.js'
@@ -10,6 +10,11 @@ import {
   restoreFromBackup,
   rotateBackups,
 } from '../../infrastructure/dbBackup.js'
+import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
+
+function getObservabilityService(): ObservabilityService {
+  return getService<ObservabilityService>(Tokens.ObservabilityService)
+}
 
 const router = express.Router()
 
@@ -21,9 +26,9 @@ router.get('/admin/stats', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
 
   try {
-    const costStats = await observabilityService.getCostStats(userId, sessionId)
-    const stepStats = await observabilityService.getStepPerformanceStats(userId, sessionId)
-    const knowledgeStats = await observabilityService.getKnowledgeStats()
+    const costStats = await getObservabilityService().getCostStats(userId, sessionId)
+    const stepStats = await getObservabilityService().getStepPerformanceStats(userId, sessionId)
+    const knowledgeStats = await getObservabilityService().getKnowledgeStats()
 
     res.json({
       code: 200,
@@ -42,9 +47,9 @@ router.get('/admin/stats', async (req, res) => {
 // === 数据库运维端点 ===
 
 // 数据库综合统计（含清理建议、后台任务状态、备份概览）
-router.get('/admin/db-stats', (_req, res) => {
+router.get('/admin/db-stats', async (_req, res) => {
   try {
-    const cleanupStats = getCleanupStats()
+    const cleanupStats = await getCleanupStats()
     const jobsStatus = getBackgroundJobsStatus()
     const backupStats = getBackupStats()
     res.json({

@@ -4,6 +4,8 @@ export type FileType = 'txt' | 'md' | 'html' | 'json' | 'pdf' | 'docx' | 'image'
 
 export type SourceStatus = 'uploading' | 'parsing' | 'ready' | 'error'
 
+export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
 export interface ParsedSummary {
   docType: string
   parties: string[]
@@ -30,9 +32,13 @@ export interface Source {
   type: SourceType
   name: string
   content: string
-  meta?: string
+  meta?: string | Record<string, any>
+  metadata?: Record<string, any>
   status?: SourceStatus
   progress?: number
   parsedSummary?: ParsedSummary
-  createdAt?: number
+  createdAt?: string | number
+  updatedAt?: string | number
+  processingStatus?: ProcessingStatus
+  charCount?: number
 }

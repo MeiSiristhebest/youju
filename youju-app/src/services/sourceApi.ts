@@ -1,3 +1,4 @@
+import { fileParser } from '../algorithms/fileParser'
 import type { ParsedSource, ScenarioType, Source, SourceType } from '../types'
 import { apiClient } from './apiClient'
 import { handleApiError } from './errorHandler'
@@ -77,7 +78,6 @@ export const sourceApi = {
   async parseFile(file: File): Promise<ParseResult> {
     // 已废弃：改用 fileParser.parseFile（自动路由前端/后端解析）
     // 保留方法签名以兼容外部调用，内部委托给 fileParser
-    const { fileParser } = await import('../algorithms/fileParser')
     try {
       const result = await fileParser.parseFile(file)
       return {
@@ -150,7 +150,6 @@ export const sourceApi = {
       }
 
       const html = await response.text()
-      const { fileParser } = await import('../algorithms/fileParser')
       const text = fileParser.parseHtml(html)
 
       if (!text || text.trim().length === 0) {

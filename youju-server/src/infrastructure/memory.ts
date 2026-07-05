@@ -123,25 +123,32 @@ export function applyRiskWeights<T extends { type: string; dimension?: string; l
   const maxTypeWeight = Math.max(...Object.values(weights.typeWeights), 1)
   const maxDimWeight = Math.max(...Object.values(weights.dimensionWeights), 1)
 
-  return risks
-    .map((risk) => {
-      let score = 0
-      if (risk.type && weights.typeWeights[risk.type]) {
-        score += (weights.typeWeights[risk.type] / maxTypeWeight) * 0.6
-      }
-      if (risk.dimension && weights.dimensionWeights[risk.dimension]) {
-        score += (weights.dimensionWeights[risk.dimension] / maxDimWeight) * 0.4
-      }
-      return { ...risk, _weightScore: score }
-    })
-    .sort((a, b) => {
-      if (a.level !== b.level) {
-        const levelOrder: Record<string, number> = { critical: 0, warning: 1, info: 2 }
-        return (levelOrder[a.level] ?? 3) - (levelOrder[b.level] ?? 3)
-      }
-      return b._weightScore - a._weightScore
-    })
-    .map(({ _weightScore, ...rest }) => rest as unknown as T)
+  const sorted = [...risks].sort((a, b) => {
+    let scoreA = 0
+    let scoreB = 0
+
+    if (a.type && weights.typeWeights[a.type]) {
+      scoreA += (weights.typeWeights[a.type] / maxTypeWeight) * 0.6
+    }
+    if (a.dimension && weights.dimensionWeights[a.dimension]) {
+      scoreA += (weights.dimensionWeights[a.dimension] / maxDimWeight) * 0.4
+    }
+    if (b.type && weights.typeWeights[b.type]) {
+      scoreB += (weights.typeWeights[b.type] / maxTypeWeight) * 0.6
+    }
+    if (b.dimension && weights.dimensionWeights[b.dimension]) {
+      scoreB += (weights.dimensionWeights[b.dimension] / maxDimWeight) * 0.4
+    }
+
+    if (a.level !== b.level) {
+      const levelOrder: Record<string, number> = { critical: 0, warning: 1, info: 2 }
+      const levelDiff = (levelOrder[a.level] ?? 3) - (levelOrder[b.level] ?? 3)
+      if (levelDiff !== 0) return levelDiff
+    }
+    return scoreB - scoreA
+  })
+
+  return sorted
 }
 
 export async function getFeedbackStats(

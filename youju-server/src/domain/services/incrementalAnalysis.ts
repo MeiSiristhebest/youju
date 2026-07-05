@@ -1,17 +1,32 @@
-import { AnalysisAdapter } from '../../ai/adapters/analysisAdapter.js'
-import { PipelineExecutor } from '../../ai/pipeline/executor.js'
-import type { IncrementalChange } from '../../ai/pipeline/types.js'
 import type {
   AnalysisLogRepository,
   AnalysisStepRepository,
   ScenarioKnowledgeRepository,
 } from '../ports/repositories.js'
+import type {
+  DiffAnalysisResult,
+  IncrementalAnalysisOptions,
+  IncrementalAnalysisPort,
+} from '../ports/servicePorts.js'
+
+export type {
+  DiffAnalysisResult,
+  IncrementalAnalysisOptions,
+  IncrementalAnalysisPort,
+} from '../ports/servicePorts.js'
+
 import { classifyRiskLevel } from '../rules/riskRules.js'
-import type { AIAnalysisPort, AnalyzeResult, Risk, ScenarioKnowledge, Source } from '../types.js'
+import type {
+  AIAnalysisPort,
+  AnalyzeResult,
+  IncrementalChange,
+  Risk,
+  ScenarioKnowledge,
+  Source,
+} from '../types.js'
 
 // 依赖声明：哪些步骤依赖于源材料
 const SOURCE_DEPENDENT_STEPS = [
-  'step-scenario-discovery',
   'step-input-parsing',
   'step-cross-source-extraction',
   'step-discrepancy-detection',
@@ -29,68 +44,9 @@ const STEP_DEPENDENCIES: Record<string, string[]> = {
   'step-final-output': ['step-self-check'],
 }
 
-export interface IncrementalAnalysisOptions {
-  userId?: number | null
-  sessionId?: string | null
-  analysisLogId?: string | null
-}
-
-export interface DiffAnalysisResult {
-  change: IncrementalChange
-  affectedSteps: string[]
-  recomputedSteps: string[]
-  reusedSteps: string[]
-  result: AnalyzeResult
-  durationMs: number
-  isFullRecompute: boolean
-}
-
-let _analysisLogRepo: AnalysisLogRepository | null = null
-let _analysisStepRepo: AnalysisStepRepository | null = null
-let _scenarioKnowledgeRepo: ScenarioKnowledgeRepository | null = null
-let _analysisPort: AIAnalysisPort | null = null
-
-export function setRepositories(
-  analysisLogRepo: AnalysisLogRepository,
-  analysisStepRepo: AnalysisStepRepository,
-  scenarioKnowledgeRepo: ScenarioKnowledgeRepository,
-): void {
-  _analysisLogRepo = analysisLogRepo
-  _analysisStepRepo = analysisStepRepo
-  _scenarioKnowledgeRepo = scenarioKnowledgeRepo
-}
-
-export function setAnalysisPort(port: AIAnalysisPort): void {
-  _analysisPort = port
-}
-
-function getAnalysisLogRepo(): AnalysisLogRepository {
-  if (!_analysisLogRepo) {
-    throw new Error('AnalysisLogRepository not set')
-  }
-  return _analysisLogRepo
-}
-
-function _getAnalysisStepRepo(): AnalysisStepRepository {
-  if (!_analysisStepRepo) {
-    throw new Error('AnalysisStepRepository not set')
-  }
-  return _analysisStepRepo
-}
-
-function _getScenarioKnowledgeRepo(): ScenarioKnowledgeRepository {
-  if (!_scenarioKnowledgeRepo) {
-    throw new Error('ScenarioKnowledgeRepository not set')
-  }
-  return _scenarioKnowledgeRepo
-}
-
-function _getAnalysisPort(): AIAnalysisPort {
-  if (!_analysisPort) {
-    throw new Error('AIAnalysisPort not set')
-  }
-  return _analysisPort
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// 纯函数：材料变更检测与步骤依赖分析
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * 检测材料变更
@@ -153,7 +109,7 @@ export function analyzeAffectedSteps(change: IncrementalChange): string[] {
 /**
  * 查找下游步骤
  */
-function findDownstreamSteps(stepId: string): string[] {
+export function findDownstreamSteps(stepId: string): string[] {
   const downstream: string[] = []
   const visited = new Set<string>()
   const queue = [stepId]
@@ -175,54 +131,116 @@ function findDownstreamSteps(stepId: string): string[] {
 }
 
 /**
- * 执行diff-based增量分析
+ * 判断checkpoint是否可用
  */
-export async function performDiffBasedIncrementalAnalysis(
-  existingResult: AnalyzeResult,
-  existingSources: Source[],
-  newSources: Source[],
-  scenarioType: string,
-  scenarioKnowledge: ScenarioKnowledge[],
-  options: IncrementalAnalysisOptions = {},
-): Promise<DiffAnalysisResult> {
-  const startTime = Date.now()
+export function canReuseCheckpoint(checkpoint: unknown, affectedSteps: string[]): boolean {
+  const cp = checkpoint as { stepOutputs?: Record<string, unknown> }
+  if (!cp?.stepOutputs) return false
 
-  // 1. 检测变更
-  const change = detectSourceChanges(existingSources, newSources)
+  // 检查所有不受影响的步骤输出是否存在
+  const unaffectedSteps = SOURCE_DEPENDENT_STEPS.filter((s) => !affectedSteps.includes(s))
 
-  // 2. 分析受影响步骤
-  const affectedSteps = analyzeAffectedSteps(change)
-
-  // 3. 判断是否需要完整重算
-  const isFullRecompute =
-    affectedSteps.length === 0 ||
-    affectedSteps.includes('step-scenario-discovery') ||
-    change.removedSources.length > existingSources.length * 0.5
-
-  if (isFullRecompute) {
-    // 完整重算
-    const result = await performFullRecompute(newSources, scenarioType, scenarioKnowledge, options)
-
-    return {
-      change,
-      affectedSteps,
-      recomputedSteps: SOURCE_DEPENDENT_STEPS,
-      reusedSteps: [],
-      result,
-      durationMs: Date.now() - startTime,
-      isFullRecompute: true,
+  for (const stepId of unaffectedSteps) {
+    if (!cp.stepOutputs[stepId]) {
+      return false
     }
   }
 
-  // 4. 尝试从checkpoint恢复
-  const checkpoint = options.analysisLogId
-    ? await getAnalysisLogRepo().getCheckpoint(options.analysisLogId)
-    : null
+  return true
+}
 
-  if (checkpoint && canReuseCheckpoint(checkpoint, affectedSteps)) {
-    // 从checkpoint恢复并部分重算
-    const result = await performPartialRecompute(
-      checkpoint,
+// ─────────────────────────────────────────────────────────────────────────────
+// IncrementalAnalysisService（构造注入模式）
+//
+// 历史反模式：let _analysisLogRepo + _analysisStepRepo + _scenarioKnowledgeRepo
+//            + _analysisPort 四个模块级可变单例
+// 当前：通过构造函数接收四个必填依赖
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class IncrementalAnalysisService implements IncrementalAnalysisPort {
+  constructor(
+    private readonly analysisLogRepo: AnalysisLogRepository,
+    readonly _analysisStepRepo: AnalysisStepRepository,
+    readonly _scenarioKnowledgeRepo: ScenarioKnowledgeRepository,
+    private readonly analysisPort: AIAnalysisPort,
+  ) {}
+
+  /**
+   * 执行diff-based增量分析
+   */
+  async performDiffBasedIncrementalAnalysis(
+    existingResult: AnalyzeResult,
+    existingSources: Source[],
+    newSources: Source[],
+    scenarioType: string,
+    scenarioKnowledge: ScenarioKnowledge[],
+    options: IncrementalAnalysisOptions = {},
+  ): Promise<DiffAnalysisResult> {
+    const startTime = Date.now()
+
+    // 1. 检测变更
+    const change = detectSourceChanges(existingSources, newSources)
+
+    // 2. 分析受影响步骤
+    const affectedSteps = analyzeAffectedSteps(change)
+
+    // 3. 判断是否需要完整重算
+    const isFullRecompute =
+      affectedSteps.length === 0 ||
+      affectedSteps.includes('step-scenario-discovery') ||
+      change.removedSources.length > existingSources.length * 0.5
+
+    if (isFullRecompute) {
+      // 完整重算
+      const result = await this.performFullRecompute(
+        newSources,
+        scenarioType,
+        scenarioKnowledge,
+        options,
+      )
+
+      return {
+        change,
+        affectedSteps,
+        recomputedSteps: SOURCE_DEPENDENT_STEPS,
+        reusedSteps: [],
+        result,
+        durationMs: Date.now() - startTime,
+        isFullRecompute: true,
+      }
+    }
+
+    // 4. 尝试从checkpoint恢复
+    const checkpoint = options.analysisLogId
+      ? await this.analysisLogRepo.getCheckpoint(options.analysisLogId)
+      : null
+
+    if (checkpoint && canReuseCheckpoint(checkpoint, affectedSteps)) {
+      // 从checkpoint恢复并部分重算
+      const result = await this.performPartialRecompute(
+        checkpoint,
+        affectedSteps,
+        newSources,
+        scenarioType,
+        scenarioKnowledge,
+        options,
+      )
+
+      return {
+        change,
+        affectedSteps,
+        recomputedSteps: affectedSteps,
+        reusedSteps: SOURCE_DEPENDENT_STEPS.filter((s) => !affectedSteps.includes(s)),
+        result,
+        durationMs: Date.now() - startTime,
+        isFullRecompute: false,
+      }
+    }
+
+    // 5. 无法恢复checkpoint，执行智能部分重算
+    const result = await this.performSmartPartialAnalysis(
+      existingResult,
+      change,
       affectedSteps,
       newSources,
       scenarioType,
@@ -241,277 +259,224 @@ export async function performDiffBasedIncrementalAnalysis(
     }
   }
 
-  // 5. 无法恢复checkpoint，执行智能部分重算
-  const result = await performSmartPartialAnalysis(
-    existingResult,
-    change,
-    affectedSteps,
-    newSources,
-    scenarioType,
-    scenarioKnowledge,
-    options,
-  )
+  /**
+   * 完整重算
+   */
+  private async performFullRecompute(
+    sources: Source[],
+    scenarioType: string,
+    scenarioKnowledge: ScenarioKnowledge[],
+    _options: IncrementalAnalysisOptions,
+  ): Promise<AnalyzeResult> {
+    const {
+      result: rawResult,
+      steps: _stepSummaries,
+      totalTokens: _totalTokens,
+      isMock,
+    } = await this.analysisPort.analyze(sources, {
+      scenarioType,
+      scenarioKnowledge,
+    })
 
-  return {
-    change,
-    affectedSteps,
-    recomputedSteps: affectedSteps,
-    reusedSteps: SOURCE_DEPENDENT_STEPS.filter((s) => !affectedSteps.includes(s)),
-    result,
-    durationMs: Date.now() - startTime,
-    isFullRecompute: false,
-  }
-}
+    const validatedRisks = rawResult.risks.map((risk) => ({
+      ...risk,
+      level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
+    }))
 
-/**
- * 判断checkpoint是否可用
- */
-function canReuseCheckpoint(checkpoint: unknown, affectedSteps: string[]): boolean {
-  const cp = checkpoint as { stepOutputs?: Record<string, unknown> }
-  if (!cp?.stepOutputs) return false
-
-  // 检查所有不受影响的步骤输出是否存在
-  const unaffectedSteps = SOURCE_DEPENDENT_STEPS.filter((s) => !affectedSteps.includes(s))
-
-  for (const stepId of unaffectedSteps) {
-    if (!cp.stepOutputs[stepId]) {
-      return false
+    return {
+      ...rawResult,
+      risks: validatedRisks,
+      summary: {
+        critical: validatedRisks.filter((r) => r.level === 'critical').length,
+        warning: validatedRisks.filter((r) => r.level === 'warning').length,
+        info: validatedRisks.filter((r) => r.level === 'info').length,
+        total: validatedRisks.length,
+      },
+      meta: {
+        durationMs: Date.now() - 0,
+        isMock,
+        sourceCount: sources.length,
+        sourceIds: sources.map((s) => s.id),
+        isIncremental: false,
+      },
     }
   }
 
-  return true
-}
+  /**
+   * 从checkpoint恢复并部分重算
+   */
+  private async performPartialRecompute(
+    checkpoint: unknown,
+    _affectedSteps: string[],
+    sources: Source[],
+    scenarioType: string,
+    scenarioKnowledge: ScenarioKnowledge[],
+    _options: IncrementalAnalysisOptions,
+  ): Promise<AnalyzeResult> {
+    // AIAnalysisPort.resumeFromCheckpoint 直接返回最终结果（含 final-output step 输出）
+    // 若 port 不支持 checkpoint 恢复，降级为完整重算
+    if (!this.analysisPort.resumeFromCheckpoint) {
+      return this.performFullRecompute(sources, scenarioType, scenarioKnowledge, _options)
+    }
 
-/**
- * 完整重算
- */
-async function performFullRecompute(
-  sources: Source[],
-  scenarioType: string,
-  scenarioKnowledge: ScenarioKnowledge[],
-  _options: IncrementalAnalysisOptions,
-): Promise<AnalyzeResult> {
-  const adapter = new AnalysisAdapter()
+    const { result: rawResult, isMock } = await this.analysisPort.resumeFromCheckpoint(
+      sources,
+      checkpoint as Parameters<NonNullable<AIAnalysisPort['resumeFromCheckpoint']>>[1],
+      { scenarioType, scenarioKnowledge },
+    )
 
-  const {
-    result: rawResult,
-    steps: _stepSummaries,
-    totalTokens: _totalTokens,
-    isMock,
-  } = await adapter.analyze(sources, {
-    scenarioType,
-    scenarioKnowledge,
-  })
-
-  const validatedRisks = rawResult.risks.map((risk) => ({
-    ...risk,
-    level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
-  }))
-
-  return {
-    ...rawResult,
-    risks: validatedRisks,
-    summary: {
-      critical: validatedRisks.filter((r) => r.level === 'critical').length,
-      warning: validatedRisks.filter((r) => r.level === 'warning').length,
-      info: validatedRisks.filter((r) => r.level === 'info').length,
-      total: validatedRisks.length,
-    },
-    meta: {
-      durationMs: Date.now() - 0,
-      isMock,
-      sourceCount: sources.length,
-      sourceIds: sources.map((s) => s.id),
-      isIncremental: false,
-    },
-  }
-}
-
-/**
- * 从checkpoint恢复并部分重算
- */
-async function performPartialRecompute(
-  checkpoint: unknown,
-  affectedSteps: string[],
-  sources: Source[],
-  _scenarioType: string,
-  _scenarioKnowledge: ScenarioKnowledge[],
-  _options: IncrementalAnalysisOptions,
-): Promise<AnalyzeResult> {
-  // 找到第一个受影响步骤的索引
-  const stepIndex = SOURCE_DEPENDENT_STEPS.findIndex((s) => affectedSteps.includes(s))
-
-  // 创建pipeline executor并恢复checkpoint
-  const executor = new PipelineExecutor([], {})
-  executor.restoreFromCheckpoint(checkpoint as Parameters<typeof executor.restoreFromCheckpoint>[0])
-
-  // 执行部分步骤重算
-  const _state = await executor.resumeFromStep(stepIndex)
-
-  // 构建结果
-  const outputs = executor.getCompletedStepOutputs()
-  const finalOutput = outputs['step-final-output'] as
-    | { result?: AnalyzeResult; risks?: Risk[]; scenario?: unknown; entities?: unknown }
-    | undefined
-
-  if (!finalOutput) {
-    throw new Error('Partial recompute did not produce final output')
-  }
-
-  const finalResult = finalOutput.result as AnalyzeResult | undefined
-  const validatedRisks =
-    finalResult?.risks?.map((risk: Risk) => ({
+    const validatedRisks = rawResult.risks.map((risk) => ({
       ...risk,
       level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
-    })) || []
+    }))
 
-  return {
-    ...finalResult,
-    risks: validatedRisks,
-    summary: {
-      critical: validatedRisks.filter((r: Risk) => r.level === 'critical').length,
-      warning: validatedRisks.filter((r: Risk) => r.level === 'warning').length,
-      info: validatedRisks.filter((r: Risk) => r.level === 'info').length,
-      total: validatedRisks.length,
-    },
-    meta: {
-      isMock: !process.env.AI_API_KEY,
-      sourceCount: sources.length,
-      sourceIds: sources.map((s) => s.id),
-      isIncremental: true,
-    },
-  } as AnalyzeResult
-}
-
-/**
- * 智能部分分析（无checkpoint时）
- */
-async function performSmartPartialAnalysis(
-  existingResult: AnalyzeResult,
-  change: IncrementalChange,
-  _affectedSteps: string[],
-  sources: Source[],
-  scenarioType: string,
-  scenarioKnowledge: ScenarioKnowledge[],
-  _options: IncrementalAnalysisOptions,
-): Promise<AnalyzeResult> {
-  // 只分析新增/修改的材料
-  const changedSources = [...change.addedSources, ...change.modifiedSources]
-
-  if (changedSources.length === 0) {
-    // 只删除材料，更新现有结果
-    return updateResultForRemovedSources(existingResult, change.removedSources, sources)
+    return {
+      ...rawResult,
+      risks: validatedRisks,
+      summary: {
+        critical: validatedRisks.filter((r) => r.level === 'critical').length,
+        warning: validatedRisks.filter((r) => r.level === 'warning').length,
+        info: validatedRisks.filter((r) => r.level === 'info').length,
+        total: validatedRisks.length,
+      },
+      meta: {
+        isMock,
+        sourceCount: sources.length,
+        sourceIds: sources.map((s) => s.id),
+        isIncremental: true,
+      },
+    }
   }
 
-  // 对变更材料进行分析
-  const adapter = new AnalysisAdapter()
-  const { result: rawResult } = await adapter.analyze(changedSources, {
-    scenarioType,
-    scenarioKnowledge,
-  })
+  /**
+   * 智能部分分析（无checkpoint时）
+   */
+  private async performSmartPartialAnalysis(
+    existingResult: AnalyzeResult,
+    change: IncrementalChange,
+    _affectedSteps: string[],
+    sources: Source[],
+    scenarioType: string,
+    scenarioKnowledge: ScenarioKnowledge[],
+    _options: IncrementalAnalysisOptions,
+  ): Promise<AnalyzeResult> {
+    // 只分析新增/修改的材料
+    const changedSources = [...change.addedSources, ...change.modifiedSources]
 
-  // 智能合并结果
-  const mergedRisks = mergeRisksSmart(existingResult.risks, rawResult.risks, change)
-  const validatedRisks = mergedRisks.map((risk) => ({
-    ...risk,
-    level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
-  }))
+    if (changedSources.length === 0) {
+      // 只删除材料，更新现有结果
+      return this.updateResultForRemovedSources(existingResult, change.removedSources, sources)
+    }
 
-  return {
-    ...existingResult,
-    risks: validatedRisks,
-    summary: {
-      critical: validatedRisks.filter((r) => r.level === 'critical').length,
-      warning: validatedRisks.filter((r) => r.level === 'warning').length,
-      info: validatedRisks.filter((r) => r.level === 'info').length,
-      total: validatedRisks.length,
-    },
-    meta: {
-      ...existingResult.meta,
-      sourceCount: sources.length,
-      sourceIds: sources.map((s) => s.id),
-      isIncremental: true,
-      newRiskCount: rawResult.risks?.length || 0,
-    },
+    // 对变更材料进行分析
+    const { result: rawResult } = await this.analysisPort.analyze(changedSources, {
+      scenarioType,
+      scenarioKnowledge,
+    })
+
+    // 智能合并结果
+    const mergedRisks = this.mergeRisksSmart(existingResult.risks, rawResult.risks, change)
+    const validatedRisks = mergedRisks.map((risk) => ({
+      ...risk,
+      level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
+    }))
+
+    return {
+      ...existingResult,
+      risks: validatedRisks,
+      summary: {
+        critical: validatedRisks.filter((r) => r.level === 'critical').length,
+        warning: validatedRisks.filter((r) => r.level === 'warning').length,
+        info: validatedRisks.filter((r) => r.level === 'info').length,
+        total: validatedRisks.length,
+      },
+      meta: {
+        ...existingResult.meta,
+        sourceCount: sources.length,
+        sourceIds: sources.map((s) => s.id),
+        isIncremental: true,
+        newRiskCount: rawResult.risks?.length || 0,
+      },
+    }
   }
-}
 
-/**
- * 更新结果（仅删除材料时）
- */
-function updateResultForRemovedSources(
-  existingResult: AnalyzeResult,
-  removedSources: Source[],
-  allSources: Source[],
-): AnalyzeResult {
-  const removedIds = new Set(removedSources.map((s) => s.id))
+  /**
+   * 更新结果（仅删除材料时）
+   */
+  private updateResultForRemovedSources(
+    existingResult: AnalyzeResult,
+    removedSources: Source[],
+    allSources: Source[],
+  ): AnalyzeResult {
+    const removedIds = new Set(removedSources.map((s) => s.id))
 
-  // 过滤掉只涉及已删除材料的风险
-  const filteredRisks = existingResult.risks.filter((risk) => {
-    const riskSourceIds = new Set(risk.sources)
-    const hasRemainingSources =
-      riskSourceIds.size > removedIds.size ||
-      !Array.from(riskSourceIds).every((id: string) => removedIds.has(id))
-    return hasRemainingSources
-  })
+    // 过滤掉只涉及已删除材料的风险
+    const filteredRisks = existingResult.risks.filter((risk) => {
+      const riskSourceIds = new Set(risk.sources)
+      const hasRemainingSources =
+        riskSourceIds.size > removedIds.size ||
+        !Array.from(riskSourceIds).every((id: string) => removedIds.has(id))
+      return hasRemainingSources
+    })
 
-  // 更新证据，移除已删除材料的引用
-  const updatedRisks = filteredRisks.map((risk) => ({
-    ...risk,
-    evidence: risk.evidence.filter((ev) => !removedIds.has(ev.sourceName)),
-    sources: risk.sources.filter((s) => !removedIds.has(s)),
-  }))
+    // 更新证据，移除已删除材料的引用
+    const updatedRisks = filteredRisks.map((risk) => ({
+      ...risk,
+      evidence: risk.evidence.filter((ev) => !removedIds.has(ev.sourceName)),
+      sources: risk.sources.filter((s) => !removedIds.has(s)),
+    }))
 
-  const validatedRisks = updatedRisks.map((risk) => ({
-    ...risk,
-    level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
-  }))
+    const validatedRisks = updatedRisks.map((risk) => ({
+      ...risk,
+      level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
+    }))
 
-  return {
-    ...existingResult,
-    risks: validatedRisks,
-    summary: {
-      critical: validatedRisks.filter((r) => r.level === 'critical').length,
-      warning: validatedRisks.filter((r) => r.level === 'warning').length,
-      info: validatedRisks.filter((r) => r.level === 'info').length,
-      total: validatedRisks.length,
-    },
-    meta: {
-      ...existingResult.meta,
-      sourceCount: allSources.length,
-      sourceIds: allSources.map((s) => s.id),
-      isIncremental: true,
-    },
+    return {
+      ...existingResult,
+      risks: validatedRisks,
+      summary: {
+        critical: validatedRisks.filter((r) => r.level === 'critical').length,
+        warning: validatedRisks.filter((r) => r.level === 'warning').length,
+        info: validatedRisks.filter((r) => r.level === 'info').length,
+        total: validatedRisks.length,
+      },
+      meta: {
+        ...existingResult.meta,
+        sourceCount: allSources.length,
+        sourceIds: allSources.map((s) => s.id),
+        isIncremental: true,
+      },
+    }
   }
-}
 
-/**
- * 智能合并风险
- */
-function mergeRisksSmart(
-  existingRisks: Risk[],
-  newRisks: Risk[],
-  change: IncrementalChange,
-): Risk[] {
-  const removedIds = new Set(change.removedSources.map((s) => s.id))
-  const addedIds = new Set(change.addedSources.map((s) => s.id))
-  const modifiedIds = new Set(change.modifiedSources.map((s) => s.id))
+  /**
+   * 智能合并风险
+   */
+  private mergeRisksSmart(
+    existingRisks: Risk[],
+    newRisks: Risk[],
+    change: IncrementalChange,
+  ): Risk[] {
+    const removedIds = new Set(change.removedSources.map((s) => s.id))
+    const addedIds = new Set(change.addedSources.map((s) => s.id))
+    const modifiedIds = new Set(change.modifiedSources.map((s) => s.id))
 
-  // 保留不涉及变更材料的现有风险
-  const preservedRisks = existingRisks.filter((risk: Risk) => {
-    const riskSources = new Set(risk.sources)
-    const involvesChange = Array.from(riskSources).some(
-      (id: string) => removedIds.has(id) || addedIds.has(id) || modifiedIds.has(id),
-    )
-    return !involvesChange
-  })
+    // 保留不涉及变更材料的现有风险
+    const preservedRisks = existingRisks.filter((risk: Risk) => {
+      const riskSources = new Set(risk.sources)
+      const involvesChange = Array.from(riskSources).some(
+        (id: string) => removedIds.has(id) || addedIds.has(id) || modifiedIds.has(id),
+      )
+      return !involvesChange
+    })
 
-  // 添加新风险
-  const merged = [...preservedRisks, ...newRisks]
+    // 添加新风险
+    const merged = [...preservedRisks, ...newRisks]
 
-  // 更新ID
-  return merged.map((risk, index) => ({
-    ...risk,
-    id: `r${index + 1}`,
-  }))
+    // 更新ID
+    return merged.map((risk, index) => ({
+      ...risk,
+      id: `r${index + 1}`,
+    }))
+  }
 }

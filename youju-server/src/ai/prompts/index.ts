@@ -8,6 +8,7 @@ import {
   SELF_CHECK_RULES,
 } from '../../domain/rules/riskRules.js'
 import { buildAnalysisUserPrompt as buildAnalysisUserPromptV1 } from './versions/v1/analysis.user.js'
+import { buildChatUserPrompt as buildChatUserPromptV1 } from './versions/v1/chat.user.js'
 import { buildDraftUserPrompt as buildDraftUserPromptV1 } from './versions/v1/draft.user.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -15,8 +16,11 @@ const __dirname = path.dirname(__filename)
 
 export const CURRENT_PROMPT_VERSION = 'v1'
 
+export type PromptType = 'analysis' | 'draft' | 'chat'
+
 let analysisSystemPromptV1 = ''
 let draftSystemPromptV1 = ''
+let chatSystemPromptV1 = ''
 
 function loadMarkdown(filePath: string): string {
   try {
@@ -33,6 +37,19 @@ function ensurePromptsLoaded() {
   }
   if (!draftSystemPromptV1) {
     draftSystemPromptV1 = loadMarkdown(path.join(__dirname, 'versions/v1/draft.system.md'))
+  }
+  if (!chatSystemPromptV1) {
+    chatSystemPromptV1 = loadMarkdown(path.join(__dirname, 'versions/v1/chat.system.md'))
+  }
+}
+
+export function loadChatSystemPrompt(version: string = CURRENT_PROMPT_VERSION): string {
+  ensurePromptsLoaded()
+  switch (version) {
+    case 'v1':
+      return chatSystemPromptV1
+    default:
+      return chatSystemPromptV1
   }
 }
 
@@ -82,7 +99,7 @@ export function buildAnalysisUserPrompt(
 ): string {
   switch (version) {
     default:
-      return buildAnalysisUserPromptV1(sources as any, scenarioType, scenarioKnowledge)
+      return buildAnalysisUserPromptV1(sources, scenarioType, scenarioKnowledge)
   }
 }
 
@@ -105,4 +122,27 @@ export function buildDraftUserPrompt(
     default:
       return buildDraftUserPromptV1(params)
   }
+}
+
+export function buildChatUserPrompt(
+  content: string,
+  contextSourceIds?: string[],
+  version: string = CURRENT_PROMPT_VERSION,
+): string {
+  switch (version) {
+    default:
+      return buildChatUserPromptV1(content, contextSourceIds)
+  }
+}
+
+export type ChatPromptBundle = {
+  systemPrompt: string
+  userPromptBuilder: (content: string, contextSourceIds?: string[]) => string
+}
+
+export function getChatPrompt(version: string = CURRENT_PROMPT_VERSION): ChatPromptBundle {
+  const systemPrompt = loadChatSystemPrompt(version)
+  const userPromptBuilder = (content: string, contextSourceIds?: string[]) =>
+    buildChatUserPrompt(content, contextSourceIds, version)
+  return { systemPrompt, userPromptBuilder }
 }

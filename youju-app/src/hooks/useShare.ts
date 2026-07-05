@@ -1,9 +1,12 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { SCENARIOS } from '../constants/workspace'
 import { shareApi } from '../services/shareApi'
 import { useAnalysisStore, useSourceStore, useUIPreferenceStore } from '../stores'
 import type { ChecklistItem } from '../types'
 
 export function useShareUtils() {
+  const _queryClient = useQueryClient()
+
   const {
     shareLink,
     shareExpired,
@@ -23,6 +26,48 @@ export function useShareUtils() {
 
   const { result, setResult, setChecklist } = useAnalysisStore()
   const { sources, currentScenario } = useSourceStore()
+
+  const createShareMutation = useMutation({
+    mutationFn: shareApi.createShare,
+    onMutate: () => {
+      setCreatingShare(true)
+    },
+    onSuccess: (data) => {
+      const baseUrl = window.location.origin
+      const fullUrl = `${baseUrl}/share/${data.token}`
+      setShareLink(fullUrl)
+      setShareExpired(data.expiresAt ? new Date(data.expiresAt).toLocaleString() : '永久有效')
+      setShareViewCount(0)
+    },
+    onSettled: () => {
+      setCreatingShare(false)
+    },
+  })
+
+  const _loadSharedReportMutation = useMutation({
+    mutationFn: (token: string) => shareApi.getSharedReport(token),
+    onMutate: () => {
+      setShareError('')
+    },
+    onSuccess: (sharedReportData) => {
+      if (sharedReportData.expiresAt && new Date(sharedReportData.expiresAt) < new Date()) {
+        setShareError('分享已过期')
+        return
+      }
+      setShareViewCount(sharedReportData.viewCount || 0)
+      setSharedReport(sharedReportData)
+      setResult(sharedReportData.result)
+      setChecklist(
+        sharedReportData.result.checklist?.map((c: ChecklistItem) => ({
+          ...c,
+          checked: false,
+        })) || [],
+      )
+    },
+    onError: () => {
+      setShareError('加载分享失败，请检查网络连接')
+    },
+  })
 
   const copyShareLink = async () => {
     try {
@@ -122,5 +167,9 @@ export function useShareUtils() {
     setSharedReport,
     setShareError,
     setShareViewCount,
+    createShare: createShareMutation.mutate,
+    createShareAsync: createShareMutation.mutateAsync,
+    isCreatingShare: createShareMutation.isPending,
+    createShareError: createShareMutation.error,
   }
 }

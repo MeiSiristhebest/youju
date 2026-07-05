@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -35,14 +35,19 @@
       "suspicious": {
         "noExplicitAny": "off",
         "noArrayIndexKey": "off",
-        "useIterableCallbackReturn": "off"
+        "useIterableCallbackReturn": "off",
+        "noImplicitAnyLet": "warn",
+        "noAssignInExpressions": "warn"
       },
       "a11y": {
         "useKeyWithClickEvents": "off",
         "useSemanticElements": "off",
         "useButtonType": "warn",
         "noStaticElementInteractions": "warn",
-        "noLabelWithoutControl": "warn"
+        "noLabelWithoutControl": "warn",
+        "useValidAnchor": "warn",
+        "noSvgWithoutTitle": "warn",
+        "useAriaPropsSupportedByRole": "warn"
       },
       "correctness": {
         "useExhaustiveDependencies": "off"

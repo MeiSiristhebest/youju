@@ -8,7 +8,7 @@
  * Serverless 部署注意：
  * - 在 EdgeOne Pages 等 Serverless 环境中，函数执行完即结束，setInterval 不可靠
  * - Serverless 部署应使用 Cron Triggers 调用 HTTP 端点触发任务
- * - 详见 src/infrastructure/cronHandlers.ts 和 edgeone/cron/jobs.json
+ * - 详见 src/infrastructure/scheduledTasks.ts 和 edgeone/cron/jobs.json
  * - 部署时设置 ENABLE_BACKGROUND_JOBS=false 禁用本文件的 setInterval 方式
  */
 

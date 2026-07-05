@@ -1,11 +1,12 @@
 import { createApp } from './app.js'
 import { driver } from './data/db.js'
-import { preheatScenarioPresets } from './domain/services/analysisService.js'
+import type { AnalysisService } from './domain/services/analysisService.js'
 import { startBackgroundJobs, stopBackgroundJobs } from './infrastructure/backgroundJobs.js'
+import { Tokens } from './infrastructure/di/tokens.js'
 import { getEnv } from './infrastructure/env.js'
 import { logger } from './infrastructure/logger.js'
 
-const { app } = createApp(driver)
+const { app, container } = createApp(driver)
 
 const PORT = getEnv().PORT
 const server = app.listen(PORT, () => {
@@ -23,7 +24,8 @@ const server = app.listen(PORT, () => {
   }
 
   if (getEnv().ENABLE_SCENARIO_PREHEAT === 'true') {
-    preheatScenarioPresets()
+    ;(container.resolve(Tokens.AnalysisService) as AnalysisService)
+      .preheatScenarioPresets()
       .then(({ preheated, skipped, failed }) => {
         if (preheated.length > 0) {
           logger.info(`[Preheat] 预热完成: ${preheated.join(', ')} 共 ${preheated.length} 个场景`)
@@ -33,11 +35,11 @@ const server = app.listen(PORT, () => {
         }
         if (failed.length > 0) {
           logger.warn(
-            `[Preheat] 部分场景预热失败: ${failed.map((f) => `${f.id}(${f.error})`).join(', ')}`,
+            `[Preheat] 部分场景预热失败: ${failed.map((f: { id: string; error: string }) => `${f.id}(${f.error})`).join(', ')}`,
           )
         }
       })
-      .catch((e) => {
+      .catch((e: Error) => {
         logger.error({ err: e }, '[Preheat] 预热过程异常')
       })
     logger.info('预热: 已异步启动 (ENABLE_SCENARIO_PREHEAT)')

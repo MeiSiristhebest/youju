@@ -147,7 +147,7 @@ export function ProductTour({
   const isLast = currentStep === steps.length - 1
   const isFirst = currentStep === 0
 
-  const overlayPaths = useMemo(() => {
+  const _overlayPaths = useMemo(() => {
     const { top, left, width, height } = position
     const vw = window.innerWidth
     const vh = window.innerHeight
@@ -210,7 +210,7 @@ export function ProductTour({
 
       <div
         className={cn(
-          'absolute bg-paper rounded-xl shadow-2xl border border-rule p-5 transition-all duration-300 ease-out pointer-events-auto',
+          'absolute rounded-2xl shadow-2xl border border-rule/60 p-5 transition-all duration-300 ease-out pointer-events-auto backdrop-blur-xl bg-paper/80',
           isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100',
         )}
         style={{
@@ -234,7 +234,9 @@ export function ProductTour({
           </span>
         </div>
 
-        <h3 className="text-sm font-semibold text-ink mb-2 pr-6">{step.title}</h3>
+        <h3 className="text-base font-semibold text-ink mb-2 pr-6 font-display tracking-tight">
+          {step.title}
+        </h3>
         <p className="text-xs text-ink-muted leading-relaxed mb-4">{step.description}</p>
 
         <div className="flex items-center justify-between">

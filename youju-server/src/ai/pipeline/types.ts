@@ -1,4 +1,5 @@
-import type { ScenarioKnowledge, Source } from '../../domain/types.js'
+import type { ValidatingAICaller } from '../../domain/ports/aiCallPort.js'
+import type { ScenarioKnowledge, SharedMainCallResult, Source } from '../../domain/types.js'
 import type { AIConfig } from '../llm.js'
 
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'retrying'
@@ -18,6 +19,8 @@ export interface StepInput {
   scenarioKnowledge?: ScenarioKnowledge[]
   aiConfig?: AIConfig
   previousOutputs: Record<string, unknown>
+  mainCallResult?: SharedMainCallResult | null
+  aiCaller?: ValidatingAICaller
 }
 
 export interface StepOutput {
@@ -87,10 +90,6 @@ export interface PipelineCheckpoint {
   initialInput: Omit<StepInput, 'previousOutputs'> | null
   initialPreviousOutputs: Record<string, unknown>
   createdAt: string
-}
-
-export interface IncrementalChange {
-  addedSources: Source[]
-  removedSources: Source[]
-  modifiedSources: Source[]
+  /** 主调用结果，用于恢复时还原 sharedMainCallResult（伪流水线下游步骤依赖） */
+  mainCallResult?: SharedMainCallResult
 }

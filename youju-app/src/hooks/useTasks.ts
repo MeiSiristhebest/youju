@@ -61,10 +61,14 @@ export const useTasks = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
   })
 
+  const getTaskMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.getTask(taskId),
+  })
+
   const getTask = async (taskId: string) => {
     if (!taskId) return null
     try {
-      return taskApi.getTask(taskId)
+      return await getTaskMutation.mutateAsync(taskId)
     } catch (error) {
       console.error('Failed to get task:', error)
       return null
@@ -82,6 +86,9 @@ export const useTasks = () => {
     deleteTask: deleteTaskMutation.mutate,
     updateChecklist: updateChecklistMutation.mutate,
     getTask,
+    getTaskAsync: getTaskMutation.mutateAsync,
+    isGettingTask: getTaskMutation.isPending,
+    getTaskError: getTaskMutation.error,
     refetchTasks: tasksQuery.refetch,
   }
 }

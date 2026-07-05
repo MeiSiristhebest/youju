@@ -1,3 +1,4 @@
+import { useGSAP } from '@gsap/react'
 import {
   Calendar,
   Check,
@@ -12,9 +13,9 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { cn } from '@/lib/utils'
 import { TYPE_LABELS } from '../../constants/workspace'
 import { useTranslation } from '../../i18n'
+import { gsap } from '../../lib/gsap'
 import type { Source, SourceType } from '../../types'
 
 interface SourceDetailModalProps {
@@ -31,6 +32,7 @@ export function SourceDetailModal({
   onClose,
   onEdit,
   onReparse,
+  onDelete,
   highlightText,
 }: SourceDetailModalProps) {
   const { t } = useTranslation()
@@ -38,6 +40,8 @@ export function SourceDetailModal({
   const [editContent, setEditContent] = useState('')
   const [copied, setCopied] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (source) {
@@ -65,6 +69,28 @@ export function SourceDetailModal({
     return () => document.removeEventListener('keydown', handleEsc)
   }, [onClose])
 
+  useGSAP(
+    () => {
+      if (!source) return
+
+      const isMobile = window.matchMedia('(max-width: 768px)').matches
+      if (isMobile) return
+
+      gsap.fromTo(
+        modalRef.current,
+        { scale: 0.96, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.25, ease: 'back.out(1.4)' },
+      )
+
+      gsap.fromTo(
+        overlayRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2, ease: 'power2.out' },
+      )
+    },
+    { scope: overlayRef, dependencies: [source?.id] },
+  )
+
   if (!source) return null
 
   const summary = source.parsedSummary
@@ -88,6 +114,7 @@ export function SourceDetailModal({
 
   return (
     <div
+      ref={overlayRef}
       className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 md:p-8"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -96,7 +123,10 @@ export function SourceDetailModal({
       aria-modal="true"
       aria-labelledby="source-detail-title"
     >
-      <div className="bg-paper border border-rule rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl animate-[fadeIn_0.2s_ease-out]">
+      <div
+        ref={modalRef}
+        className="bg-paper border border-rule rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl"
+      >
         {/* 头部 */}
         <div className="px-6 py-4 border-b border-rule flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">

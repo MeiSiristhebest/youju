@@ -1,7 +1,5 @@
-import type { Source } from '../../../../domain/types.js'
-
 export function buildAnalysisUserPrompt(
-  sources: Source[],
+  sources: Array<{ name: string; type: string; content: string }>,
   scenarioType?: string,
   scenarioKnowledge?: Array<{
     dimension: string

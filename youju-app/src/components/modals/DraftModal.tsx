@@ -1,5 +1,14 @@
-import { Check, Copy, RefreshCw, Sparkles, ThumbsUp, X } from 'lucide-react'
+import { Check, Copy, RefreshCw, Sparkles, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
+import { Button } from '../ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 
 interface DraftModalProps {
   isOpen: boolean
@@ -23,8 +32,6 @@ export function DraftModal({
   const [copied, setCopied] = useState(false)
   const [adopted, setAdopted] = useState(false)
 
-  if (!isOpen) return null
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(draftText)
@@ -42,38 +49,25 @@ export function DraftModal({
   }
 
   return (
-    <div
-      role="button"
-      tabIndex={-1}
-      className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="bg-paper border border-rule rounded-xl w-[560px] max-h-[80vh] flex flex-col shadow-xl">
-        <div className="px-5 py-4 border-b border-rule flex items-center justify-between">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[560px] p-0 gap-0">
+        <DialogHeader className="px-5 py-4 border-b border-rule flex flex-row items-center justify-between space-y-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-accent-bg flex items-center justify-center text-accent">
               <Sparkles size={16} strokeWidth={1.5} />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-ink font-display tracking-tight">
+              <DialogTitle className="text-sm font-semibold text-ink font-display tracking-tight">
                 沟通话术
-              </h3>
-              <p className="text-[11px] text-ink-faint">关于「{riskTitle}」的确认</p>
+              </DialogTitle>
+              <DialogDescription className="text-[11px] text-ink-faint">
+                关于「{riskTitle}」的确认
+              </DialogDescription>
             </div>
           </div>
-          <button
-            type="button"
-            className="w-7 h-7 rounded-md flex items-center justify-center text-xs cursor-pointer border border-rule/60 bg-paper-dark/60 text-ink-muted hover:bg-paper-dark hover:text-ink transition-colors duration-200"
-            onClick={onClose}
-            aria-label="关闭"
-          >
-            <X size={14} strokeWidth={1.5} />
-          </button>
-        </div>
+        </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-5 max-h-[60vh]">
           {generating ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-12 h-12 rounded-full bg-accent-bg flex items-center justify-center mb-4 animate-pulse">
@@ -91,23 +85,25 @@ export function DraftModal({
           )}
         </div>
 
-        <div className="px-5 py-3.5 border-t border-rule flex items-center justify-between">
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-ink-muted bg-paper-dark/60 border border-rule/60 hover:bg-paper-dark hover:text-ink cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        <DialogFooter className="px-5 py-3.5 border-t border-rule flex items-center justify-between sm:justify-between">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onRegenerate}
             disabled={generating}
+            data-icon="inline-start"
           >
             <RefreshCw size={13} strokeWidth={1.5} />
             重新生成
-          </button>
+          </Button>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-ink-muted bg-paper-dark/60 border border-rule/60 hover:bg-paper-dark hover:text-ink cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleCopy}
               disabled={generating || !draftText}
+              data-icon="inline-start"
             >
               {copied ? (
                 <Check size={13} strokeWidth={1.5} />
@@ -115,12 +111,13 @@ export function DraftModal({
                 <Copy size={13} strokeWidth={1.5} />
               )}
               {copied ? '已复制' : '复制'}
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium bg-ink text-paper border-none hover:bg-accent cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
               onClick={handleAdopt}
               disabled={generating || !draftText}
+              data-icon="inline-start"
             >
               {adopted ? (
                 <Check size={13} strokeWidth={1.5} />
@@ -128,10 +125,10 @@ export function DraftModal({
                 <ThumbsUp size={13} strokeWidth={1.5} />
               )}
               {adopted ? '已采纳' : '采纳'}
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

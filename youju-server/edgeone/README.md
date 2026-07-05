@@ -15,7 +15,7 @@
 
 ### 关键文件
 
-- **任务处理器**: `src/infrastructure/cronHandlers.ts` - 可独立调用的任务处理函数
+- **任务处理器**: `src/infrastructure/scheduledTasks.ts` - 可独立调用的任务处理函数
 - **HTTP 端点**: `src/presentation/routes/cron.ts` - 受密钥保护的 Cron 触发端点
 - **Cron 配置**: `edgeone/cron/jobs.json` - Cron 任务定义
 - **传统定时器**: `src/infrastructure/backgroundJobs.ts` - 本地开发用的 setInterval 实现

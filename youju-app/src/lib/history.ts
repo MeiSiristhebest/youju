@@ -1,4 +1,4 @@
-import type { AnalyzeResult, Risk } from '../types'
+import type { AnalyzeResult } from '../types'
 import type { HistorySnapshot, RiskDiffItem, RiskDiffResult } from '../types/history'
 
 const STORAGE_KEY = 'youju_history_snapshots'

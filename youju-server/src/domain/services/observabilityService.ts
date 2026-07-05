@@ -1,44 +1,27 @@
-import type { ObservabilityRepository, ScenarioKnowledgeRepository } from '../ports/repositories.js'
+import type {
+  ObservabilityReadRepository,
+  ScenarioKnowledgeReadRepository,
+} from '../ports/repositories.js'
 
-let _observabilityRepo: ObservabilityRepository | null = null
-let _scenarioKnowledgeRepo: ScenarioKnowledgeRepository | null = null
+export class ObservabilityService {
+  constructor(
+    private readonly observabilityRepo: ObservabilityReadRepository,
+    private readonly scenarioKnowledgeRepo: ScenarioKnowledgeReadRepository,
+  ) {}
 
-export function setObservabilityRepository(repo: ObservabilityRepository): void {
-  _observabilityRepo = repo
-}
-
-export function setScenarioKnowledgeRepositoryForObservability(
-  repo: ScenarioKnowledgeRepository,
-): void {
-  _scenarioKnowledgeRepo = repo
-}
-
-function getObservabilityRepo(): ObservabilityRepository {
-  if (!_observabilityRepo) {
-    throw new Error('ObservabilityRepository not set.')
+  async getCostStats(userId: number | null, sessionId?: string | null) {
+    return this.observabilityRepo.getCostStats(userId, sessionId)
   }
-  return _observabilityRepo
-}
 
-function getScenarioKnowledgeRepo(): ScenarioKnowledgeRepository {
-  if (!_scenarioKnowledgeRepo) {
-    throw new Error('ScenarioKnowledgeRepository not set.')
+  async getStepPerformanceStats(userId: number | null, sessionId?: string | null) {
+    return this.observabilityRepo.getStepPerformanceStats(userId, sessionId)
   }
-  return _scenarioKnowledgeRepo
-}
 
-export async function getCostStats(userId: number | null, sessionId?: string | null) {
-  return getObservabilityRepo().getCostStats(userId, sessionId)
-}
+  async getScenarioKnowledge(scenarioType: string, limit: number = 10) {
+    return this.scenarioKnowledgeRepo.getTopKnowledge(scenarioType, limit)
+  }
 
-export async function getStepPerformanceStats(userId: number | null, sessionId?: string | null) {
-  return getObservabilityRepo().getStepPerformanceStats(userId, sessionId)
-}
-
-export async function getScenarioKnowledge(scenarioType: string, limit: number = 10) {
-  return getScenarioKnowledgeRepo().getTopKnowledge(scenarioType, limit)
-}
-
-export async function getKnowledgeStats() {
-  return getScenarioKnowledgeRepo().getKnowledgeStats?.() || { total: 0, byScenario: {} }
+  async getKnowledgeStats() {
+    return this.scenarioKnowledgeRepo.getKnowledgeStats?.() || { total: 0, byScenario: {} }
+  }
 }

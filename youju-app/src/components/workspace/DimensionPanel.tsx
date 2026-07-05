@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Star, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { AnalysisDimension, DimensionPriority } from '../../types'
@@ -241,7 +241,7 @@ function AddDimensionDialog({
                   className={cn(
                     'flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-all cursor-pointer',
                     priority === opt.value
-                      ? opt.color + ' ring-2 ring-offset-1 ring-offset-paper'
+                      ? `${opt.color} ring-2 ring-offset-1 ring-offset-paper`
                       : 'bg-paper-dark text-ink-muted border-rule hover:border-ink-faint hover:text-ink',
                   )}
                 >

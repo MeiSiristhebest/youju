@@ -56,6 +56,45 @@
   --color-rule: var(--rule);
   --color-rule-soft: var(--rule-soft);
 
+  /* Primary Brand Scale (Terracotta) */
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+  --color-primary-950: var(--primary-950);
+
+  /* Secondary Brand Scale (Slate Blue) */
+  --color-secondary-50: var(--secondary-50);
+  --color-secondary-100: var(--secondary-100);
+  --color-secondary-200: var(--secondary-200);
+  --color-secondary-300: var(--secondary-300);
+  --color-secondary-400: var(--secondary-400);
+  --color-secondary-500: var(--secondary-500);
+  --color-secondary-600: var(--secondary-600);
+  --color-secondary-700: var(--secondary-700);
+  --color-secondary-800: var(--secondary-800);
+  --color-secondary-900: var(--secondary-900);
+  --color-secondary-950: var(--secondary-950);
+
+  /* Tertiary Brand Scale (Olive Green) */
+  --color-tertiary-50: var(--tertiary-50);
+  --color-tertiary-100: var(--tertiary-100);
+  --color-tertiary-200: var(--tertiary-200);
+  --color-tertiary-300: var(--tertiary-300);
+  --color-tertiary-400: var(--tertiary-400);
+  --color-tertiary-500: var(--tertiary-500);
+  --color-tertiary-600: var(--tertiary-600);
+  --color-tertiary-700: var(--tertiary-700);
+  --color-tertiary-800: var(--tertiary-800);
+  --color-tertiary-900: var(--tertiary-900);
+  --color-tertiary-950: var(--tertiary-950);
+
   /* Accent variants (Editorial Print) */
   --color-accent-soft: var(--accent-soft);
   --color-accent-faint: var(--accent-faint);
@@ -78,71 +117,200 @@
   --color-danger-faint: var(--danger-faint);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
+
+  /* Radius system */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-2xl: var(--r-2xl);
+  --radius-full: var(--r-full);
 }
 
 :root {
-  /* Editorial Print Palette - warm paper */
+  /* ============================================
+     Brand Color System - Three-Tier Palette
+     Tier 1: Primary (Pine Teal 松青)
+     Tier 2: Secondary (Warm Terracotta 暖陶)
+     Tier 3: Tertiary (Amber Gold 琥珀金)
+     ============================================ */
+
+  /* Tier 1 - Primary Brand: Pine Teal (松青)
+     Used for: CTAs, key actions, brand marks, focus states
+     语义：证据可靠、专业稳定、生长可信，与"有据"语义契合 */
+  --primary-50: #f0f9f4;
+  --primary-100: #dcf0e3;
+  --primary-200: #bbe1cb;
+  --primary-300: #8acaa6;
+  --primary-400: #54ab7d;
+  --primary-500: #2f8d5f;
+  --primary-600: #1f7350;
+  --primary-700: #2C5F4A;
+  --primary-800: #1f4d3f;
+  --primary-900: #163a30;
+  --primary-950: #0d2218;
+
+  /* Tier 2 - Secondary Brand: Warm Terracotta (暖陶)
+     Used for: metadata, references, decorative accents
+     语义：保留原品牌暖色记忆，降级为次色避免与警示色冲突 */
+  --secondary-50: #fef5ed;
+  --secondary-100: #fde8d4;
+  --secondary-200: #fbcfab;
+  --secondary-300: #f8af75;
+  --secondary-400: #f4823d;
+  --secondary-500: #e85f1a;
+  --secondary-600: #c94810;
+  --secondary-700: #B7410E;
+  --secondary-800: #92350f;
+  --secondary-900: #762c10;
+  --secondary-950: #411606;
+
+  /* Tier 3 - Tertiary Brand: Amber Gold (琥珀金)
+     Used for: growth indicators, special accents, positive highlights
+     语义：承接原橄榄绿的正向信号职责，更现代 */
+  --tertiary-50: #fffbeb;
+  --tertiary-100: #fef3c7;
+  --tertiary-200: #fde68a;
+  --tertiary-300: #fcd34d;
+  --tertiary-400: #fbbf24;
+  --tertiary-500: #f59e0b;
+  --tertiary-600: #d97706;
+  --tertiary-700: #B45309;
+  --tertiary-800: #92400e;
+  --tertiary-900: #78350f;
+  --tertiary-950: #451a03;
+
+  /* ============================================
+     Surface & Ink System (Editorial Print)
+     ============================================ */
   --paper: #f5efe6;
   --paper-dark: #ebe4d8;
   --paper-deep: #e5ddd0;
   --ink: #1c1917;
   --ink-soft: #292524;
   --ink-muted: #57534e;
-  --ink-faint: #a8a29e;
+  --ink-faint: #6b6357;
   --rule: #d6d0c4;
   --rule-soft: #e7e1d5;
 
-  /* Accent - warm terracotta (primary) */
-  --accent: #c2410c;
-  --accent-soft: #ea580c;
-  --accent-faint: #fed7aa;
-  --accent-bg: #fff7ed;
+  /* Backward-compatible accent aliases */
+  --accent: var(--primary-700);
+  --accent-soft: var(--primary-600);
+  --accent-faint: var(--primary-200);
+  --accent-bg: var(--primary-50);
+  --accent-secondary: var(--secondary-600);
+  --accent-secondary-soft: var(--secondary-500);
+  --accent-secondary-faint: var(--secondary-300);
+  --accent-secondary-bg: var(--secondary-100);
+  --accent-tertiary: var(--tertiary-700);
+  --accent-tertiary-soft: var(--tertiary-600);
+  --accent-tertiary-faint: var(--tertiary-300);
+  --accent-tertiary-bg: var(--tertiary-50);
 
-  /* Accent Secondary - slate blue (for info, links) */
-  --accent-secondary: #475569;
-  --accent-secondary-soft: #64748b;
-  --accent-secondary-faint: #cbd5e1;
-  --accent-secondary-bg: #f1f5f9;
-
-  /* Accent Tertiary - olive green (for success, positive) */
-  --accent-tertiary: #4d7c0f;
-  --accent-tertiary-soft: #65a30d;
-  --accent-tertiary-faint: #d9f99d;
-  --accent-tertiary-bg: #f7fee7;
-
-  /* Semantic */
+  /* ============================================
+     Semantic Color System
+     ============================================ */
   --success: #166534;
   --success-bg: #dcfce7;
   --success-faint: #bbf7d0;
-  --warning: #92400e;
+  --success-50: #f0fdf4;
+  --success-100: #dcfce7;
+  --success-600: #16a34a;
+  --success-700: #15803d;
+  --warning: #D97706;
   --warning-bg: #fef3c7;
   --warning-faint: #fde68a;
+  --warning-50: #fffbeb;
+  --warning-100: #fef3c7;
+  --warning-600: #d97706;
+  --warning-700: #b45309;
   --danger: #991b1b;
   --danger-bg: #fee2e2;
   --danger-faint: #fecaca;
+  --danger-50: #fef2f2;
+  --danger-100: #fee2e2;
+  --danger-600: #dc2626;
+  --danger-700: #b91c1c;
   --info: #1e40af;
   --info-bg: #dbeafe;
+  --info-50: #eff6ff;
+  --info-100: #dbeafe;
+  --info-600: #2563eb;
+  --info-700: #1d4ed8;
 
-  /* Typography - Brand System */
+  /* ============================================
+     Typography System - Brand Fonts & Scale
+     ============================================ */
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
   --font-label: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  /* Easing - editorial smooth */
+  /* Type scale - Editorial Print */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 2.25rem;    /* 36px */
+  --text-5xl: 3rem;       /* 48px */
+  --text-6xl: 3.75rem;    /* 60px */
+  --text-7xl: 4.5rem;     /* 72px */
+
+  /* Line height scale */
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+
+  /* Letter spacing */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.08em;
+  --tracking-widest: 0.12em;
+
+  /* ============================================
+     Motion System - Premium Easing Curves
+     ============================================ */
   --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.32, 0, 0.67, 0);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-quint: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Radii - restrained, print-like */
+  /* Duration scale */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+  --duration-slowest: 700ms;
+  --duration-entrance: 800ms;
+
+  /* ============================================
+     Radius System - Unified Squircle Scale
+     ============================================ */
   --r-sm: 2px;
   --r-md: 4px;
   --r-lg: 6px;
+  --r-xl: 8px;
+  --r-2xl: 12px;
+  --r-3xl: 16px;
+  --r-full: 9999px;
 
-  /* Shadows - paper depth */
+  /* ============================================
+     Shadow System - Paper Depth
+     ============================================ */
   --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.06);
   --shadow-md: 0 4px 12px -2px rgba(28, 25, 23, 0.08);
   --shadow-lg: 0 12px 28px -4px rgba(28, 25, 23, 0.1);
   --shadow-xl: 0 24px 48px -8px rgba(28, 25, 23, 0.12);
+  --shadow-inner: inset 0 2px 4px 0 rgba(28, 25, 23, 0.05);
 
   /* shadcn theme variables (Editorial Print) */
   --background: #f5efe6;
@@ -151,7 +319,7 @@
   --card-foreground: #1c1917;
   --popover: #f5efe6;
   --popover-foreground: #1c1917;
-  --primary: #c2410c;
+  --primary: #2C5F4A;
   --primary-foreground: #f5efe6;
   --secondary: #ebe4d8;
   --secondary-foreground: #1c1917;
@@ -161,66 +329,128 @@
   --destructive-foreground: #f5efe6;
   --border: #d6d0c4;
   --input: #d6d0c4;
-  --ring: #c2410c;
+  --ring: #2C5F4A;
   --radius: 4px;
   --sidebar: #f5efe6;
   --sidebar-foreground: #1c1917;
-  --sidebar-primary: #c2410c;
+  --sidebar-primary: #2C5F4A;
   --sidebar-primary-foreground: #f5efe6;
   --sidebar-accent: #ebe4d8;
   --sidebar-accent-foreground: #1c1917;
   --sidebar-border: #d6d0c4;
-  --sidebar-ring: #c2410c;
+  --sidebar-ring: #2C5F4A;
 }
 
 .dark {
-  /* Dark mode palette - Midnight Edition */
+  /* ============================================
+     Dark Mode - Three-Tier Brand Palette
+     ============================================ */
+
+  /* Tier 1 - Primary Brand: Pine Teal (松青) - dark mode 反转 */
+  --primary-50: #0d2218;
+  --primary-100: #163a30;
+  --primary-200: #1f4d3f;
+  --primary-300: #2C5F4A;
+  --primary-400: #1f7350;
+  --primary-500: #2f8d5f;
+  --primary-600: #54ab7d;
+  --primary-700: #8acaa6;
+  --primary-800: #bbe1cb;
+  --primary-900: #dcf0e3;
+  --primary-950: #f0f9f4;
+
+  /* Tier 2 - Secondary Brand: Warm Terracotta (暖陶) - dark mode 反转 */
+  --secondary-50: #411606;
+  --secondary-100: #762c10;
+  --secondary-200: #92350f;
+  --secondary-300: #B7410E;
+  --secondary-400: #c94810;
+  --secondary-500: #e85f1a;
+  --secondary-600: #f4823d;
+  --secondary-700: #f8af75;
+  --secondary-800: #fbcfab;
+  --secondary-900: #fde8d4;
+  --secondary-950: #fef5ed;
+
+  /* Tier 3 - Tertiary Brand: Amber Gold (琥珀金) - dark mode 反转 */
+  --tertiary-50: #451a03;
+  --tertiary-100: #78350f;
+  --tertiary-200: #92400e;
+  --tertiary-300: #B45309;
+  --tertiary-400: #d97706;
+  --tertiary-500: #f59e0b;
+  --tertiary-600: #fbbf24;
+  --tertiary-700: #fcd34d;
+  --tertiary-800: #fde68a;
+  --tertiary-900: #fef3c7;
+  --tertiary-950: #fffbeb;
+
+  /* ============================================
+     Surface & Ink System (Dark Midnight)
+     ============================================ */
   --paper: #0f172a;
   --paper-dark: #1e293b;
   --paper-deep: #334155;
   --ink: #f8fafc;
   --ink-soft: #e2e8f0;
   --ink-muted: #94a3b8;
-  --ink-faint: #64748b;
+  --ink-faint: #8294a8;
   --rule: #334155;
   --rule-soft: #1e293b;
 
-  /* Accent - warm amber for dark mode (primary) */
-  --accent: #fb923c;
-  --accent-soft: #fdba74;
-  --accent-faint: #78350f;
-  --accent-bg: #431407;
+  /* Backward-compatible accent aliases (dark mode) */
+  --accent: var(--primary-400);
+  --accent-soft: var(--primary-300);
+  --accent-faint: var(--primary-700);
+  --accent-bg: var(--primary-50);
+  --accent-secondary: var(--secondary-600);
+  --accent-secondary-soft: var(--secondary-700);
+  --accent-secondary-faint: var(--secondary-400);
+  --accent-secondary-bg: var(--secondary-200);
+  --accent-tertiary: var(--tertiary-500);
+  --accent-tertiary-soft: var(--tertiary-600);
+  --accent-tertiary-faint: var(--tertiary-300);
+  --accent-tertiary-bg: var(--tertiary-50);
 
-  /* Accent Secondary - slate blue for dark mode */
-  --accent-secondary: #94a3b8;
-  --accent-secondary-soft: #cbd5e1;
-  --accent-secondary-faint: #334155;
-  --accent-secondary-bg: #1e293b;
-
-  /* Accent Tertiary - olive green for dark mode */
-  --accent-tertiary: #a3e635;
-  --accent-tertiary-soft: #bef264;
-  --accent-tertiary-faint: #365314;
-  --accent-tertiary-bg: #1a2e05;
-
-  /* Semantic - dark mode */
+  /* ============================================
+     Semantic Color System (Dark Mode)
+     ============================================ */
   --success: #4ade80;
   --success-bg: #064e3b;
   --success-faint: #14532d;
+  --success-50: #052e1f;
+  --success-100: #064e3b;
+  --success-600: #22c55e;
+  --success-700: #4ade80;
   --warning: #fbbf24;
   --warning-bg: #78350f;
   --warning-faint: #78350f;
+  --warning-50: #451a03;
+  --warning-100: #78350f;
+  --warning-600: #f59e0b;
+  --warning-700: #fbbf24;
   --danger: #f87171;
   --danger-bg: #450a0a;
   --danger-faint: #7f1d1d;
+  --danger-50: #1c0606;
+  --danger-100: #450a0a;
+  --danger-600: #ef4444;
+  --danger-700: #f87171;
   --info: #60a5fa;
   --info-bg: #1e3a5f;
+  --info-50: #172554;
+  --info-100: #1e3a5f;
+  --info-600: #3b82f6;
+  --info-700: #60a5fa;
 
-  /* Shadows - dark mode depth */
+  /* ============================================
+     Shadow System (Dark Mode)
+     ============================================ */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
   --shadow-xl: 0 24px 48px -8px rgba(0, 0, 0, 0.6);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
 
   /* shadcn theme variables (dark mode) */
   --background: #0f172a;
@@ -229,8 +459,8 @@
   --card-foreground: #f8fafc;
   --popover: #1e293b;
   --popover-foreground: #f8fafc;
-  --primary: #fb923c;
-  --primary-foreground: #0f172a;
+  --primary: #1f7350;
+  --primary-foreground: #f8fafc;
   --secondary: #334155;
   --secondary-foreground: #f8fafc;
   --muted: #334155;
@@ -239,15 +469,15 @@
   --destructive-foreground: #0f172a;
   --border: #334155;
   --input: #334155;
-  --ring: #fb923c;
+  --ring: #1f7350;
   --sidebar: #0f172a;
   --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #fb923c;
-  --sidebar-primary-foreground: #0f172a;
+  --sidebar-primary: #1f7350;
+  --sidebar-primary-foreground: #f8fafc;
   --sidebar-accent: #1e293b;
   --sidebar-accent-foreground: #f8fafc;
   --sidebar-border: #334155;
-  --sidebar-ring: #fb923c;
+  --sidebar-ring: #1f7350;
 }
 
 /*
@@ -287,9 +517,12 @@ body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01", "tnum";
   line-height: 1.65;
   letter-spacing: -0.01em;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  font-synthesis: none;
 }
 
 ::selection {
@@ -316,6 +549,10 @@ textarea:focus,
 select:focus {
   outline: none;
 }
+
+/* ============================================
+   Scrollbar Styling - Custom Appearance
+   ============================================ */
 
 ::-webkit-scrollbar {
   width: 6px;
@@ -354,12 +591,52 @@ select:focus {
   scrollbar-color: var(--rule) transparent;
 }
 
+/* ============================================
+   Editorial Typography - Refined
+   ============================================ */
+
 /* Display/Editorial headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.1;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+h2 {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 450;
+  letter-spacing: -0.025em;
+}
+
+h3 {
+  font-size: clamp(1.35rem, 2.5vw, 1.875rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+h4 {
+  font-size: clamp(1.125rem, 2vw, 1.5rem);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+h5, h6 {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+/* Paragraphs with optimal line length */
+p {
+  max-width: 65ch;
+  text-wrap: pretty;
 }
 
 /* Typography utilities */
@@ -369,6 +646,19 @@ h1, h2, h3, h4, h5, h6 {
 
 .text-pretty {
   text-wrap: pretty;
+}
+
+/* Optimal measure for reading */
+.prose-measure {
+  max-width: 65ch;
+}
+
+.prose-measure-wide {
+  max-width: 75ch;
+}
+
+.prose-measure-narrow {
+  max-width: 55ch;
 }
 
 /* Editorial elements */
@@ -474,6 +764,256 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-md);
 }
 
+/* ============================================
+   Micro-interactions & Refined States
+   ============================================ */
+
+/* Subtle scale on hover for interactive elements */
+.interactive-scale {
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.interactive-scale:hover {
+  transform: scale(1.02);
+}
+
+.interactive-scale:active {
+  transform: scale(0.98);
+}
+
+/* Link underline animation - from left */
+.link-underline {
+  position: relative;
+}
+
+.link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.link-underline:hover::after {
+  width: 100%;
+}
+
+/* Subtle background transition for list items */
+.item-hover {
+  transition: background-color var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out);
+}
+
+.item-hover:hover {
+  background-color: var(--paper-dark);
+}
+
+/* Fade reveal on hover - reveal secondary info */
+.reveal-on-hover .revealed {
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+
+.reveal-on-hover:hover .revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Subtle text color transition */
+.text-fade {
+  transition: color var(--duration-base) var(--ease-out);
+}
+
+/* Accent reveal - subtle border accent on hover */
+.accent-border-hover {
+  position: relative;
+  transition: border-color var(--duration-base) var(--ease-out);
+}
+
+.accent-border-hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+
+.accent-border-hover:hover::before {
+  transform: scaleY(1);
+}
+
+/* Smooth height transition utility */
+.height-smooth {
+  transition: height var(--duration-slow) var(--ease-out),
+              opacity var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+
+/* ============================================
+   Linear-Style Restrained Design
+   ============================================ */
+
+/* Minimal panel - no border, just background with subtle divider on top/bottom */
+.panel-minimal {
+  background: var(--paper);
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* List row - Linear style, no card, just horizontal divider */
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+  transition: background-color var(--duration-base) var(--ease-out),
+              padding-left var(--duration-base) var(--ease-out);
+}
+
+.list-row:last-child {
+  border-bottom: none;
+}
+
+.list-row:hover {
+  padding-left: var(--space-2);
+  background: var(--paper-dark);
+}
+
+/* Section divider - clean horizontal rule */
+.section-divider {
+  height: 1px;
+  background: var(--rule);
+  margin: var(--space-10) 0;
+  border: none;
+}
+
+/* Data row - label + value pairs, no card chrome */
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px;
+}
+
+.data-row:last-child {
+  border-bottom: none;
+}
+
+.data-row-label {
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.data-row-value {
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inline list - comma-separated, no bullets, minimal chrome */
+.inline-list {
+  display: inline;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.inline-list li {
+  display: inline;
+}
+
+.inline-list li:not(:last-child)::after {
+  content: ', ';
+  color: var(--ink-muted);
+}
+
+/* Side panel - restrained, no outer border, just content with left divider */
+.side-panel {
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--rule);
+}
+
+/* Content block - no card treatment, uses spacing and typography for hierarchy */
+.content-block {
+  padding: var(--space-6) 0;
+}
+
+.content-block:first-child {
+  padding-top: 0;
+}
+
+/* Subtle hover indicator - left bar accent, no shadow lift */
+.hover-indicator {
+  position: relative;
+  transition: background-color var(--duration-base) var(--ease-out);
+}
+
+.hover-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 0;
+  background: var(--accent);
+  transition: height var(--duration-base) var(--ease-out);
+}
+
+.hover-indicator:hover::before {
+  height: 60%;
+}
+
+.hover-indicator:hover {
+  background: var(--paper-dark);
+}
+
+/* Table-style data layout - minimal borders, dense but readable */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.data-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--rule-light);
+  font-size: 14px;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background: var(--paper-dark);
+}
+
 /* Subtle background pattern for panels */
 .panel-bg-subtle {
   background-image: 
@@ -487,6 +1027,237 @@ h1, h2, h3, h4, h5, h6 {
 .focus-ring:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--accent);
+}
+
+/* ============================================
+   Accessibility & Reduced Motion
+   ============================================ */
+
+/* Honor prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-fade-up,
+  .animate-slide-in-left {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Visually hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link - becomes visible on focus */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 8px 16px;
+  z-index: 100;
+  transition: top 0.3s;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Scroll margin for anchor links */
+[id] {
+  scroll-margin-top: 2rem;
+}
+
+/* ============================================
+   Performance Optimizations
+   ============================================ */
+
+/* Content visibility for off-screen sections */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 500px;
+}
+
+/* Touch action manipulation - prevents double-tap zoom delay */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Over scroll behavior - for modals/panels */
+.overscroll-contain {
+  overscroll-behavior: contain;
+}
+
+/* GPU-accelerated animations hint */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* ============================================
+   High-End Visual Design Refinements
+   ============================================ */
+
+/* Inset highlight - gives physical, machined feel */
+.inset-highlight {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.dark .inset-highlight {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Subtle noise texture overlay - paper/film grain feel */
+.noise-overlay {
+  position: relative;
+}
+
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index: 1;
+}
+
+/* Hairline divider - ultra thin for premium feel */
+.hairline {
+  height: 0.5px;
+  background: var(--rule);
+  border: none;
+}
+
+/* Premium button press effect - physical feel */
+.btn-physical {
+  transition: transform var(--duration-fast) var(--ease-smooth),
+              box-shadow var(--duration-fast) var(--ease-smooth),
+              background-color var(--duration-base) var(--ease-smooth);
+}
+
+.btn-physical:hover {
+  transform: translateY(-0.5px);
+}
+
+.btn-physical:active {
+  transform: translateY(0.5px) scale(0.98);
+}
+
+/* Magnetic hover - subtle scale and lift */
+.hover-magnetic {
+  transition: transform var(--duration-slow) var(--ease-smooth),
+              box-shadow var(--duration-slow) var(--ease-smooth);
+}
+
+.hover-magnetic:hover {
+  transform: translateY(-2px) scale(1.01);
+}
+
+/* Smooth reveal animation on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity var(--duration-slowest) var(--ease-quart),
+              transform var(--duration-slowest) var(--ease-quart);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered reveal delays */
+.reveal-delay-1 { transition-delay: 50ms; }
+.reveal-delay-2 { transition-delay: 100ms; }
+.reveal-delay-3 { transition-delay: 150ms; }
+.reveal-delay-4 { transition-delay: 200ms; }
+.reveal-delay-5 { transition-delay: 250ms; }
+
+/* Number font variant - tabular for data columns */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ============================================
+   Design Rhythm & Variation
+   (avoid AI-pattern repetition)
+   ============================================ */
+
+/* Asymmetric section spacing - varied rhythm */
+.section-tight { padding-top: 2rem; padding-bottom: 2rem; }
+.section-compact { padding-top: 3rem; padding-bottom: 3rem; }
+.section-normal { padding-top: 4rem; padding-bottom: 4rem; }
+.section-roomy { padding-top: 6rem; padding-bottom: 6rem; }
+.section-spacious { padding-top: 8rem; padding-bottom: 8rem; }
+
+@media (min-width: 768px) {
+  .section-tight { padding-top: 3rem; padding-bottom: 3rem; }
+  .section-compact { padding-top: 4rem; padding-bottom: 4rem; }
+  .section-normal { padding-top: 6rem; padding-bottom: 6rem; }
+  .section-roomy { padding-top: 8rem; padding-bottom: 8rem; }
+  .section-spacious { padding-top: 10rem; padding-bottom: 10rem; }
+}
+
+/* Offset section - breaks grid symmetry */
+.offset-left { margin-left: -1rem; }
+.offset-right { margin-right: -1rem; }
+
+@media (min-width: 768px) {
+  .offset-left { margin-left: -2rem; }
+  .offset-right { margin-right: -2rem; }
+}
+
+/* Visual weight variation - avoid uniform card sizes */
+.emphasis-strong { font-weight: 600; }
+.emphasis-subtle { font-weight: 400; }
+
+/* Pull quote - asymmetric visual break */
+.pull-quote {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  margin: 2rem 0;
+  max-width: 40ch;
+}
+
+@media (min-width: 768px) {
+  .pull-quote {
+    font-size: 1.875rem;
+    padding: 2rem 0;
+    margin: 3rem 0;
+  }
 }
 
 /* Button press effect */
@@ -942,6 +1713,45 @@ button {
   }
 }
 
+/* ============================================
+   Landing Page - 循环动画 keyframes
+   ============================================ */
+
+/* 跑马灯水平滚动 */
+@keyframes marquee-left {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes marquee-right {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(0); }
+}
+
+/* 浮动循环（Hero 浮动证据卡片） */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-12px) rotate(-2deg); }
+}
+
+/* 滚动提示（Hero 底部 scroll hint） */
+@keyframes scroll-hint {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50%      { transform: translateY(8px); opacity: 1; }
+}
+
+/* CTA 脉冲（CtaSection 背景光斑） */
+@keyframes cta-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* 网格漂移（PrinciplesSection 背景纹理，可选） */
+@keyframes grid-drift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 60px 60px; }
+}
+
 /* Hero 动态背景动画类 */
 .hero-glow-1 {
   animation: 
@@ -981,6 +1791,10 @@ button {
   .hero-paper-noise,
   .hero-overlay-breathe,
   .hero-ambient-flicker {
+    animation: none !important;
+  }
+  [data-hero-floating],
+  [data-hero-scroll-hint] {
     animation: none !important;
   }
 }

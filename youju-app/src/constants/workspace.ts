@@ -1,28 +1,99 @@
+import {
+  BookOpen,
+  Briefcase,
+  Gavel,
+  GraduationCap,
+  Home,
+  type LucideIcon,
+  Newspaper,
+} from 'lucide-react'
 import type { Scenario, SourceType } from '../types'
 
-export const SCENARIOS: Scenario[] = [
+export interface ScenarioWithCategory {
+  id: Scenario['id']
+  name: string
+  icon: string
+  iconComponent: LucideIcon
+  description: string
+  sourceCount: number
+  category: string
+  featured: boolean
+}
+
+export const SCENARIOS: ScenarioWithCategory[] = [
   {
-    id: 'job',
-    name: '求职 Offer 确认',
-    icon: 'briefcase',
-    description: '核对 HR 口头承诺与正式 Offer 是否一致',
-    sourceCount: 3,
+    id: 'legal_case',
+    name: '案件事实梳理',
+    icon: 'gavel',
+    iconComponent: Gavel,
+    description: '从卷宗材料中快速提炼关键事实、时间线与争议焦点',
+    sourceCount: 5,
+    category: '专业场景',
+    featured: true,
   },
   {
-    id: 'rent',
-    name: '租房签约',
+    id: 'academic_research',
+    name: '文献综述分析',
+    icon: 'book-open',
+    iconComponent: BookOpen,
+    description: '对比不同研究的结论与方法，识别共识与分歧',
+    sourceCount: 6,
+    category: '专业场景',
+    featured: true,
+  },
+  {
+    id: 'due_diligence',
+    name: '尽职调查辅助',
+    icon: 'briefcase',
+    iconComponent: Briefcase,
+    description: '整合多方信源对目标进行背景核查，识别风险与不一致',
+    sourceCount: 6,
+    category: '专业场景',
+    featured: true,
+  },
+  {
+    id: 'fact_check',
+    name: '事实核查报告',
+    icon: 'newspaper',
+    iconComponent: Newspaper,
+    description: '交叉验证多条信源的真实性与一致性，输出可溯源结论',
+    sourceCount: 5,
+    category: '专业场景',
+    featured: true,
+  },
+  {
+    id: 'job_offer',
+    name: '求职 Offer 确认',
+    icon: 'briefcase',
+    iconComponent: Briefcase,
+    description: '核对 HR 口头承诺与正式 Offer 是否一致',
+    sourceCount: 3,
+    category: '个人事务',
+    featured: false,
+  },
+  {
+    id: 'rental',
+    name: '租房签约审核',
     icon: 'home',
+    iconComponent: Home,
     description: '核对中介承诺与合同条款是否一致',
     sourceCount: 2,
+    category: '个人事务',
+    featured: false,
   },
   {
     id: 'homework',
-    name: '作业/申请提交',
-    icon: 'book-open',
-    description: '核对提交要求与材料是否一致',
+    name: '作业要求核查',
+    icon: 'graduation-cap',
+    iconComponent: GraduationCap,
+    description: '对照作业要求检查提交内容的完整性',
     sourceCount: 2,
+    category: '个人事务',
+    featured: false,
   },
 ]
+
+export const FEATURED_SCENARIOS = SCENARIOS.filter((s) => s.featured)
 
 export const ANALYSIS_STEPS = [
   { key: 'scenario', name: '场景识别', desc: '理解材料内容，识别场景类型', icon: 'target' },

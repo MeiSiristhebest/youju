@@ -1,21 +1,37 @@
-interface SectionTitleProps {
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/lib/utils'
+
+const sectionTitleVariants = cva('', {
+  variants: {
+    variant: {
+      default: 'flex items-end justify-between mb-16',
+      centered: 'text-center mb-16 max-w-2xl mx-auto',
+      minimal: 'mb-16',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+})
+
+interface SectionTitleProps extends VariantProps<typeof sectionTitleVariants> {
   eyebrow?: string
   title: string
   description?: string
   align?: 'left' | 'right'
-  variant?: 'default' | 'centered' | 'minimal'
+  className?: string
 }
 
 export function SectionTitle({
   eyebrow,
   title,
   description,
-  align = 'left',
   variant = 'default',
+  className,
 }: SectionTitleProps) {
   if (variant === 'centered') {
     return (
-      <div className="text-center mb-16 max-w-2xl mx-auto">
+      <div className={cn(sectionTitleVariants({ variant }), className)}>
         {eyebrow && (
           <span className="text-[11px] font-mono tracking-[0.2em] uppercase text-accent">
             {eyebrow}
@@ -33,7 +49,7 @@ export function SectionTitle({
 
   if (variant === 'minimal') {
     return (
-      <div className="mb-16">
+      <div className={cn(sectionTitleVariants({ variant }), className)}>
         <h2 className="font-display text-3xl lg:text-4xl font-medium tracking-tight text-balance">
           {title}
         </h2>
@@ -45,7 +61,7 @@ export function SectionTitle({
   }
 
   return (
-    <div className={`flex items-end justify-between mb-16 ${align === 'right' ? '' : ''}`}>
+    <div className={cn(sectionTitleVariants({ variant }), className)}>
       <div>
         {eyebrow && (
           <span className="text-[11px] font-mono tracking-[0.2em] uppercase text-accent">
@@ -64,3 +80,5 @@ export function SectionTitle({
     </div>
   )
 }
+
+export { sectionTitleVariants }

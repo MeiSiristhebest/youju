@@ -52,7 +52,7 @@ describe('useAnalysisStore', () => {
       expect(state.result).toBeNull()
       expect(state.analyzing).toBe(false)
       expect(state.analysisStep).toBe(0)
-      expect(state.activeTab).toBe('risks')
+      expect(state.activeTab).toBe('overview')
       expect(state.highlightedRisk).toBeNull()
       expect(state.highlightedEvidence).toBeNull()
       expect(state.checklist).toEqual([])

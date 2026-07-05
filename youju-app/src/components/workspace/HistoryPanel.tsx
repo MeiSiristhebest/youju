@@ -2,15 +2,21 @@ import {
   BookOpen,
   Briefcase,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Clock,
+  Eye,
   FileText,
+  Filter,
   GitCompare,
   Home,
   PenLine,
+  RotateCcw,
+  Search,
   Trash2,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO_HISTORY_SNAPSHOTS } from '../../constants/demoData'
 import { SCENARIOS } from '../../constants/workspace'
 import { historyStorage } from '../../lib/history'
@@ -25,6 +31,8 @@ interface HistoryPanelProps {
   onClose: () => void
   onSelectTask: (task: TaskRecord) => void
   onSelectSnapshot?: (snapshot: HistorySnapshot) => void
+  onViewSnapshot?: (snapshot: HistorySnapshot) => void
+  onRestoreSnapshot?: (snapshot: HistorySnapshot) => void
   onDeleteTask: (taskId: string) => void
   onDeleteSnapshot?: (snapshotId: string) => void
   onCompare?: (snapshotA: HistorySnapshot, snapshotB: HistorySnapshot) => void
@@ -70,6 +78,8 @@ export function HistoryPanel({
   onClose,
   onSelectTask,
   onSelectSnapshot,
+  onViewSnapshot,
+  onRestoreSnapshot,
   onDeleteTask,
   onDeleteSnapshot,
   onCompare,
@@ -79,6 +89,9 @@ export function HistoryPanel({
   const [selectedA, setSelectedA] = useState<string | null>(null)
   const [selectedB, setSelectedB] = useState<string | null>(null)
   const [snapshots, setSnapshots] = useState<HistorySnapshot[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [scenarioFilter, setScenarioFilter] = useState<string>('all')
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -94,11 +107,27 @@ export function HistoryPanel({
     setCompareMode(false)
     setSelectedA(null)
     setSelectedB(null)
+    setSearchQuery('')
+    setScenarioFilter('all')
+    setShowFilterDropdown(false)
   }, [isOpen, snapshots.length])
 
+  const filteredSnapshots = useMemo(() => {
+    return snapshots.filter((snapshot) => {
+      const matchesSearch =
+        searchQuery === '' || snapshot.title.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesScenario = scenarioFilter === 'all' || snapshot.scenarioType === scenarioFilter
+      return matchesSearch && matchesScenario
+    })
+  }, [snapshots, searchQuery, scenarioFilter])
+
   const loadMore = useCallback(() => {
-    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, snapshots.length))
-  }, [snapshots.length])
+    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredSnapshots.length))
+  }, [filteredSnapshots.length])
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [searchQuery, scenarioFilter])
 
   useEffect(() => {
     if (!isOpen) return
@@ -173,6 +202,20 @@ export function HistoryPanel({
     if (selectedB === snapshot.id) setSelectedB(null)
   }
 
+  const handleViewDetail = (snapshot: HistorySnapshot, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onViewSnapshot) {
+      onViewSnapshot(snapshot)
+    }
+  }
+
+  const handleRestore = (snapshot: HistorySnapshot, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onRestoreSnapshot) {
+      onRestoreSnapshot(snapshot)
+    }
+  }
+
   const exitCompareMode = () => {
     setCompareMode(false)
     setSelectedA(null)
@@ -181,8 +224,8 @@ export function HistoryPanel({
 
   if (!isOpen) return null
 
-  const visibleSnapshots = snapshots.slice(0, visibleCount)
-  const hasMore = visibleCount < snapshots.length
+  const visibleSnapshots = filteredSnapshots.slice(0, visibleCount)
+  const hasMore = visibleCount < filteredSnapshots.length
 
   const getItemClass = (snapshot: HistorySnapshot) => {
     const isA = selectedA === snapshot.id
@@ -253,6 +296,92 @@ export function HistoryPanel({
           </div>
         </div>
 
+        {!compareMode && (
+          <div className="px-3 py-2.5 border-b border-rule bg-paper/[0.02] space-y-2">
+            <div className="relative">
+              <Search
+                size={12}
+                strokeWidth={1.5}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索历史记录..."
+                className="w-full pl-8 pr-3 py-1.5 text-[11px] bg-paper-dark border border-rule/60 rounded-md text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-muted transition-colors"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="清除搜索"
+                >
+                  <X size={10} strokeWidth={2} />
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 text-[11px] bg-paper-dark border border-rule/60 rounded-md text-ink-muted hover:border-accent/50 transition-colors cursor-pointer"
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Filter size={11} strokeWidth={1.5} />
+                  <span>
+                    {scenarioFilter === 'all' ? '全部场景' : getScenarioName(scenarioFilter)}
+                  </span>
+                </div>
+                {showFilterDropdown ? (
+                  <ChevronUp size={11} strokeWidth={1.5} />
+                ) : (
+                  <ChevronDown size={11} strokeWidth={1.5} />
+                )}
+              </button>
+              {showFilterDropdown && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-paper border border-rule rounded-md shadow-lg z-10 py-1 max-h-48 overflow-y-auto">
+                  <button
+                    type="button"
+                    className={`w-full px-3 py-1.5 text-left text-[11px] transition-colors cursor-pointer ${
+                      scenarioFilter === 'all'
+                        ? 'bg-accent-bg text-accent'
+                        : 'text-ink-muted hover:bg-paper-dark'
+                    }`}
+                    onClick={() => {
+                      setScenarioFilter('all')
+                      setShowFilterDropdown(false)
+                    }}
+                  >
+                    全部场景
+                  </button>
+                  {SCENARIOS.map((scenario) => (
+                    <button
+                      key={scenario.id}
+                      type="button"
+                      className={`w-full px-3 py-1.5 text-left text-[11px] transition-colors cursor-pointer ${
+                        scenarioFilter === scenario.id
+                          ? 'bg-accent-bg text-accent'
+                          : 'text-ink-muted hover:bg-paper-dark'
+                      }`}
+                      onClick={() => {
+                        setScenarioFilter(scenario.id)
+                        setShowFilterDropdown(false)
+                      }}
+                    >
+                      {scenario.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="text-[10px] text-ink-faint font-mono">
+              共 {filteredSnapshots.length} 条记录
+            </div>
+          </div>
+        )}
+
         {compareMode && (
           <div className="px-4 py-2.5 border-b border-rule bg-paper/[0.02]">
             <div className="flex items-center gap-2 text-[11px]">
@@ -267,7 +396,7 @@ export function HistoryPanel({
                 {(() => {
                   const snap = snapshots.find((s) => s.id === selectedA)
                   if (!snap) return '请选择第一个版本'
-                  return snap.title.length > 12 ? snap.title.substring(0, 12) + '…' : snap.title
+                  return snap.title.length > 12 ? `${snap.title.substring(0, 12)}…` : snap.title
                 })()}
               </div>
               <span className="text-ink-faint">→</span>
@@ -282,7 +411,7 @@ export function HistoryPanel({
                 {(() => {
                   const snap = snapshots.find((s) => s.id === selectedB)
                   if (!snap) return '请选择第二个版本'
-                  return snap.title.length > 12 ? snap.title.substring(0, 12) + '…' : snap.title
+                  return snap.title.length > 12 ? `${snap.title.substring(0, 12)}…` : snap.title
                 })()}
               </div>
             </div>
@@ -337,6 +466,28 @@ export function HistoryPanel({
                         <div className="w-6 h-6 rounded-md flex items-center justify-center text-success bg-success-bg/50">
                           <CheckCircle size={12} strokeWidth={2} />
                         </div>
+                      )}
+                      {!compareMode && onViewSnapshot && (
+                        <button
+                          type="button"
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-ink-faint opacity-0 group-hover:opacity-100 hover:text-accent hover:bg-accent-bg/50 transition-all duration-200 shrink-0"
+                          onClick={(e) => handleViewDetail(snapshot, e)}
+                          aria-label="查看详情"
+                          title="查看详情"
+                        >
+                          <Eye size={12} strokeWidth={1.5} />
+                        </button>
+                      )}
+                      {!compareMode && onRestoreSnapshot && (
+                        <button
+                          type="button"
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-ink-faint opacity-0 group-hover:opacity-100 hover:text-success hover:bg-success-bg/50 transition-all duration-200 shrink-0"
+                          onClick={(e) => handleRestore(snapshot, e)}
+                          aria-label="恢复版本"
+                          title="恢复此版本"
+                        >
+                          <RotateCcw size={12} strokeWidth={1.5} />
+                        </button>
                       )}
                       {!compareMode && onCompare && (
                         <button

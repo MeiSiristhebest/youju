@@ -1,3 +1,4 @@
+import { useGSAP } from '@gsap/react'
 import {
   File,
   FileCode,
@@ -10,9 +11,11 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fileParser } from '../../algorithms/fileParser'
 import { TYPE_LABELS } from '../../constants/workspace'
+import { gsap } from '../../lib/gsap'
+import { ocrService } from '../../services/ocrService'
 import { sourceApi } from '../../services/sourceApi'
 import type { ParsedSource, Source, SourceType } from '../../types'
 
@@ -23,6 +26,7 @@ interface AddSourceModalProps {
   onClose: () => void
   onAddSource: (source: Source) => void
   defaultType?: SourceType
+  initialFiles?: File[]
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -42,6 +46,7 @@ export function AddSourceModal({
   onClose,
   onAddSource,
   defaultType = 'chat',
+  initialFiles,
 }: AddSourceModalProps) {
   const [activeTab, setActiveTab] = useState<AddSourceTab>('text')
   const [sourceType, setSourceType] = useState<SourceType>(defaultType)
@@ -55,6 +60,8 @@ export function AddSourceModal({
   const [parsingStatus, setParsingStatus] = useState<string>('')
   const [parsedResult, setParsedResult] = useState<ParsedSource | null>(null)
   const [parseError, setParseError] = useState<string>('')
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   const resetAndClose = () => {
     setActiveTab('text')
@@ -69,6 +76,35 @@ export function AddSourceModal({
     setParseError('')
     onClose()
   }
+
+  useEffect(() => {
+    if (isOpen && initialFiles && initialFiles.length > 0) {
+      setActiveTab('file')
+      handleParseFile(initialFiles[0])
+    }
+  }, [isOpen, initialFiles])
+
+  useGSAP(
+    () => {
+      if (!isOpen) return
+
+      const isMobile = window.matchMedia('(max-width: 768px)').matches
+      if (isMobile) return
+
+      gsap.fromTo(
+        modalRef.current,
+        { scale: 0.96, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.25, ease: 'back.out(1.4)' },
+      )
+
+      gsap.fromTo(
+        overlayRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2, ease: 'power2.out' },
+      )
+    },
+    { scope: overlayRef, dependencies: [isOpen] },
+  )
 
   const handleAddText = async () => {
     if (!sourceName || !sourceContent) return
@@ -166,21 +202,17 @@ export function AddSourceModal({
     }
 
     try {
-      const Tesseract = await import('tesseract.js')
-
-      const result = await Tesseract.recognize(file, 'chi_sim+eng', {
-        logger: (m: { status: string; progress?: number }) => {
-          const statusText = statusMap[m.status] || m.status
-          if (m.status === 'recognizing text') {
-            setOcrProgress(`${statusText} ${Math.round((m.progress || 0) * 100)}%`)
-          } else {
-            setOcrProgress(statusText)
-          }
-        },
+      const result = await ocrService.recognize(file, (status, progress) => {
+        const statusText = statusMap[status] || status
+        if (status === 'recognizing text') {
+          setOcrProgress(`${statusText} ${Math.round(progress * 100)}%`)
+        } else {
+          setOcrProgress(statusText)
+        }
       })
 
-      const text = result.data.text.trim()
-      const confidence = result.data.confidence || 0
+      const text = result.text.trim()
+      const confidence = result.confidence || 0
 
       if (text.length === 0) {
         setOcrProgress('未识别到文字，请尝试更清晰的截图')
@@ -212,6 +244,7 @@ export function AddSourceModal({
 
   return (
     <div
+      ref={overlayRef}
       role="button"
       tabIndex={-1}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center z-[1000] p-5"
@@ -219,7 +252,10 @@ export function AddSourceModal({
         if (e.target === e.currentTarget) resetAndClose()
       }}
     >
-      <div className="bg-paper border border-rule rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-lg">
+      <div
+        ref={modalRef}
+        className="bg-paper border border-rule rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-lg"
+      >
         <div className="px-5 py-4 border-b border-rule flex justify-between items-center shrink-0">
           <h3 className="text-base font-semibold text-ink font-display tracking-tight">添加材料</h3>
           <button
@@ -351,7 +387,7 @@ export function AddSourceModal({
                 <div
                   className={`border-2 border-dashed border-rule rounded-lg p-10 text-center transition-colors duration-200 hover:border-accent hover:bg-accent-bg/30 ${
                     fileDragOver ? 'border-accent bg-accent-bg' : ''
-                  } ${parseError ? 'border-error' : ''}`}
+                  } ${parseError ? 'border-danger' : ''}`}
                   onDragOver={(e) => {
                     e.preventDefault()
                     setFileDragOver(true)
@@ -385,7 +421,7 @@ export function AddSourceModal({
                 </div>
 
                 {parseError && (
-                  <div className="mt-3 text-xs text-error font-medium">{parseError}</div>
+                  <div className="mt-3 text-xs text-danger font-medium">{parseError}</div>
                 )}
                 {parsingStatus && (
                   <div className="mt-3 text-xs text-accent font-medium">{parsingStatus}</div>

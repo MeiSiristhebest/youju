@@ -1,6 +1,6 @@
+import { useGSAP } from '@gsap/react'
 import {
   AlertTriangle,
-  Check,
   CheckCircle,
   ChevronDown,
   Clock,
@@ -13,11 +13,14 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
 import { cn } from '@/lib/utils'
+import { gsap } from '../../lib/gsap'
+import { useAnalysisStore } from '../../stores'
 import type { Evidence, Risk, RiskLevel, RiskStatus } from '../../types'
+import { AiInlineEditor } from '../workspace/AiInlineEditor'
 
 interface RiskDetailModalProps {
   risk: Risk | null
@@ -72,22 +75,51 @@ export function RiskDetailModal({
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [notesText, setNotesText] = useState(notes || '')
   const [isSaving, setIsSaving] = useState(false)
+  const [showAiEditor, setShowAiEditor] = useState(false)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+  const updateRiskDescription = useAnalysisStore((s) => s.updateRiskDescription)
+  const aiEditorTargetRiskId = useAnalysisStore((s) => s.aiEditorTargetRiskId)
+  const setAiEditorTargetRiskId = useAnalysisStore((s) => s.setAiEditorTargetRiskId)
+
+  useEffect(() => {
+    if (aiEditorTargetRiskId && risk && aiEditorTargetRiskId === risk.id) {
+      setShowAiEditor(true)
+      setAiEditorTargetRiskId(null)
+    }
+  }, [aiEditorTargetRiskId, risk, setAiEditorTargetRiskId])
 
   useEffect(() => {
     if (!risk) return
     setNotesText(notes || '')
     setShowStatusMenu(false)
+    setShowAiEditor(false)
   }, [risk?.id, notes])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!risk) return
       if (e.key === 'Escape') {
+        if (showAiEditor) {
+          e.preventDefault()
+          setShowAiEditor(false)
+          return
+        }
         onClose()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        const target = e.target as HTMLElement
+        const isInInput =
+          target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+        if (isInInput) return
+        e.preventDefault()
+        e.stopPropagation()
+        setShowAiEditor(true)
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [risk, onClose, showAiEditor])
 
   const handleNotesChange = (value: string) => {
     setNotesText(value)
@@ -101,11 +133,39 @@ export function RiskDetailModal({
     }, 800)
   }
 
+  useGSAP(
+    () => {
+      if (!risk) return
+
+      const isMobile = window.matchMedia('(max-width: 768px)').matches
+      if (isMobile) return
+
+      gsap.fromTo(
+        modalRef.current,
+        { scale: 0.96, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.25, ease: 'back.out(1.4)' },
+      )
+
+      gsap.fromTo(
+        overlayRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2, ease: 'power2.out' },
+      )
+    },
+    { scope: overlayRef, dependencies: [risk?.id] },
+  )
+
   if (!risk) return null
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 md:p-8">
-      <div className="bg-paper border border-rule rounded-2xl w-full max-w-2xl h-[85vh] flex flex-col shadow-2xl">
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 md:p-8"
+    >
+      <div
+        ref={modalRef}
+        className="bg-paper border border-rule rounded-2xl w-full max-w-2xl h-[85vh] flex flex-col shadow-2xl"
+      >
         <div className="px-6 py-4 border-b border-rule flex items-center justify-between shrink-0">
           <div>
             <div className="text-xs font-mono text-accent tracking-widest uppercase mb-1">
@@ -237,8 +297,40 @@ export function RiskDetailModal({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div>
-            <h3 className="text-base font-semibold text-ink mb-3 font-display">{risk.title}</h3>
-            <p className="text-sm text-ink-muted leading-relaxed">{risk.description}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-ink mb-3 font-display">{risk.title}</h3>
+                <div className="relative group">
+                  <p className="text-sm text-ink-muted leading-relaxed">{risk.description}</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowAiEditor(!showAiEditor)}
+                    className={cn(
+                      'absolute -top-1 right-0 flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer',
+                      showAiEditor
+                        ? 'opacity-100 bg-accent text-paper'
+                        : 'opacity-0 group-hover:opacity-100 bg-paper-dark text-ink-muted hover:text-accent border border-rule/60',
+                    )}
+                    title="AI 重写 (Cmd+K)"
+                  >
+                    <Sparkles size={11} />
+                    AI 重写
+                  </button>
+                </div>
+                {showAiEditor && (
+                  <AiInlineEditor
+                    originalText={risk.description}
+                    riskId={risk.id}
+                    size="md"
+                    onConfirm={(newText, instruction) => {
+                      updateRiskDescription(risk.id, newText, instruction)
+                      setShowAiEditor(false)
+                    }}
+                    onClose={() => setShowAiEditor(false)}
+                  />
+                )}
+              </div>
+            </div>
             {risk.levelChange?.upgraded && (
               <div className="mt-3 p-3 rounded-md bg-warning-bg/50 border border-warning/20">
                 <div className="flex items-center gap-2 text-xs text-warning font-medium">
@@ -335,9 +427,8 @@ export function RiskDetailModal({
                     </div>
                     <p className="text-sm text-ink-muted leading-relaxed italic pl-3 border-l-2 border-accent/40">
                       "
-                      {ev.highlightedText ? (
-                        <>
-                          {ev.quote
+                      {ev.highlightedText
+                        ? ev.quote
                             .split(ev.highlightedText)
                             .map((part: string, i: number, arr: string[]) => (
                               <span key={i}>
@@ -348,11 +439,8 @@ export function RiskDetailModal({
                                   </mark>
                                 )}
                               </span>
-                            ))}
-                        </>
-                      ) : (
-                        ev.quote
-                      )}
+                            ))
+                        : ev.quote}
                       "
                     </p>
                     {onEvidenceClick && ev.sourceId && (

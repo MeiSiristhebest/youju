@@ -1,4 +1,9 @@
-import type { AIRawOutput, ReasoningStep, ScenarioKnowledge } from '../../../domain/types.js'
+import type {
+  AIRawOutput,
+  ReasoningStep,
+  ScenarioKnowledge,
+  SharedMainCallResult,
+} from '../../../domain/types.js'
 import { callAI } from '../../llm.js'
 import { mockAnalyze } from '../../mock.js'
 import {
@@ -41,14 +46,7 @@ export const outputSchema = {
   },
 }
 
-let sharedMainCallResult: {
-  parsed: AIRawOutput | null
-  model: string
-  tokenPrompt: number
-  tokenCompletion: number
-  rawOutput: string
-  isMock: boolean
-} | null = null
+let sharedMainCallResult: SharedMainCallResult | null = null
 
 let sharedMainCallPromise: Promise<void> | null = null
 
@@ -146,6 +144,11 @@ export function getSharedMainCallResult() {
   return sharedMainCallResult
 }
 
+export function setSharedMainCallResult(result: SharedMainCallResult | null) {
+  sharedMainCallResult = result
+  sharedMainCallPromise = null
+}
+
 export function resetSharedMainCallResult() {
   sharedMainCallResult = null
   sharedMainCallPromise = null
@@ -192,6 +195,7 @@ export const stepScenarioDiscovery: StepExecutor = async (
       _rawParsed: parsed,
       _isMock: result.isMock,
       _rawOutput: result.rawOutput,
+      mainCallResult: result,
     },
     modelVersion: result.model,
     promptVersion: CURRENT_PROMPT_VERSION,

@@ -1,19 +1,6 @@
 import { jwtVerify, SignJWT } from 'jose'
-import type { UserRepository } from '../domain/ports/repositories.js'
+import type { JwtPort } from '../domain/ports/jwtPort.js'
 import { getEnv } from './env.js'
-
-let _userRepo: UserRepository | null = null
-
-export function setUserRepository(repo: UserRepository): void {
-  _userRepo = repo
-}
-
-function getUserRepo(): UserRepository {
-  if (!_userRepo) {
-    throw new Error('UserRepository not set. Call setUserRepository() first.')
-  }
-  return _userRepo
-}
 
 const JWT_SECRET = new TextEncoder().encode(getEnv().JWT_SECRET)
 const JWT_EXPIRES_IN = '7d'
@@ -43,6 +30,11 @@ export async function verifyToken(token: string): Promise<number | null> {
   }
 }
 
+export const jwtAdapter: JwtPort = {
+  generateToken,
+  verifyToken,
+}
+
 interface SimpleRequest {
   headers: {
     authorization?: string
@@ -65,25 +57,6 @@ export async function getUserIdAndSessionId(req: SimpleRequest): Promise<{
   const userId = await getUserIdFromReq(req)
   const sessionId = getSessionIdFromReq(req)
   return { userId, sessionId }
-}
-
-export async function wechatLoginMock(code?: string) {
-  const mockOpenid = code ? `wx_${code}` : `wx_guest_${Date.now()}`
-  const mockNicknames = ['微信用户', '小据同学', '有据用户', 'AI助手']
-  const nickname = mockNicknames[Math.floor(Math.random() * mockNicknames.length)]
-  const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${mockOpenid}`
-
-  const user = await getUserRepo().findOrCreateUser(mockOpenid, nickname, avatar)
-  const token = await generateToken(Number(user.id))
-
-  return {
-    token,
-    user: {
-      id: user.id,
-      nickname: user.nickname,
-      avatar: user.avatar,
-    },
-  }
 }
 
 export async function getUserIdFromReq(req: SimpleRequest): Promise<number | null> {

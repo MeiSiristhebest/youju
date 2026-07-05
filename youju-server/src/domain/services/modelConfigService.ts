@@ -39,17 +39,119 @@ type ModelConfigRepo = {
   setDefault(id: string, userId: number | null, sessionId: string | null): Promise<boolean>
 }
 
-let _repo: ModelConfigRepo | null = null
+export class ModelConfigService {
+  constructor(private readonly repo: ModelConfigRepo) {}
 
-export function setModelConfigRepository(repo: ModelConfigRepo): void {
-  _repo = repo
-}
-
-function getRepo(): ModelConfigRepo {
-  if (!_repo) {
-    throw new Error('ModelConfigRepository not set.')
+  async listModelConfigs(
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<UserModelConfig[]> {
+    const configs = await this.repo.listConfigs(userId, sessionId)
+    return configs.map(toDomain)
   }
-  return _repo
+
+  async getModelConfig(
+    id: string,
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<UserModelConfig | null> {
+    const config = await this.repo.getConfigById(id)
+    if (!config) return null
+
+    const ownerMatch =
+      (userId && config.user_id === userId) ||
+      (sessionId && config.session_id === sessionId && config.user_id === null)
+    if (!ownerMatch) return null
+
+    return toDomain(config)
+  }
+
+  async getDefaultModelConfig(
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<UserModelConfig | null> {
+    const config = await this.repo.getDefaultConfig(userId, sessionId)
+    if (!config) return null
+    return toDomain(config)
+  }
+
+  async createModelConfig(
+    userId: number | null,
+    sessionId: string | null,
+    data: {
+      name: string
+      provider: string
+      apiKey: string
+      baseURL: string
+      model: string
+      modelMappings?: Array<{ alias: string; model: string }>
+      isDefault?: boolean
+    },
+  ): Promise<UserModelConfig> {
+    const config = await this.repo.createConfig(userId, sessionId, {
+      name: data.name,
+      provider: data.provider || 'openai-compatible',
+      apiKey: data.apiKey,
+      baseURL: data.baseURL,
+      model: data.model,
+      modelMappings: JSON.stringify(data.modelMappings || []),
+      isDefault: data.isDefault || false,
+    })
+    return toDomain(config)
+  }
+
+  async updateModelConfig(
+    id: string,
+    userId: number | null,
+    sessionId: string | null,
+    data: {
+      name?: string
+      provider?: string
+      apiKey?: string
+      baseURL?: string
+      model?: string
+      modelMappings?: Array<{ alias: string; model: string }>
+      isDefault?: boolean
+    },
+  ): Promise<UserModelConfig | null> {
+    const updateData: {
+      name?: string
+      provider?: string
+      apiKey?: string
+      baseURL?: string
+      model?: string
+      modelMappings?: string
+      isDefault?: boolean
+    } = {}
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.provider !== undefined) updateData.provider = data.provider
+    if (data.apiKey !== undefined) updateData.apiKey = data.apiKey
+    if (data.baseURL !== undefined) updateData.baseURL = data.baseURL
+    if (data.model !== undefined) updateData.model = data.model
+    if (data.modelMappings !== undefined)
+      updateData.modelMappings = JSON.stringify(data.modelMappings)
+    if (data.isDefault !== undefined) updateData.isDefault = data.isDefault
+
+    const config = await this.repo.updateConfig(id, userId, sessionId, updateData)
+    if (!config) return null
+    return toDomain(config)
+  }
+
+  async deleteModelConfig(
+    id: string,
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<boolean> {
+    return this.repo.deleteConfig(id, userId, sessionId)
+  }
+
+  async setDefaultModelConfig(
+    id: string,
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<boolean> {
+    return this.repo.setDefault(id, userId, sessionId)
+  }
 }
 
 function toDomain(db: DbModelConfig): UserModelConfig {
@@ -73,115 +175,4 @@ function toDomain(db: DbModelConfig): UserModelConfig {
     createdAt: db.created_at,
     updatedAt: db.updated_at,
   }
-}
-
-export async function listModelConfigs(
-  userId: number | null,
-  sessionId: string | null,
-): Promise<UserModelConfig[]> {
-  const configs = await getRepo().listConfigs(userId, sessionId)
-  return configs.map(toDomain)
-}
-
-export async function getModelConfig(
-  id: string,
-  userId: number | null,
-  sessionId: string | null,
-): Promise<UserModelConfig | null> {
-  const config = await getRepo().getConfigById(id)
-  if (!config) return null
-
-  const ownerMatch =
-    (userId && config.user_id === userId) ||
-    (sessionId && config.session_id === sessionId && config.user_id === null)
-  if (!ownerMatch) return null
-
-  return toDomain(config)
-}
-
-export async function getDefaultModelConfig(
-  userId: number | null,
-  sessionId: string | null,
-): Promise<UserModelConfig | null> {
-  const config = await getRepo().getDefaultConfig(userId, sessionId)
-  if (!config) return null
-  return toDomain(config)
-}
-
-export async function createModelConfig(
-  userId: number | null,
-  sessionId: string | null,
-  data: {
-    name: string
-    provider: string
-    apiKey: string
-    baseURL: string
-    model: string
-    modelMappings?: Array<{ alias: string; model: string }>
-    isDefault?: boolean
-  },
-): Promise<UserModelConfig> {
-  const config = await getRepo().createConfig(userId, sessionId, {
-    name: data.name,
-    provider: data.provider || 'openai-compatible',
-    apiKey: data.apiKey,
-    baseURL: data.baseURL,
-    model: data.model,
-    modelMappings: JSON.stringify(data.modelMappings || []),
-    isDefault: data.isDefault || false,
-  })
-  return toDomain(config)
-}
-
-export async function updateModelConfig(
-  id: string,
-  userId: number | null,
-  sessionId: string | null,
-  data: {
-    name?: string
-    provider?: string
-    apiKey?: string
-    baseURL?: string
-    model?: string
-    modelMappings?: Array<{ alias: string; model: string }>
-    isDefault?: boolean
-  },
-): Promise<UserModelConfig | null> {
-  const updateData: {
-    name?: string
-    provider?: string
-    apiKey?: string
-    baseURL?: string
-    model?: string
-    modelMappings?: string
-    isDefault?: boolean
-  } = {}
-  if (data.name !== undefined) updateData.name = data.name
-  if (data.provider !== undefined) updateData.provider = data.provider
-  if (data.apiKey !== undefined) updateData.apiKey = data.apiKey
-  if (data.baseURL !== undefined) updateData.baseURL = data.baseURL
-  if (data.model !== undefined) updateData.model = data.model
-  if (data.modelMappings !== undefined)
-    updateData.modelMappings = JSON.stringify(data.modelMappings)
-  if (data.isDefault !== undefined) updateData.isDefault = data.isDefault
-
-  const config = await getRepo().updateConfig(id, userId, sessionId, updateData)
-  if (!config) return null
-  return toDomain(config)
-}
-
-export async function deleteModelConfig(
-  id: string,
-  userId: number | null,
-  sessionId: string | null,
-): Promise<boolean> {
-  return getRepo().deleteConfig(id, userId, sessionId)
-}
-
-export async function setDefaultModelConfig(
-  id: string,
-  userId: number | null,
-  sessionId: string | null,
-): Promise<boolean> {
-  return getRepo().setDefault(id, userId, sessionId)
 }

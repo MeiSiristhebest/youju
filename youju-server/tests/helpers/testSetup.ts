@@ -5,6 +5,7 @@ import { NeonDriver } from '../../src/data/drivers/NeonDriver.js'
 import {
   POSTGRES_ADD_COLUMNS,
   POSTGRES_INDEXES,
+  POSTGRES_RLS_POLICIES,
   POSTGRES_SCHEMA_SQL,
 } from '../../src/data/schema/postgresSchema.js'
 import {
@@ -42,13 +43,21 @@ function createSqliteTestDriver(): DatabaseDriver & {
   const createIndexIfNotExists = (indexName: string, table: string, column: string) => {
     try {
       db.exec(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${table}(${column})`)
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   }
 
   for (const idx of SQLITE_INDEXES) {
-    createIndexIfNotExists(idx.name, idx.table, idx.column)
+    if (idx.definition) {
+      try {
+        db.exec(idx.definition)
+      } catch (_e) {
+        // ignore
+      }
+    } else {
+      createIndexIfNotExists(idx.name, idx.table!, idx.column!)
+    }
   }
 
   // 创建事务驱动实现
@@ -144,17 +153,28 @@ async function createNeonTestDriver(): Promise<DatabaseDriver> {
       await driver.exec(
         `ALTER TABLE ${col.table} ADD COLUMN IF NOT EXISTS ${col.column} ${col.definition}`,
       )
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   }
 
   for (const idx of POSTGRES_INDEXES) {
     try {
-      await driver.exec(`CREATE INDEX IF NOT EXISTS ${idx.name} ON ${idx.table}(${idx.column})`)
-    } catch (e) {
+      if (idx.definition) {
+        await driver.exec(idx.definition)
+      } else {
+        await driver.exec(`CREATE INDEX IF NOT EXISTS ${idx.name} ON ${idx.table}(${idx.column})`)
+      }
+    } catch (_e) {
       // ignore
     }
+  }
+
+  // 启用 RLS 策略
+  try {
+    await driver.exec(POSTGRES_RLS_POLICIES)
+  } catch (e) {
+    console.warn('RLS policies setup failed:', e)
   }
 
   return driver

@@ -1,3 +1,5 @@
+import { decodeJwt } from 'jose'
+import { useApiLogsStore } from '../stores'
 import type { ApiResponse, User } from '../types'
 import { ApiError, ErrorCode, getErrorCodeFromStatus } from './errorHandler'
 
@@ -44,16 +46,7 @@ const getUser = (): User | null => {
 
 const parseJwt = (token: string): Record<string, unknown> | null => {
   try {
-    const base64Url = token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
-        .split('')
-        .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
-        .join(''),
-    )
-    return JSON.parse(jsonPayload)
+    return decodeJwt(token) as Record<string, unknown>
   } catch {
     return null
   }
@@ -126,6 +119,31 @@ const logResponse = (url: string, status: number, data: unknown, duration: numbe
   console.log(`[API Response] ${method} ${url} ${status} (${duration}ms)`, data)
 }
 
+const recordApiLog = (
+  method: string,
+  url: string,
+  statusCode: number,
+  durationMs: number,
+  requestBody?: unknown,
+  responseBody?: unknown,
+  error?: string,
+) => {
+  try {
+    const path = url.startsWith('http') ? new URL(url).pathname : url
+    useApiLogsStore.getState().addLog({
+      method: method.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
+      path,
+      statusCode,
+      durationMs,
+      requestBody,
+      responseBody,
+      error,
+    })
+  } catch {
+    // 忽略日志记录错误
+  }
+}
+
 const validateResponse = <T>(response: ApiResponse<T>): T => {
   if (response.code !== 200) {
     const code = getErrorCodeFromStatus(response.code)
@@ -186,6 +204,15 @@ export const apiClient = {
 
     logRequest(finalUrl, { ...fetchOptions, headers, signal: abortSignal })
 
+    let requestBody: unknown
+    if (fetchOptions.body && !(fetchOptions.body instanceof FormData)) {
+      try {
+        requestBody = JSON.parse(fetchOptions.body as string)
+      } catch {
+        requestBody = fetchOptions.body
+      }
+    }
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       if (attempt > 0) {
         await sleep(RETRY_DELAY * 2 ** (attempt - 1))
@@ -202,9 +229,27 @@ export const apiClient = {
           logResponse(url, response.status, data, duration)
 
           try {
-            return validateResponse<T>(data)
+            const result = validateResponse<T>(data)
+            recordApiLog(
+              fetchOptions.method || 'GET',
+              url,
+              response.status,
+              duration,
+              requestBody,
+              data,
+            )
+            return result
           } catch (validationError) {
             logResponse(url, response.status, { error: 'Validation failed', data }, duration)
+            recordApiLog(
+              fetchOptions.method || 'GET',
+              url,
+              (validationError as ApiError).status || response.status,
+              duration,
+              requestBody,
+              data,
+              (validationError as Error).message,
+            )
             throw validationError
           }
         }
@@ -236,23 +281,58 @@ export const apiClient = {
           }
 
           const code = ErrorCode.AUTH_ERROR
-          throw new ApiError(code, errorData.msg || '登录失效', response.status, errorData)
+          const apiError = new ApiError(
+            code,
+            errorData.msg || '登录失效',
+            response.status,
+            errorData,
+          )
+          recordApiLog(
+            fetchOptions.method || 'GET',
+            url,
+            response.status,
+            duration,
+            requestBody,
+            errorData,
+            errorData.msg || '登录失效',
+          )
+          throw apiError
         }
 
         if (!isRetriableError(null, response) || attempt >= retries) {
           const code = getErrorCodeFromStatus(response.status)
-          throw new ApiError(
+          const apiError = new ApiError(
             code,
             errorData.msg || `请求失败: ${response.status}`,
             response.status,
             errorData,
           )
+          recordApiLog(
+            fetchOptions.method || 'GET',
+            url,
+            response.status,
+            duration,
+            requestBody,
+            errorData,
+            errorData.msg || `请求失败: ${response.status}`,
+          )
+          throw apiError
         }
       } catch (error: unknown) {
         clearTimeout(timeoutId)
         lastError = error
 
         if (error instanceof Error && error.name === 'AbortError') {
+          const duration = Date.now() - startTime
+          recordApiLog(
+            fetchOptions.method || 'GET',
+            url,
+            408,
+            duration,
+            requestBody,
+            undefined,
+            '请求超时',
+          )
           throw new ApiError(ErrorCode.TIMEOUT_ERROR, '请求超时，请稍后重试', 408, null, error)
         }
 
@@ -261,6 +341,17 @@ export const apiClient = {
         }
 
         if (!isRetriableError(error) || attempt >= retries) {
+          const duration = Date.now() - startTime
+          const errorMessage = error instanceof Error ? error.message : '网络错误'
+          recordApiLog(
+            fetchOptions.method || 'GET',
+            url,
+            -1,
+            duration,
+            requestBody,
+            undefined,
+            errorMessage,
+          )
           throw new ApiError(
             ErrorCode.NETWORK_ERROR,
             '网络连接失败，请检查网络',

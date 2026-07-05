@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { useSyncExternalStore } from 'react'
 import type { IncrementalPrediction } from '../algorithms/incrementalEngine'
 import type {
   AnalysisDimension,
@@ -8,46 +8,29 @@ import type {
   Risk,
   RiskStatus,
 } from '../types'
+import { useAnalysisDimensionStore } from './useAnalysisDimensionStore'
+import { useAnalysisResultStore } from './useAnalysisResultStore'
+import { useAnalysisRiskStore } from './useAnalysisRiskStore'
+import type { AnalysisLogEntry, AnalysisTaskStatus } from './useAnalysisStepStore'
+import { useAnalysisStepStore } from './useAnalysisStepStore'
+import { useAnalysisUIStore } from './useAnalysisUIStore'
 
-const RISK_WORKFLOW_STORAGE_KEY = 'youju_risk_workflow'
+export type { AnalysisLogEntry, AnalysisTaskStatus }
 
-interface RiskWorkflowState {
-  statuses: Record<string, RiskStatus>
-  notes: Record<string, { content: string; updatedAt: string }>
-}
-
-function loadRiskWorkflow(): RiskWorkflowState {
-  try {
-    const saved = localStorage.getItem(RISK_WORKFLOW_STORAGE_KEY)
-    if (saved) {
-      return JSON.parse(saved)
-    }
-  } catch (e) {
-    console.error('Failed to load risk workflow state:', e)
-  }
-  return { statuses: {}, notes: {} }
-}
-
-function saveRiskWorkflow(state: RiskWorkflowState) {
-  try {
-    localStorage.setItem(RISK_WORKFLOW_STORAGE_KEY, JSON.stringify(state))
-  } catch (e) {
-    console.error('Failed to save risk workflow state:', e)
-  }
-}
-
-interface AnalysisCacheEntry {
-  key: string
-  result: AnalyzeResult
-  timestamp: number
-  sourceIds: string[]
-}
-
-interface AnalysisState {
+export interface AnalysisState {
   result: AnalyzeResult | null
   analyzing: boolean
   analysisStep: number
-  activeTab: 'risks' | 'checklist' | 'aligned' | 'entities' | 'relations' | 'trace' | 'dimensions'
+  activeTab:
+    | 'overview'
+    | 'risks'
+    | 'checklist'
+    | 'aligned'
+    | 'entities'
+    | 'relations'
+    | 'trace'
+    | 'dimensions'
+    | 'chat'
   highlightedRisk: string | null
   highlightedEvidence: { sourceId: string; quote: string } | null
   checklist: ChecklistItem[]
@@ -64,7 +47,6 @@ interface AnalysisState {
   incrementalPrediction: IncrementalPrediction | null
   cacheHit: boolean
   lastAnalysisDuration: number
-  analysisCache: AnalysisCacheEntry[]
   showIncrementalBanner: boolean
   forceFullAnalysis: boolean
   previousResult: AnalyzeResult | null
@@ -73,19 +55,44 @@ interface AnalysisState {
   riskStatusFilter: RiskStatus | 'all'
   riskStatuses: Record<string, RiskStatus>
   riskNotes: Record<string, { content: string; updatedAt: string }>
+  failedSteps: Set<number>
+  skippedSteps: Set<number>
+  taskStatus: AnalysisTaskStatus
+  analysisLogs: AnalysisLogEntry[]
+  lastErrorTimestamp: string | null
+  cancelled: boolean
+  riskEditHistory: Record<
+    string,
+    {
+      originalDescription: string
+      newDescription: string
+      instruction: string
+      timestamp: string
+    }[]
+  >
+  aiEditorTargetRiskId: string | null
 
   setResult: (result: AnalyzeResult | null) => void
   setAnalyzing: (analyzing: boolean) => void
   setAnalysisStep: (step: number) => void
   setActiveTab: (
-    tab: 'risks' | 'checklist' | 'aligned' | 'entities' | 'relations' | 'trace' | 'dimensions',
+    tab:
+      | 'overview'
+      | 'risks'
+      | 'checklist'
+      | 'aligned'
+      | 'entities'
+      | 'relations'
+      | 'trace'
+      | 'dimensions'
+      | 'chat',
   ) => void
   setHighlightedRisk: (id: string | null) => void
   setHighlightedEvidence: (ev: { sourceId: string; quote: string } | null) => void
   setChecklist: (checklist: ChecklistItem[]) => void
   toggleCheckItem: (id: string) => void
   setShowDraft: (show: boolean) => void
-  setDraftText: (text: string) => void
+  setDraftText: (text: string | ((prev: string) => string)) => void
   setGeneratingDraft: (generating: boolean) => void
   setSelectedRisk: (risk: Risk | null) => void
   setShowDebug: (show: boolean) => void
@@ -117,232 +124,161 @@ interface AnalysisState {
   setRiskNotes: (riskId: string, notes: string) => void
   getRiskStatus: (riskId: string, defaultStatus?: RiskStatus) => RiskStatus
   getRiskNotes: (riskId: string) => { content: string; updatedAt: string } | null
+  markStepFailed: (stepIndex: number) => void
+  markStepSkipped: (stepIndex: number) => void
+  clearFailedSteps: () => void
+  retryStep: (stepIndex: number) => void
+  resetStepControl: () => void
+  setTaskStatus: (status: AnalysisTaskStatus) => void
+  addAnalysisLog: (entry: Omit<AnalysisLogEntry, 'id' | 'timestamp'>) => void
+  clearAnalysisLogs: () => void
+  setLastErrorTimestamp: (timestamp: string | null) => void
+  setCancelled: (cancelled: boolean) => void
+  updateRiskDescription: (riskId: string, newDescription: string, instruction: string) => void
+  getRiskEditHistory: (riskId: string) => {
+    originalDescription: string
+    newDescription: string
+    instruction: string
+    timestamp: string
+  }[]
+  setAiEditorTargetRiskId: (riskId: string | null) => void
 }
 
-export const useAnalysisStore = create<AnalysisState>((set, get) => {
-  const initialWorkflow = loadRiskWorkflow()
+function getAnalysisState(): AnalysisState {
+  const resultState = useAnalysisResultStore.getState()
+  const dimensionState = useAnalysisDimensionStore.getState()
+  const riskState = useAnalysisRiskStore.getState()
+  const stepState = useAnalysisStepStore.getState()
+  const uiState = useAnalysisUIStore.getState()
 
   return {
-    result: null,
-    analyzing: false,
-    analysisStep: 0,
-    activeTab: 'risks',
-    highlightedRisk: null,
-    highlightedEvidence: null,
-    checklist: [],
-    showDraft: false,
-    draftText: '',
-    generatingDraft: false,
-    selectedRisk: null,
-    showDebug: false,
-    debugTab: 'info',
-    riskFeedback: {},
-    streaming: false,
-    streamProgress: 0,
-    streamError: null,
-    incrementalPrediction: null,
-    cacheHit: false,
-    lastAnalysisDuration: 0,
-    analysisCache: [],
-    showIncrementalBanner: true,
-    forceFullAnalysis: false,
-    previousResult: null,
-    dimensions: [],
-    showAddDimensionDialog: false,
-    riskStatusFilter: 'all',
-    riskStatuses: initialWorkflow.statuses,
-    riskNotes: initialWorkflow.notes,
+    result: resultState.result,
+    analyzing: resultState.analyzing,
+    analysisStep: stepState.analysisStep,
+    activeTab: uiState.activeTab,
+    highlightedRisk: riskState.highlightedRisk,
+    highlightedEvidence: riskState.highlightedEvidence,
+    checklist: resultState.checklist,
+    showDraft: uiState.showDraft,
+    draftText: uiState.draftText,
+    generatingDraft: uiState.generatingDraft,
+    selectedRisk: riskState.selectedRisk,
+    showDebug: uiState.showDebug,
+    debugTab: uiState.debugTab,
+    riskFeedback: riskState.riskFeedback,
+    streaming: stepState.streaming,
+    streamProgress: stepState.streamProgress,
+    streamError: stepState.streamError,
+    incrementalPrediction: resultState.incrementalPrediction,
+    cacheHit: resultState.cacheHit,
+    lastAnalysisDuration: resultState.lastAnalysisDuration,
+    showIncrementalBanner: resultState.showIncrementalBanner,
+    forceFullAnalysis: resultState.forceFullAnalysis,
+    previousResult: resultState.previousResult,
+    dimensions: dimensionState.dimensions,
+    showAddDimensionDialog: dimensionState.showAddDimensionDialog,
+    riskStatusFilter: riskState.riskStatusFilter,
+    riskStatuses: riskState.riskStatuses,
+    riskNotes: riskState.riskNotes,
+    failedSteps: stepState.failedSteps,
+    skippedSteps: stepState.skippedSteps,
+    taskStatus: resultState.taskStatus,
+    analysisLogs: stepState.analysisLogs,
+    lastErrorTimestamp: stepState.lastErrorTimestamp,
+    cancelled: resultState.cancelled,
+    riskEditHistory: riskState.riskEditHistory,
+    aiEditorTargetRiskId: riskState.aiEditorTargetRiskId,
 
-    setResult: (result) => set({ result }),
-    setAnalyzing: (analyzing) => set({ analyzing }),
-    setAnalysisStep: (analysisStep) => set({ analysisStep }),
-    setActiveTab: (activeTab) => set({ activeTab }),
-    setHighlightedRisk: (highlightedRisk) => set({ highlightedRisk }),
-    setHighlightedEvidence: (highlightedEvidence) => set({ highlightedEvidence }),
-    setChecklist: (checklist) => set({ checklist }),
-    toggleCheckItem: (id) => {
-      const { checklist } = get()
-      const newChecklist = checklist.map((c) => (c.id === id ? { ...c, checked: !c.checked } : c))
-      set({ checklist: newChecklist })
+    setResult: resultState.setResult,
+    setAnalyzing: resultState.setAnalyzing,
+    setAnalysisStep: stepState.setAnalysisStep,
+    setActiveTab: uiState.setActiveTab,
+    setHighlightedRisk: riskState.setHighlightedRisk,
+    setHighlightedEvidence: riskState.setHighlightedEvidence,
+    setChecklist: resultState.setChecklist,
+    toggleCheckItem: resultState.toggleCheckItem,
+    setShowDraft: uiState.setShowDraft,
+    setDraftText: uiState.setDraftText,
+    setGeneratingDraft: uiState.setGeneratingDraft,
+    setSelectedRisk: riskState.setSelectedRisk,
+    setShowDebug: uiState.setShowDebug,
+    setDebugTab: uiState.setDebugTab,
+    setRiskFeedback: riskState.setRiskFeedback,
+    setStreaming: stepState.setStreaming,
+    setStreamProgress: stepState.setStreamProgress,
+    setStreamError: stepState.setStreamError,
+    setIncrementalPrediction: resultState.setIncrementalPrediction,
+    setCacheHit: resultState.setCacheHit,
+    setLastAnalysisDuration: resultState.setLastAnalysisDuration,
+    setShowIncrementalBanner: resultState.setShowIncrementalBanner,
+    setForceFullAnalysis: resultState.setForceFullAnalysis,
+    setPreviousResult: resultState.setPreviousResult,
+    getCache: resultState.getCache,
+    setCache: resultState.setCache,
+    clearCache: resultState.clearCache,
+    resetAnalysis: () => {
+      resultState.resetAnalysis()
+      stepState.resetStepControl()
     },
-    setShowDraft: (showDraft) => set({ showDraft }),
-    setDraftText: (draftText) => set({ draftText }),
-    setGeneratingDraft: (generatingDraft) => set({ generatingDraft }),
-    setSelectedRisk: (selectedRisk) => set({ selectedRisk }),
-    setShowDebug: (showDebug) => set({ showDebug }),
-    setDebugTab: (debugTab) => set({ debugTab }),
-    setRiskFeedback: (riskId, feedback) =>
-      set((state) => ({
-        riskFeedback: { ...state.riskFeedback, [riskId]: feedback },
-      })),
-    setStreaming: (streaming) => set({ streaming }),
-    setStreamProgress: (streamProgress) => set({ streamProgress }),
-    setStreamError: (streamError) => set({ streamError }),
-    setIncrementalPrediction: (incrementalPrediction) => set({ incrementalPrediction }),
-    setCacheHit: (cacheHit) => set({ cacheHit }),
-    setLastAnalysisDuration: (lastAnalysisDuration) => set({ lastAnalysisDuration }),
-    setShowIncrementalBanner: (showIncrementalBanner) => set({ showIncrementalBanner }),
-    setForceFullAnalysis: (forceFullAnalysis) => set({ forceFullAnalysis }),
-    setPreviousResult: (previousResult) => set({ previousResult }),
-    getCache: (key) => {
-      const { analysisCache } = get()
-      const entry = analysisCache.find((c) => c.key === key)
-      if (!entry) return undefined
-      const now = Date.now()
-      if (now - entry.timestamp > 30 * 60 * 1000) {
-        set((state) => ({
-          analysisCache: state.analysisCache.filter((c) => c.key !== key),
-        }))
-        return undefined
-      }
-      return entry.result
-    },
-    setCache: (key, result) => {
-      const { analysisCache } = get()
-      const sourceIds = (result.meta?.sourceIds as string[]) || []
-      const newCache = analysisCache.filter((c) => c.key !== key)
-      newCache.unshift({
-        key,
-        result,
-        timestamp: Date.now(),
-        sourceIds,
-      })
-      if (newCache.length > 10) {
-        newCache.pop()
-      }
-      set({ analysisCache: newCache })
-    },
-    clearCache: () => set({ analysisCache: [] }),
-    resetAnalysis: () =>
-      set({
-        result: null,
-        analyzing: false,
-        analysisStep: 0,
-        checklist: [],
-        selectedRisk: null,
-        streaming: false,
-        streamProgress: 0,
-        streamError: null,
-        incrementalPrediction: null,
-        cacheHit: false,
-        lastAnalysisDuration: 0,
-        showIncrementalBanner: true,
-        previousResult: null,
-        dimensions: [],
-      }),
-
-    setDimensions: (dimensions) => set({ dimensions }),
-
-    toggleDimensionEnabled: (dimensionId) => {
-      const { dimensions } = get()
-      const newDimensions = dimensions.map((d) =>
-        d.id === dimensionId ? { ...d, enabled: !d.enabled } : d,
-      )
-      set({ dimensions: newDimensions })
-    },
-
-    updateDimensionWeight: (dimensionId, weight) => {
-      const { dimensions } = get()
-      const newDimensions = dimensions.map((d) =>
-        d.id === dimensionId ? { ...d, weight: Math.max(1, Math.min(5, weight)) } : d,
-      )
-      set({ dimensions: newDimensions })
-    },
-
-    moveDimension: (dimensionId, direction) => {
-      const { dimensions } = get()
-      const sorted = [...dimensions].sort((a, b) => a.order - b.order)
-      const index = sorted.findIndex((d) => d.id === dimensionId)
-      if (index === -1) return
-      if (direction === 'up' && index === 0) return
-      if (direction === 'down' && index === sorted.length - 1) return
-
-      const newIndex = direction === 'up' ? index - 1 : index + 1
-      const temp = sorted[index]
-      sorted[index] = sorted[newIndex]
-      sorted[newIndex] = temp
-
-      const newDimensions = sorted.map((d, i) => ({ ...d, order: i }))
-      set({ dimensions: newDimensions })
-    },
-
-    addCustomDimension: (name, description, priority) => {
-      const { dimensions } = get()
-      const weightMap: Record<DimensionPriority, number> = { high: 5, medium: 3, low: 1 }
-      const maxOrder = dimensions.length > 0 ? Math.max(...dimensions.map((d) => d.order)) : -1
-      const newDimension: AnalysisDimension = {
-        id: `custom_${Date.now()}`,
-        name,
-        description,
-        weight: weightMap[priority],
-        enabled: true,
-        riskCount: 0,
-        isCustom: true,
-        order: maxOrder + 1,
-      }
-      set({ dimensions: [...dimensions, newDimension] })
-    },
-
-    removeCustomDimension: (dimensionId) => {
-      const { dimensions } = get()
-      const newDimensions = dimensions.filter((d) => d.id !== dimensionId)
-      set({ dimensions: newDimensions })
-    },
-
-    resetDimensionWeights: () => {
-      const { dimensions } = get()
-      const nonCustomCount = dimensions.filter((d) => !d.isCustom).length
-      const baseWeight = nonCustomCount > 0 ? Math.max(3, Math.round(5 - nonCustomCount * 0.5)) : 3
-      const newDimensions = dimensions.map((d) => ({
-        ...d,
-        weight: d.isCustom ? (d.weight > 3 ? 3 : d.weight) : Math.max(2, baseWeight),
-      }))
-      set({ dimensions: newDimensions })
-    },
-
-    setShowAddDimensionDialog: (show) => set({ showAddDimensionDialog: show }),
-
-    setRiskStatusFilter: (filter) => set({ riskStatusFilter: filter }),
-
-    setRiskStatus: (riskId, status) => {
-      const { riskStatuses } = get()
-      const newStatuses = { ...riskStatuses, [riskId]: status }
-      set({ riskStatuses: newStatuses })
-      saveRiskWorkflow({ statuses: newStatuses, notes: get().riskNotes })
-    },
-
-    setRiskNotes: (riskId, notes) => {
-      const { riskNotes } = get()
-      const newNotes = {
-        ...riskNotes,
-        [riskId]: { content: notes, updatedAt: new Date().toISOString() },
-      }
-      set({ riskNotes: newNotes })
-      saveRiskWorkflow({ statuses: get().riskStatuses, notes: newNotes })
-    },
-
-    getRiskStatus: (riskId, defaultStatus = 'pending') => {
-      const { riskStatuses, result } = get()
-      if (riskStatuses[riskId]) {
-        return riskStatuses[riskId]
-      }
-      const risk = result?.risks.find((r) => r.id === riskId)
-      if (risk?.status) {
-        return risk.status
-      }
-      return defaultStatus
-    },
-
-    getRiskNotes: (riskId) => {
-      const { riskNotes, result } = get()
-      if (riskNotes[riskId]) {
-        return riskNotes[riskId]
-      }
-      const risk = result?.risks.find((r) => r.id === riskId)
-      if (risk?.notes && risk?.notesUpdatedAt) {
-        return { content: risk.notes, updatedAt: risk.notesUpdatedAt }
-      }
-      return null
-    },
+    setDimensions: dimensionState.setDimensions,
+    toggleDimensionEnabled: dimensionState.toggleDimensionEnabled,
+    updateDimensionWeight: dimensionState.updateDimensionWeight,
+    moveDimension: dimensionState.moveDimension,
+    addCustomDimension: dimensionState.addCustomDimension,
+    removeCustomDimension: dimensionState.removeCustomDimension,
+    resetDimensionWeights: dimensionState.resetDimensionWeights,
+    setShowAddDimensionDialog: dimensionState.setShowAddDimensionDialog,
+    setRiskStatusFilter: riskState.setRiskStatusFilter,
+    setRiskStatus: riskState.setRiskStatus,
+    setRiskNotes: riskState.setRiskNotes,
+    getRiskStatus: riskState.getRiskStatus,
+    getRiskNotes: riskState.getRiskNotes,
+    markStepFailed: stepState.markStepFailed,
+    markStepSkipped: stepState.markStepSkipped,
+    clearFailedSteps: stepState.clearFailedSteps,
+    retryStep: stepState.retryStep,
+    resetStepControl: stepState.resetStepControl,
+    setTaskStatus: resultState.setTaskStatus,
+    addAnalysisLog: stepState.addAnalysisLog,
+    clearAnalysisLogs: stepState.clearAnalysisLogs,
+    setLastErrorTimestamp: stepState.setLastErrorTimestamp,
+    setCancelled: resultState.setCancelled,
+    updateRiskDescription: riskState.updateRiskDescription,
+    getRiskEditHistory: riskState.getRiskEditHistory,
+    setAiEditorTargetRiskId: riskState.setAiEditorTargetRiskId,
   }
-})
+}
+
+function subscribe(listener: () => void): () => void {
+  const unsubResult = useAnalysisResultStore.subscribe(listener)
+  const unsubDimension = useAnalysisDimensionStore.subscribe(listener)
+  const unsubRisk = useAnalysisRiskStore.subscribe(listener)
+  const unsubStep = useAnalysisStepStore.subscribe(listener)
+  const unsubUI = useAnalysisUIStore.subscribe(listener)
+  return () => {
+    unsubResult()
+    unsubDimension()
+    unsubRisk()
+    unsubStep()
+    unsubUI()
+  }
+}
+
+function useAnalysisStore(): AnalysisState
+function useAnalysisStore<T>(selector: (state: AnalysisState) => T): T
+function useAnalysisStore<T>(selector?: (state: AnalysisState) => T): T | AnalysisState {
+  const state = useSyncExternalStore(
+    subscribe,
+    () => (selector ? selector(getAnalysisState()) : getAnalysisState()),
+    () => (selector ? selector(getAnalysisState()) : getAnalysisState()),
+  )
+  return state
+}
+
+useAnalysisStore.getState = getAnalysisState
+useAnalysisStore.setState = () => {
+  console.warn('useAnalysisStore.setState is not supported in facade mode')
+}
+useAnalysisStore.subscribe = subscribe
+
+export { useAnalysisStore }

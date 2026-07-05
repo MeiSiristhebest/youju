@@ -1,19 +1,24 @@
 import express from 'express'
-import * as sourceService from '../../domain/services/sourceService.js'
+import type { SourceService } from '../../domain/services/sourceService.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
-import { extractFromUrl, parseFile } from '../../infrastructure/fileParser/index.js'
+import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
+import { fetchUrl, parseFile } from '../../infrastructure/fileParser/index.js'
 import { detectFileType, getFileTypeLabel } from '../../infrastructure/fileParser/types.js'
-import { urlFetchRateLimiter } from '../middleware/rateLimiter.js'
+import { analyzeRateLimiter, urlFetchRateLimiter } from '../middleware/rateLimiter.js'
 import { validateBody } from '../middleware/zodValidator.js'
 import { sourceTextSchema, sourceUrlSchema } from '../validation/schemas.js'
 import { upload } from './_upload.js'
+
+function getSourceService(): SourceService {
+  return getService<SourceService>(Tokens.SourceService)
+}
 
 const router = express.Router()
 
 router.post('/sources/text', validateBody(sourceTextSchema), async (req, res) => {
   const { type, name, content } = req.body
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const source = await sourceService.createSource(userId, sessionId, type, name, content)
+  const source = await getSourceService().createSource(userId, sessionId, type, name, content)
   res.json({ code: 200, data: { sourceId: source.id, ...source } })
 })
 
@@ -74,7 +79,7 @@ router.post('/sources/upload', upload.single('file'), async (req, res) => {
     })
 
     const { userId, sessionId } = await getUserIdAndSessionId(req)
-    const source = await sourceService.createSource(
+    const source = await getSourceService().createSource(
       userId,
       sessionId,
       type || 'doc',
@@ -96,9 +101,9 @@ router.post(
   async (req, res) => {
     const { url, type = 'web', name } = req.body
     try {
-      const content = await extractFromUrl(url)
+      const content = await fetchUrl(url)
       const { userId, sessionId } = await getUserIdAndSessionId(req)
-      const source = await sourceService.createSource(
+      const source = await getSourceService().createSource(
         userId,
         sessionId,
         type,
@@ -115,14 +120,32 @@ router.post(
 
 router.get('/sources', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const sources = await sourceService.listSources(userId, sessionId)
+  const sources = await getSourceService().listSources(userId, sessionId)
   res.json({ code: 200, data: sources })
 })
 
 router.delete('/sources/:id', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const success = await sourceService.deleteSource(userId, sessionId, req.params.id)
+  const success = await getSourceService().deleteSource(userId, sessionId, req.params.id)
   res.json({ code: 200, data: { success } })
+})
+
+router.post('/sources/:id/reindex', analyzeRateLimiter, async (req, res) => {
+  const { userId, sessionId } = await getUserIdAndSessionId(req)
+
+  if (!sessionId) {
+    return res.status(401).json({ code: 401, msg: '未授权：缺少 session' })
+  }
+
+  const sourceId = String(req.params.id)
+  const source = await getSourceService().getSource(userId, sessionId, sourceId)
+  if (!source) {
+    return res.status(404).json({ code: 404, msg: '素材不存在' })
+  }
+
+  await getSourceService().reindexSource(source)
+
+  res.json({ code: 200, data: { sourceId, status: 'reindexing' } })
 })
 
 export default router

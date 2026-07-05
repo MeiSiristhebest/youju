@@ -5,7 +5,7 @@ import {
   handleRotateBackups,
   handleTimeDecay,
   handleWeeklyBackup,
-} from '../../infrastructure/cronHandlers.js'
+} from '../../infrastructure/scheduledTasks.js'
 
 const router = express.Router()
 

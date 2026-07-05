@@ -3,7 +3,6 @@ import {
   Check,
   CheckCircle,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock,
   FileText,
@@ -21,7 +20,11 @@ import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
 import { cn } from '@/lib/utils'
+import { useAnalysisStore } from '../../stores'
 import type { Evidence, Risk, RiskLevel, RiskStatus } from '../../types'
+import { AiInlineEditor } from './AiInlineEditor'
+import { ContextPanelSkeleton } from './ContextPanelSkeleton'
+import { WorkspaceEmpty } from './WorkspaceEmpty'
 
 interface ContextPanelProps {
   selectedRisk: Risk | null
@@ -38,6 +41,7 @@ interface ContextPanelProps {
   onNotesChange: (riskId: string, notes: string) => void
   onOpenRiskDetail?: (risk: Risk) => void
   onCollapse?: () => void
+  isLoading?: boolean
 }
 
 const RISK_TYPE_LABELS: Record<string, string> = {
@@ -82,10 +86,22 @@ export function ContextPanel({
   onNotesChange,
   onOpenRiskDetail,
   onCollapse,
+  isLoading = false,
 }: ContextPanelProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [notesText, setNotesText] = useState(notes || '')
   const [isSaving, setIsSaving] = useState(false)
+  const [showAiEditor, setShowAiEditor] = useState(false)
+  const updateRiskDescription = useAnalysisStore((s) => s.updateRiskDescription)
+  const aiEditorTargetRiskId = useAnalysisStore((s) => s.aiEditorTargetRiskId)
+  const setAiEditorTargetRiskId = useAnalysisStore((s) => s.setAiEditorTargetRiskId)
+
+  useEffect(() => {
+    if (aiEditorTargetRiskId && selectedRisk && aiEditorTargetRiskId === selectedRisk.id) {
+      setShowAiEditor(true)
+      setAiEditorTargetRiskId(null)
+    }
+  }, [aiEditorTargetRiskId, selectedRisk, setAiEditorTargetRiskId])
 
   const handleNotesChange = (value: string) => {
     setNotesText(value)
@@ -102,10 +118,30 @@ export function ContextPanel({
   useEffect(() => {
     setNotesText(notes || '')
     setShowStatusMenu(false)
+    setShowAiEditor(false)
   }, [selectedRisk?.id, notes])
 
-  return (
-    <div className="w-full bg-paper border-l border-rule flex flex-col shrink-0 h-full overflow-hidden">
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedRisk) return
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        const target = e.target as HTMLElement
+        const isInInput =
+          target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+        if (isInInput) return
+        e.preventDefault()
+        setShowAiEditor(true)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedRisk])
+
+  return isLoading ? (
+    <ContextPanelSkeleton />
+  ) : (
+    <div className="w-full bg-paper flex flex-col shrink-0 h-full overflow-hidden animate-[fadeIn_0.2s_ease-out]">
       {selectedRisk ? (
         <>
           <div className="px-4 py-3 border-b border-rule">
@@ -223,13 +259,13 @@ export function ContextPanel({
             <div>
               <div className="flex items-center gap-2 mb-2">
                 {selectedRisk.isNew && (
-                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold text-white bg-danger rounded-md shadow-sm">
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold text-white bg-danger rounded-md border border-danger/20">
                     NEW
                   </span>
                 )}
                 {selectedRisk.levelChange?.upgraded && (
                   <span
-                    className="inline-flex items-center justify-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white bg-warning rounded-md shadow-sm"
+                    className="inline-flex items-center justify-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white bg-warning rounded-md border border-warning/20"
                     title={`${RISK_LEVEL_LABELS[selectedRisk.levelChange.from]} → ${RISK_LEVEL_LABELS[selectedRisk.levelChange.to]}`}
                   >
                     <TrendingUp size={10} />
@@ -237,10 +273,38 @@ export function ContextPanel({
                   </span>
                 )}
               </div>
-              <h3 className="text-sm font-medium text-ink mb-2 leading-snug font-display tracking-tight">
+              <h3 className="text-lg font-medium text-ink mb-2 leading-snug font-display tracking-tight">
                 {selectedRisk.title}
               </h3>
-              <p className="text-xs text-ink-faint leading-relaxed">{selectedRisk.description}</p>
+              <div className="relative group">
+                <p className="text-xs text-ink-faint leading-relaxed">{selectedRisk.description}</p>
+                <button
+                  type="button"
+                  onClick={() => setShowAiEditor(!showAiEditor)}
+                  className={cn(
+                    'absolute -top-1 right-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium transition-all cursor-pointer',
+                    showAiEditor
+                      ? 'opacity-100 bg-accent text-paper'
+                      : 'opacity-0 group-hover:opacity-100 bg-paper-dark text-ink-muted hover:text-accent border border-rule/60',
+                  )}
+                  title="AI 重写 (Cmd+K)"
+                >
+                  <Sparkles size={10} />
+                  AI 重写
+                </button>
+              </div>
+              {showAiEditor && (
+                <AiInlineEditor
+                  originalText={selectedRisk.description}
+                  riskId={selectedRisk.id}
+                  size="sm"
+                  onConfirm={(newText, instruction) => {
+                    updateRiskDescription(selectedRisk.id, newText, instruction)
+                    setShowAiEditor(false)
+                  }}
+                  onClose={() => setShowAiEditor(false)}
+                />
+              )}
               {selectedRisk.levelChange?.upgraded && (
                 <div className="mt-2 p-2 rounded-md bg-warning-bg/50 border border-warning/20">
                   <div className="flex items-center gap-1.5 text-[10px] text-warning font-medium">
@@ -347,9 +411,8 @@ export function ContextPanel({
                       </div>
                       <p className="text-[11px] text-ink-muted leading-relaxed italic pl-2 border-l-2 border-accent/40">
                         "
-                        {ev.highlightedText ? (
-                          <>
-                            {ev.quote
+                        {ev.highlightedText
+                          ? ev.quote
                               .split(ev.highlightedText)
                               .map((part: string, i: number, arr: string[]) => (
                                 <span key={i}>
@@ -360,11 +423,8 @@ export function ContextPanel({
                                     </mark>
                                   )}
                                 </span>
-                              ))}
-                          </>
-                        ) : (
-                          ev.quote
-                        )}
+                              ))
+                          : ev.quote}
                         "
                       </p>
                       {onEvidenceClick && ev.sourceId && (
@@ -394,6 +454,7 @@ export function ContextPanel({
                 <button
                   type="button"
                   className="w-full text-left px-3 py-2 rounded-md text-[11px] text-ink-muted bg-paper-dark/60 cursor-pointer hover:bg-paper-dark hover:text-ink transition-colors duration-200 flex items-center gap-2 border border-rule/60"
+                  onClick={() => onStatusChange(selectedRisk.id, 'resolved')}
                 >
                   <CheckCircle size={12} strokeWidth={1.5} />
                   标记为已处理
@@ -467,12 +528,7 @@ export function ContextPanel({
           </div>
         </>
       ) : hasResult ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-12 h-12 rounded-full bg-paper-dark flex items-center justify-center mb-3 text-ink-faint border border-rule">
-            <ChevronLeft size={20} strokeWidth={1.5} />
-          </div>
-          <p className="text-xs text-ink-faint font-medium">点击左侧风险查看详情</p>
-        </div>
+        <WorkspaceEmpty type="context" />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
           <div className="w-12 h-12 rounded-full bg-paper-dark flex items-center justify-center mb-3 text-ink-faint border border-rule">

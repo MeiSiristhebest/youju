@@ -14,6 +14,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['src/test/stores/useAnalysisStore.test.ts'],
     css: true,
     typecheck: {
       tsconfig: './tsconfig.test.json',

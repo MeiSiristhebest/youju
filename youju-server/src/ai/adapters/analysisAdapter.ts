@@ -3,73 +3,24 @@ import type {
   AIStepOutput,
   AnalyzeResult,
   ScenarioKnowledge,
+  SharedMainCallResult,
   Source,
 } from '../../domain/types.js'
 import type { AIConfig } from '../llm.js'
+import { registerDefaultSteps } from '../pipeline/defaultSteps.js'
 import { PipelineExecutor } from '../pipeline/executor.js'
-import { stepCrossSourceExtraction } from '../pipeline/steps/step-cross-source-extraction.js'
-import { stepDimensionDiscovery } from '../pipeline/steps/step-dimension-discovery.js'
-import { stepDiscrepancyDetection } from '../pipeline/steps/step-discrepancy-detection.js'
-import { stepFinalOutput } from '../pipeline/steps/step-final-output.js'
-import { stepInputParsing } from '../pipeline/steps/step-input-parsing.js'
+import { defaultStepRegistry } from '../pipeline/registry.js'
 import {
   resetSharedMainCallResult,
-  stepScenarioDiscovery,
+  setSharedMainCallResult,
 } from '../pipeline/steps/step-scenario-discovery.js'
-import { stepSelfCheck } from '../pipeline/steps/step-self-check.js'
-import type {
-  PipelineState,
-  PipelineStep,
-  PipelineStepDefinition,
-  StepInput,
-} from '../pipeline/types.js'
-
-const STEP_DEFINITIONS: PipelineStepDefinition[] = [
-  {
-    id: 'step-scenario-discovery',
-    name: '场景发现',
-    maxRetries: 2,
-    execute: stepScenarioDiscovery,
-  },
-  {
-    id: 'step-input-parsing',
-    name: '输入解析',
-    maxRetries: 0,
-    execute: stepInputParsing,
-  },
-  {
-    id: 'step-dimension-discovery',
-    name: '维度发现',
-    maxRetries: 0,
-    execute: stepDimensionDiscovery,
-  },
-  {
-    id: 'step-cross-source-extraction',
-    name: '跨源提取',
-    maxRetries: 0,
-    execute: stepCrossSourceExtraction,
-  },
-  {
-    id: 'step-discrepancy-detection',
-    name: '差异检测',
-    maxRetries: 0,
-    execute: stepDiscrepancyDetection,
-  },
-  {
-    id: 'step-self-check',
-    name: '自检',
-    maxRetries: 1,
-    execute: stepSelfCheck,
-  },
-  {
-    id: 'step-final-output',
-    name: '最终输出',
-    maxRetries: 0,
-    execute: stepFinalOutput,
-  },
-]
+import type { PipelineStep } from '../pipeline/types.js'
 
 export class AnalysisAdapter implements AIAnalysisPort {
+  constructor() {
+    registerDefaultSteps()
+  }
+
   async analyze(
     sources: Source[],
     options: {
@@ -80,7 +31,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
       onStepComplete?: (step: { id: string; name: string; output: AIStepOutput }) => void
       onStepError?: (step: { id: string; name: string; error: string }) => void
       onProgress?: (state: Record<string, unknown>) => void
-    },
+    } = {},
   ): Promise<{
     result: AnalyzeResult
     steps: Array<{
@@ -99,7 +50,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
   }> {
     resetSharedMainCallResult()
 
-    const executor = new PipelineExecutor(STEP_DEFINITIONS, {
+    const executor = new PipelineExecutor(defaultStepRegistry.getAll(), {
       onStepStart: (step: PipelineStep) => {
         options.onStepStart?.({ id: step.id, name: step.name })
       },
@@ -120,6 +71,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
         })
       },
       onProgress: (state) => {
+        // PipelineState 是具体类型，转换为 Record<string, unknown> 用于对外回调
         options.onProgress?.(state as unknown as Record<string, unknown>)
       },
     })
@@ -172,6 +124,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
       stepOutputs: Record<string, unknown>
       lastCompletedStepId: string
       lastCompletedStepIndex: number
+      mainCallResult?: SharedMainCallResult
     },
     options: {
       scenarioType?: string
@@ -180,7 +133,7 @@ export class AnalysisAdapter implements AIAnalysisPort {
       onStepStart?: (step: { id: string; name: string }) => void
       onStepComplete?: (step: { id: string; name: string; output: AIStepOutput }) => void
       onStepError?: (step: { id: string; name: string; error: string }) => void
-    },
+    } = {},
   ): Promise<{
     result: AnalyzeResult
     steps: Array<{
@@ -197,9 +150,14 @@ export class AnalysisAdapter implements AIAnalysisPort {
     totalLatencyMs: number
     isMock: boolean
   }> {
-    resetSharedMainCallResult()
+    // 恢复 sharedMainCallResult：新 checkpoint 有 mainCallResult 字段时还原；旧 checkpoint 回退到旧行为
+    if (checkpoint.mainCallResult) {
+      setSharedMainCallResult(checkpoint.mainCallResult)
+    } else {
+      resetSharedMainCallResult()
+    }
 
-    const executor = new PipelineExecutor(STEP_DEFINITIONS, {
+    const executor = new PipelineExecutor(defaultStepRegistry.getAll(), {
       onStepStart: (step: PipelineStep) => {
         options.onStepStart?.({ id: step.id, name: step.name })
       },
@@ -225,27 +183,17 @@ export class AnalysisAdapter implements AIAnalysisPort {
     const resumeIndex = checkpoint.lastCompletedStepIndex + 1
     const previousOutputs = checkpoint.stepOutputs || {}
 
-    // 手动设置初始输入（resumeFromStep 需要 initialInput 已设置）
-    const initialInput = {
-      sources,
-      scenarioType: options.scenarioType,
-      scenarioKnowledge: options.scenarioKnowledge,
-      aiConfig: options.aiConfig,
-    }
-    const exec = executor as unknown as {
-      initialInput: Omit<StepInput, 'previousOutputs'> | null
-      initialPreviousOutputs: Record<string, unknown>
-      state: PipelineState
-    }
-    exec.initialInput = initialInput
-    exec.initialPreviousOutputs = { ...previousOutputs }
-
-    // 标记已完成的步骤
-    const state = executor.getState()
-    for (let i = 0; i <= checkpoint.lastCompletedStepIndex && i < state.steps.length; i++) {
-      state.steps[i].status = 'completed'
-    }
-    exec.state = state
+    // 准备恢复：设置 initialInput + initialPreviousOutputs + 标记已完成步骤
+    executor.prepareResumeFromCheckpoint(
+      {
+        sources,
+        scenarioType: options.scenarioType,
+        scenarioKnowledge: options.scenarioKnowledge,
+        aiConfig: options.aiConfig,
+      },
+      previousOutputs,
+      checkpoint.lastCompletedStepIndex + 1,
+    )
 
     const finalState = await executor.resumeFromStep(resumeIndex)
 

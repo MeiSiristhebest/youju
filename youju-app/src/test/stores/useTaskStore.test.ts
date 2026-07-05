@@ -19,13 +19,15 @@ const mockTasks: TaskRecord[] = [
   },
 ]
 
+const initialState = useTaskStore.getState()
+
 describe('useTaskStore', () => {
   beforeEach(() => {
-    useTaskStore.setState(useTaskStore.getInitialState())
+    useTaskStore.setState(initialState, true)
   })
 
   afterEach(() => {
-    useTaskStore.setState(useTaskStore.getInitialState())
+    useTaskStore.setState(initialState, true)
   })
 
   describe('初始状态', () => {

@@ -2,6 +2,8 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateText } from 'ai'
+import type { EmbeddingResult } from '../domain/ports/aiPorts.js'
+import { EmbeddingAdapter, embeddingAdapter } from './adapters/embeddingAdapter.js'
 import { aiRequestQueue } from './concurrencyLimiter.js'
 
 export interface AIResponse {
@@ -11,21 +13,11 @@ export interface AIResponse {
   model: string
 }
 
-export type ModelProvider =
-  | 'openai'
-  | 'anthropic'
-  | 'deepseek'
-  | 'zhipu'
-  | 'moonshot'
-  | 'qwen'
-  | 'custom'
+// ModelProvider 与 AIConfig 已迁移至 domain/types.ts（消除 domain ports 反向依赖）
+// 此处 import 供本文件内部使用，re-export 保持 ai 内部代码 import 兼容
+import type { AIConfig } from '../domain/types.js'
 
-export interface AIConfig {
-  provider?: ModelProvider
-  apiKey: string
-  baseURL: string
-  model: string
-}
+export type { AIConfig, ModelProvider } from '../domain/types.js'
 
 function getDefaultConfig(): AIConfig {
   return {
@@ -60,12 +52,6 @@ function createModel(config: AIConfig) {
       })
       return deepseek(model)
     }
-
-    case 'openai':
-    case 'zhipu':
-    case 'moonshot':
-    case 'qwen':
-    case 'custom':
     default: {
       // 所有 OpenAI 兼容的 provider 都走 createOpenAI
       const openai = createOpenAI({
@@ -175,4 +161,41 @@ export async function withRetry<T>(
     }
   }
   throw lastError || new Error('All retries failed')
+}
+
+/**
+ * 指数退避重试：delay = baseDelayMs * 2 ** attempt（默认 1s / 2s / 4s）。
+ * 独立于 withRetry，避免修改 callAI 已有的线性退避行为。
+ */
+async function retryWithExponentialBackoff<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  baseDelayMs: number = 1000,
+): Promise<T> {
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastError = e as Error
+      if (attempt < retries) {
+        const delay = baseDelayMs * 2 ** attempt
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+  }
+  throw lastError || new Error('All retries failed')
+}
+
+/**
+ * 调用 Embedding 服务，复用 aiRequestQueue 限流，失败按指数退避重试 3 次（1s / 2s / 4s）。
+ * 未配置 config 时使用全局 embeddingAdapter 单例（读取 EMBEDDING_* 环境变量）。
+ */
+export async function callEmbedding(
+  texts: string[],
+  config?: { baseURL?: string; apiKey?: string; model?: string },
+): Promise<EmbeddingResult[]> {
+  const adapter = config ? new EmbeddingAdapter(config) : embeddingAdapter
+
+  return aiRequestQueue.run(() => retryWithExponentialBackoff(() => adapter.embed(texts), 3, 1000))
 }

@@ -1,10 +1,19 @@
 import express from 'express'
-import * as shareService from '../../domain/services/shareService.js'
-import * as taskService from '../../domain/services/taskService.js'
+import type { ShareService } from '../../domain/services/shareService.js'
+import type { TaskService } from '../../domain/services/taskService.js'
 import type { AnalyzeResult, Share } from '../../domain/types.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
+import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
 import { validateBody } from '../middleware/zodValidator.js'
 import { shareCreateSchema, shareDeleteSchema } from '../validation/schemas.js'
+
+function getShareService(): ShareService {
+  return getService<ShareService>(Tokens.ShareService)
+}
+
+function getTaskService(): TaskService {
+  return getService<TaskService>(Tokens.TaskService)
+}
 
 const router = express.Router()
 
@@ -14,14 +23,14 @@ router.post(
   async (req, res) => {
     const { userId, sessionId } = await getUserIdAndSessionId(req)
     const taskId = String(req.params.taskId)
-    const task = await taskService.getTask(userId, sessionId, taskId)
+    const task = await getTaskService().getTask(userId, sessionId, taskId)
     if (!task) {
       return res.status(404).json({ code: 404, msg: '任务不存在' })
     }
 
     const expiresInDays = req.body.expiresInDays || 7
     const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
-    const share = await shareService.createShare(
+    const share = await getShareService().createShare(
       userId,
       sessionId,
       taskId,
@@ -43,14 +52,14 @@ router.post(
   },
 )
 
-router.get('/share/token/:token', async (req, res) => {
+router.get('/share/:token', async (req, res) => {
   const token = String(req.params.token)
-  const share = await shareService.getShareByToken(token)
+  const share = await getShareService().getShareByToken(token)
   if (!share) {
     return res.status(404).json({ code: 404, msg: '分享不存在或已过期' })
   }
 
-  const task = await taskService.getTask(null, null, String(share.taskId))
+  const task = await getTaskService().getTaskMetaForShare(String(share.taskId))
   if (!task) {
     return res.status(404).json({ code: 404, msg: '关联的任务不存在' })
   }
@@ -78,12 +87,12 @@ router.get('/share/token/:token', async (req, res) => {
 router.get('/share/task/:taskId', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
   const taskId = String(req.params.taskId)
-  const task = await taskService.getTask(userId, sessionId, taskId)
+  const task = await getTaskService().getTask(userId, sessionId, taskId)
   if (!task) {
     return res.status(404).json({ code: 404, msg: '任务不存在' })
   }
 
-  const shares = await shareService.getSharesByTask(taskId)
+  const shares = await getShareService().getSharesByTask(taskId)
   res.json({
     code: 200,
     data: shares.map((s: Share) => ({
@@ -99,13 +108,13 @@ router.get('/share/task/:taskId', async (req, res) => {
 router.delete('/share/:taskId', validateBody(shareDeleteSchema), async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
   const taskId = String(req.params.taskId)
-  const task = await taskService.getTask(userId, sessionId, taskId)
+  const task = await getTaskService().getTask(userId, sessionId, taskId)
   if (!task) {
     return res.status(404).json({ code: 404, msg: '任务不存在' })
   }
 
   const { token } = req.body
-  const success = await shareService.deleteShare(userId, sessionId, token)
+  const success = await getShareService().deleteShare(userId, sessionId, token)
   res.json({ code: 200, data: { success } })
 })
 

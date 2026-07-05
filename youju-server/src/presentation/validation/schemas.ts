@@ -117,6 +117,37 @@ export const draftEditSchema = z.object({
   editCount: z.number().int().min(1).max(1000).default(1),
 })
 
+export const retrieveSchema = z.object({
+  query: z.string().min(1).max(2000),
+  sourceIds: z.array(z.string()).optional(),
+  topK: z.number().int().min(1).max(50).optional(),
+})
+
+export const chatCreateSchema = z.object({
+  title: z.string().max(200).optional(),
+  scenarioType: z.string().max(50).optional(),
+  sourceIds: z.array(z.string()).optional(),
+  contextSourceIds: z.array(z.string()).optional(),
+})
+
+export const chatMessageSchema = z.object({
+  content: z.string().min(1).max(10000),
+  contextSourceIds: z.array(z.string()).optional(),
+  scenarioType: z.string().max(50).optional(),
+})
+
+export const chatFeedbackSchema = z.object({
+  feedback: z.enum(['positive', 'negative']),
+})
+
+export const chatRenameSchema = z.object({
+  title: z.string().min(1).max(200),
+})
+
+export const chatMemoryCreateSchema = z.object({
+  content: z.string().min(1).max(2000),
+})
+
 export type SourceTextInput = z.infer<typeof sourceTextSchema>
 export type SourceUrlInput = z.infer<typeof sourceUrlSchema>
 export type AnalyzeInput = z.infer<typeof analyzeSchema>

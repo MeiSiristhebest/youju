@@ -1,7 +1,6 @@
-import type { ReasoningStep } from '../../../domain/types.js'
+import type { ReasoningStep, SharedMainCallResult } from '../../../domain/types.js'
 import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
-import { getSharedMainCallResult } from './step-scenario-discovery.js'
 
 export const systemPromptFragment = `
 Step 3: DIMENSION DISCOVERY (KEY INNOVATION)
@@ -40,10 +39,14 @@ export const outputSchema = {
 const MAIN_CALL_STEP_COUNT = 5
 
 export const stepDimensionDiscovery: StepExecutor = async (
-  _input: StepInput,
+  input: StepInput,
 ): Promise<StepOutput> => {
   const startTime = Date.now()
-  const mainResult = getSharedMainCallResult()
+
+  const scenarioOutput = input.previousOutputs['step-scenario-discovery'] as
+    | { mainCallResult?: SharedMainCallResult }
+    | undefined
+  const mainResult = scenarioOutput?.mainCallResult
   const parsed = mainResult?.parsed
 
   const dimensions: string[] = []

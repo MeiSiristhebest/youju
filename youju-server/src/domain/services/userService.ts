@@ -1,21 +1,16 @@
 import type { UserRepository } from '../ports/repositories.js'
 import type { User } from '../types.js'
 
-let _userRepo: UserRepository | null = null
+export class UserService {
+  constructor(private readonly userRepo: UserRepository) {}
 
-export function setUserRepository(repo: UserRepository): void {
-  _userRepo = repo
-}
-
-function getUserRepo(): UserRepository {
-  if (!_userRepo) {
-    throw new Error('UserRepository not set. Call setUserRepository() first.')
+  async getUser(id: number): Promise<User | null> {
+    const user = await this.userRepo.getUserById(id)
+    if (!user) return null
+    return user
   }
-  return _userRepo
-}
 
-export async function getUser(id: number): Promise<User | null> {
-  const user = await getUserRepo().getUserById(id)
-  if (!user) return null
-  return user
+  async findOrCreateUser(openid: string, nickname: string, avatar: string): Promise<User> {
+    return this.userRepo.findOrCreateUser(openid, nickname, avatar)
+  }
 }

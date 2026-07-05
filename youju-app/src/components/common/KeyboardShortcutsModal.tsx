@@ -1,10 +1,12 @@
-import { Keyboard, X } from 'lucide-react'
+import { HelpCircle, Keyboard, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { useUIPreferenceStore } from '@/stores'
 
 interface ShortcutItem {
   keys: string[]
   description: string
+  isChord?: boolean
 }
 
 interface ShortcutGroup {
@@ -14,24 +16,52 @@ interface ShortcutGroup {
 
 const shortcutGroups: ShortcutGroup[] = [
   {
-    title: '全局快捷键',
+    title: '全局',
     items: [
       { keys: ['Ctrl', 'Enter'], description: '开始分析（有材料时）' },
-      { keys: ['Ctrl', 'K'], description: '打开添加材料弹窗' },
-      { keys: ['Ctrl', 'S'], description: '保存/导出' },
+      { keys: ['Ctrl', 'K'], description: '命令面板 / AI 重写选中风险' },
+      { keys: ['Ctrl', 'Shift', 'P'], description: '打开命令面板' },
+      { keys: ['Ctrl', 'Shift', 'K'], description: '打开命令面板' },
+      { keys: ['Ctrl', 'T'], description: '任务切换器' },
+      { keys: ['Ctrl', 'J'], description: '切换到 AI 对话' },
+      { keys: ['Ctrl', 'S'], description: '导出报告' },
       { keys: ['Esc'], description: '关闭当前弹窗/模态框' },
       { keys: ['?'], description: '打开快捷键面板' },
     ],
   },
   {
+    title: '导航',
+    items: [
+      { keys: ['G', 'S'], description: '聚焦材料面板', isChord: true },
+      { keys: ['G', 'R'], description: '聚焦风险面板', isChord: true },
+    ],
+  },
+  {
+    title: '面板',
+    items: [
+      { keys: ['Ctrl', 'B'], description: '切换侧边栏折叠' },
+      { keys: ['['], description: '折叠/展开左侧材料面板' },
+      { keys: [']'], description: '折叠/展开右侧上下文面板' },
+    ],
+  },
+  {
+    title: '操作',
+    items: [
+      { keys: ['N'], description: '添加材料' },
+      { keys: ['E'], description: '导出报告' },
+      { keys: ['S'], description: '保存任务' },
+    ],
+  },
+  {
     title: '结果面板',
     items: [
-      { keys: ['1'], description: '切换到风险清单' },
+      { keys: ['1'], description: '切换到风险排雷' },
       { keys: ['2'], description: '切换到检查清单' },
-      { keys: ['3'], description: '切换到统一版本' },
-      { keys: ['4'], description: '切换到关键要素' },
-      { keys: ['5'], description: '切换到风险关联' },
-      { keys: ['6'], description: '切换到AI思考/维度管理' },
+      { keys: ['3'], description: '切换到对齐共识' },
+      { keys: ['4'], description: '切换到要素提取' },
+      { keys: ['5'], description: '切换到证据链条' },
+      { keys: ['6'], description: '切换到维度调权' },
+      { keys: ['7'], description: '切换到思考过程' },
       { keys: ['J'], description: '上一个风险' },
       { keys: ['K'], description: '下一个风险' },
       { keys: ['Space'], description: '展开/收起当前选中的风险' },
@@ -60,6 +90,8 @@ interface KeyboardShortcutsModalProps {
 }
 
 export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsModalProps) {
+  const _customShortcuts = useUIPreferenceStore((s) => s.customShortcuts)
+
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -123,12 +155,20 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
                   >
                     <span className="text-xs text-ink">{item.description}</span>
                     <div className="flex items-center gap-1">
-                      {item.keys.map((key, idx) => (
-                        <span key={idx} className="flex items-center gap-1">
-                          {idx > 0 && <span className="text-ink-faint text-[10px]">+</span>}
-                          <KeyCap>{key}</KeyCap>
-                        </span>
-                      ))}
+                      {item.isChord ? (
+                        <>
+                          <KeyCap>{item.keys[0]}</KeyCap>
+                          <span className="text-ink-faint text-[10px] mx-1">然后</span>
+                          <KeyCap>{item.keys[1]}</KeyCap>
+                        </>
+                      ) : (
+                        item.keys.map((key, idx) => (
+                          <span key={idx} className="flex items-center gap-1">
+                            {idx > 0 && <span className="text-ink-faint text-[10px]">+</span>}
+                            <KeyCap>{key}</KeyCap>
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
                 ))}
@@ -139,9 +179,17 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
 
         <div className="px-6 py-4 border-t border-rule shrink-0 bg-paper/50">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-ink-faint">
-              提示：在输入框中编辑时，单键快捷键将暂时禁用
-            </span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-ink-muted hover:text-ink hover:bg-paper-dark transition-colors cursor-pointer"
+              onClick={() => {
+                useUIPreferenceStore.getState().restartProductTour()
+                onClose()
+              }}
+            >
+              <HelpCircle size={12} strokeWidth={1.5} />
+              重新开始引导
+            </button>
             <button
               type="button"
               className="px-4 py-1.5 rounded-md text-xs font-medium bg-ink text-paper hover:bg-accent transition-colors cursor-pointer"

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 5173",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -23,6 +23,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "jsdom": "^26.0.0",
+    "msw": "^2.14.6",
     "tailwindcss": "^4.3.2",
     "typescript": "~6.0.2",
     "vite": "^8.1.3",
@@ -30,9 +31,13 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@gsap/react": "^2.1.2",
     "@tanstack/react-query": "^5.101.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "gsap": "^3.15.0",
+    "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -40,5 +45,10 @@
     "tesseract.js": "^7.0.0",
     "tw-animate-css": "^1.4.0",
     "zustand": "^5.0.14"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

@@ -3,9 +3,18 @@ import { useCallback, useRef, useState } from 'react'
 interface ResizerProps {
   onResize: (delta: number) => void
   className?: string
+  width?: number
+  minWidth?: number
+  maxWidth?: number
 }
 
-export function Resizer({ onResize, className = '' }: ResizerProps) {
+export function Resizer({
+  onResize,
+  className = '',
+  width,
+  minWidth = 240,
+  maxWidth = 600,
+}: ResizerProps) {
   const isDraggingRef = useRef(false)
   const startXRef = useRef(0)
   const onResizeRef = useRef(onResize)
@@ -42,37 +51,38 @@ export function Resizer({ onResize, className = '' }: ResizerProps) {
     document.addEventListener('mouseup', handleMouseUp)
   }, [])
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 40 : 8
+    let delta = 0
+    if (e.key === 'ArrowLeft') delta = -step
+    else if (e.key === 'ArrowRight') delta = step
+    else return
+    e.preventDefault()
+    onResizeRef.current(delta)
+  }, [])
+
   return (
     <div
-      className={`relative flex-shrink-0 cursor-col-resize group h-full ${className}`}
-      style={{ width: '12px' }}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="调整面板宽度"
+      aria-valuenow={width}
+      aria-valuemin={minWidth}
+      aria-valuemax={maxWidth}
+      tabIndex={0}
+      className={`relative flex-shrink-0 cursor-col-resize group h-full focus:outline-none focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${className}`}
+      style={{ width: '4px' }}
       onMouseDown={handleMouseDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onKeyDown={handleKeyDown}
     >
-      <div className="absolute inset-y-0 left-0 right-0" />
+      <div className="absolute inset-y-0 -left-1 -right-1" />
       <div
-        className={`absolute inset-y-0 left-1/2 -translate-x-1/2 transition-all duration-150 ${
-          isDragging
-            ? 'w-1 bg-accent shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]'
-            : isHovered
-              ? 'w-0.5 bg-accent/60'
-              : 'w-px bg-rule'
+        className={`absolute inset-y-0 left-1/2 -translate-x-1/2 transition-all duration-100 ease-out ${
+          isDragging ? 'w-px bg-accent' : isHovered ? 'w-px bg-accent/50' : 'w-[0.5px] bg-rule/60'
         }`}
       />
-      <div
-        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-150 flex items-center justify-center ${
-          isDragging || isHovered
-            ? 'opacity-100 w-4 h-10 bg-accent shadow-lg'
-            : 'opacity-0 w-3 h-8 bg-rule/50'
-        }`}
-      >
-        <div className="flex flex-col gap-1">
-          <div className="w-0.5 h-0.5 rounded-full bg-white/80" />
-          <div className="w-0.5 h-0.5 rounded-full bg-white/80" />
-          <div className="w-0.5 h-0.5 rounded-full bg-white/80" />
-        </div>
-      </div>
     </div>
   )
 }
@@ -110,7 +120,7 @@ export function ResizablePanel({
       >
         {children}
       </div>
-      <Resizer onResize={handleResize} />
+      <Resizer onResize={handleResize} width={width} minWidth={minWidth} maxWidth={maxWidth} />
     </>
   )
 }

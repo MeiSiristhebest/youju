@@ -37,3 +37,39 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  rag-eval:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.AI_API_KEY != '' }}
+    needs: build-and-test
+    env:
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+      AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+      AI_MODEL: ${{ secrets.AI_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run RAG evaluation
+        working-directory: youju-server
+        run: pnpm test:rag
+
+      - name: Upload evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rag-eval-report
+          path: youju-server/docs/rag-eval-report.md

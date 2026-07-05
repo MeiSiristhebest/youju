@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file .env src/index.ts",
+    "dev": "tsx watch --env-file .env src/main.ts",
     "build": "tsc && xcopy /E /I /Y src\\ai\\prompts\\versions dist\\ai\\prompts\\versions 2>nul || true",
     "build:edgeone": "tsc --outDir dist-edgeone --rootDir . -p tsconfig.edgeone.json && xcopy /E /I /Y src\\ai\\prompts\\versions dist-edgeone\\src\\ai\\prompts\\versions 2>nul || true",
     "deploy:edgeone": "edgeone pages deploy",
-    "start": "node --env-file .env dist/index.js",
+    "start": "node --env-file .env dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

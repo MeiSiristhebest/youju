@@ -1,8 +1,7 @@
-import type { Risk } from '../../../domain/types.js'
+import type { Risk, SharedMainCallResult } from '../../../domain/types.js'
 import { callAI } from '../../llm.js'
 import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
-import { getSharedMainCallResult } from './step-scenario-discovery.js'
 
 export const systemPromptFragment = `
 Step 6: SELF-CHECK LOOP (CRITICAL QUALITY GATE)
@@ -70,7 +69,11 @@ export const stepSelfCheck: StepExecutor = async (input: StepInput): Promise<Ste
     | { risks?: Risk[] }
     | undefined
   const risks = discrepancyOutput?.risks || []
-  const mainResult = getSharedMainCallResult()
+
+  const scenarioOutput = input.previousOutputs['step-scenario-discovery'] as
+    | { mainCallResult?: SharedMainCallResult }
+    | undefined
+  const mainResult = scenarioOutput?.mainCallResult
   const parsed = mainResult?.parsed
 
   const isMock = !process.env.AI_API_KEY && !input.aiConfig?.apiKey

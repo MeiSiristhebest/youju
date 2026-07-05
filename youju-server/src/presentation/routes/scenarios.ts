@@ -1,7 +1,12 @@
 import express from 'express'
 import { SCENARIO_PRESETS } from '../../domain/scenarioPresets.js'
-import * as sourceService from '../../domain/services/sourceService.js'
+import type { SourceService } from '../../domain/services/sourceService.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
+import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
+
+function getSourceService(): SourceService {
+  return getService<SourceService>(Tokens.SourceService)
+}
 
 const router = express.Router()
 
@@ -26,7 +31,7 @@ router.post('/scenarios/:id/init', async (req, res) => {
 
   const createdSources = []
   for (const src of scenario.sources) {
-    const source = await sourceService.createSource(
+    const source = await getSourceService().createSource(
       userId,
       sessionId,
       src.type,

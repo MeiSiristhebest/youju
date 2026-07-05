@@ -13,6 +13,20 @@ export function errorHandler(
     return
   }
 
+  if (err.name === 'MulterError') {
+    const multerErr = err as { code?: string }
+    if (multerErr.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({
+        code: 400,
+        error: {
+          code: 'FILE_TOO_LARGE',
+          message: '文件体积超限，最大允许 10MB',
+        },
+      })
+      return
+    }
+  }
+
   logger.error({ err }, 'Unhandled error')
 
   const statusCode = res.statusCode && res.statusCode >= 400 ? res.statusCode : 500

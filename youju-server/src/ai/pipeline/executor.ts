@@ -1,3 +1,5 @@
+import type { ValidatingAICaller } from '../../domain/ports/aiCallPort.js'
+import { defaultAICaller } from '../adapters/aiCallAdapter.js'
 import { CURRENT_PROMPT_VERSION } from '../prompts/index.js'
 import type {
   PipelineCallbacks,
@@ -16,10 +18,16 @@ export class PipelineExecutor {
   private initialInput: Omit<StepInput, 'previousOutputs'> | null = null
   private initialPreviousOutputs: Record<string, unknown> = {}
   private pauseRequested = false
+  private aiCaller: ValidatingAICaller
 
-  constructor(stepDefinitions: PipelineStepDefinition[], callbacks: PipelineCallbacks = {}) {
+  constructor(
+    stepDefinitions: PipelineStepDefinition[],
+    callbacks: PipelineCallbacks = {},
+    aiCaller?: ValidatingAICaller,
+  ) {
     this.stepDefinitions = stepDefinitions
     this.callbacks = callbacks
+    this.aiCaller = aiCaller || defaultAICaller
     this.state = this.createInitialState()
   }
 
@@ -162,7 +170,9 @@ export class PipelineExecutor {
         sources: this.initialInput.sources,
         scenarioType: this.initialInput.scenarioType,
         scenarioKnowledge: this.initialInput.scenarioKnowledge,
+        aiConfig: this.initialInput.aiConfig,
         previousOutputs: { ...this.initialPreviousOutputs, ...this.getCompletedStepOutputs() },
+        aiCaller: this.aiCaller,
       }
 
       stepState.input = stepInput
@@ -278,6 +288,27 @@ export class PipelineExecutor {
     this.callbacks.onProgress?.(this.getState())
 
     return this.continueFromStep(stepIndex)
+  }
+
+  /**
+   * 准备从 checkpoint 恢复：设置 initialInput、initialPreviousOutputs、标记已完成步骤。
+   * 替代 analysisAdapter 中 as unknown as 强转访问 private 字段的做法。
+   */
+  prepareResumeFromCheckpoint(
+    initialInput: Omit<StepInput, 'previousOutputs'>,
+    previousOutputs: Record<string, unknown>,
+    completedStepCount: number,
+  ): void {
+    if (this.state.status === 'running') {
+      throw new Error('Cannot prepare resume while pipeline is running')
+    }
+    this.initialInput = initialInput
+    this.initialPreviousOutputs = { ...previousOutputs }
+
+    // 标记已完成的步骤
+    for (let i = 0; i < completedStepCount && i < this.state.steps.length; i++) {
+      this.state.steps[i].status = 'completed'
+    }
   }
 
   skipStep(stepIndex: number): void {

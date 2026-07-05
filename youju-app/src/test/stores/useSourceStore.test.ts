@@ -7,13 +7,15 @@ const mockSources: Source[] = [
   { id: 'source-2', type: 'doc', name: '来源2', content: '内容2' },
 ]
 
+const initialState = useSourceStore.getState()
+
 describe('useSourceStore', () => {
   beforeEach(() => {
-    useSourceStore.setState(useSourceStore.getInitialState())
+    useSourceStore.setState(initialState, true)
   })
 
   afterEach(() => {
-    useSourceStore.setState(useSourceStore.getInitialState())
+    useSourceStore.setState(initialState, true)
   })
 
   describe('初始状态', () => {
@@ -52,7 +54,7 @@ describe('useSourceStore', () => {
     it('addSource 应该添加来源', () => {
       useSourceStore.getState().addSource(mockSources[0])
       expect(useSourceStore.getState().sources.length).toBe(1)
-      expect(useSourceStore.getState().sources[0]).toEqual(mockSources[0])
+      expect(useSourceStore.getState().sources[0]).toEqual(expect.objectContaining(mockSources[0]))
     })
 
     it('addSource 应该追加到列表末尾', () => {

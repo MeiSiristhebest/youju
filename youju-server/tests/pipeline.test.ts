@@ -2,9 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { analysisAdapter } from '../src/ai/adapters/analysisAdapter.js'
 import { PipelineExecutor } from '../src/ai/pipeline/executor.js'
 import type {
-  PipelineCheckpoint,
   PipelineState,
-  PipelineStep,
   PipelineStepDefinition,
   StepInput,
   StepOutput,
@@ -1134,23 +1132,37 @@ describe('AI Pipeline 集成测试', () => {
     it('resumeFromCheckpoint 能从中间步骤恢复执行', async () => {
       const sources = [makeSource('1', '测试', '内容')]
 
+      // 1. 完整运行一次，获取基线
       const fullResult = await analysisAdapter.analyze(sources)
-      const stepOutputs: Record<string, any> = {}
+      expect(fullResult.isMock).toBe(true)
+
+      // 2. 提取真实 step 输出 + mainCallResult
+      const stepOutputs: Record<string, unknown> = {}
       for (let i = 0; i <= 2; i++) {
         const step = fullResult.steps[i]
-        stepOutputs[step.id] = { test: 'data' }
+        stepOutputs[step.id] = step.output?.data || null
       }
+      const scenarioStep = fullResult.steps.find((s) => s.id === 'step-scenario-discovery')
+      const mainCallResult = (scenarioStep?.output?.data as { mainCallResult?: unknown })
+        ?.mainCallResult
 
+      // 3. 调用 resumeFromCheckpoint，传递 mainCallResult
       const resumeResult = await analysisAdapter.resumeFromCheckpoint(sources, {
         stepOutputs,
         lastCompletedStepId: 'step-dimension-discovery',
         lastCompletedStepIndex: 2,
+        mainCallResult: mainCallResult as never,
       })
 
+      // 4. 断言结构等价性
+      // 注意：mock 模式下 mockAnalyze 每次重新生成数据，无法断言内容完全相等，
+      // 改为断言结构等价（risks 数组存在、steps 数量正确、isMock 一致）
       expect(resumeResult).toBeDefined()
       expect(resumeResult.result).toBeDefined()
       expect(resumeResult.steps).toHaveLength(7)
       expect(resumeResult.isMock).toBe(true)
+      expect(resumeResult.result.risks).toBeDefined()
+      expect(Array.isArray(resumeResult.result.risks)).toBe(true)
     })
   })
 })

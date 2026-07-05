@@ -45,6 +45,33 @@ export function buildDataScopeWhere(
   }
 }
 
+/**
+ * 与 buildDataScopeWhere 相同，但将 userId 转换为字符串。
+ * 用于 user_id 列为 TEXT 类型的表（source_chunks / conversations / messages）。
+ */
+export function buildTextScopeWhere(
+  ctx: TenantContext,
+  userIdColumn: string = 'user_id',
+  sessionIdColumn: string = 'session_id',
+): { clause: string; params: unknown[] } {
+  if (ctx.userId !== null) {
+    return {
+      clause: `${userIdColumn} = ?`,
+      params: [String(ctx.userId)],
+    }
+  }
+  if (ctx.sessionId !== null) {
+    return {
+      clause: `${sessionIdColumn} = ? AND ${userIdColumn} IS NULL`,
+      params: [ctx.sessionId],
+    }
+  }
+  return {
+    clause: '1 = 0',
+    params: [],
+  }
+}
+
 const TENANT_TABLES = [
   'users',
   'sources',
@@ -53,6 +80,8 @@ const TENANT_TABLES = [
   'analysis_logs',
   'analysis_steps',
   'preferences',
+  'user_preferences',
+  'user_model_configs',
 ]
 
 export function validateTenantAccess(

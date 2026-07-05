@@ -26,6 +26,48 @@ const envSchema = z.object({
 
   RATE_LIMIT_STORE: z.enum(['memory', 'redis']).default('memory'),
   REDIS_URL: z.string().url().optional(),
+
+  EMBEDDING_API_KEY: z.string().optional(),
+  EMBEDDING_BASE_URL: z.string().url().default('https://api.siliconflow.cn/v1'),
+  EMBEDDING_MODEL: z.string().default('bge-m3'),
+
+  RERANKER_API_KEY: z.string().optional(),
+  RERANKER_BASE_URL: z.string().url().default('https://api.siliconflow.cn/v1'),
+  RERANKER_MODEL: z.string().default('bge-reranker-v2-m3'),
+
+  VECTOR_SIMILARITY_THRESHOLD: z.coerce.number().min(0).max(1).default(0.65),
+  CHAT_MAX_TOKENS: z.coerce.number().int().positive().default(4096),
+
+  LANGFUSE_SECRET: z.string().optional(),
+  LANGFUSE_PUBLIC_KEY: z.string().optional(),
+  LANGFUSE_HOST: z.string().url().default('https://cloud.langfuse.com'),
+
+  DB_DRIVER: z.enum(['sqlite', 'postgres']).default('sqlite'),
+
+  CRON_SECRET: z.string().optional(),
+
+  URL_FETCH_ALLOWLIST: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+    ),
+  URL_FETCH_DENYLIST: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+    ),
 })
 
 function parseEnv() {

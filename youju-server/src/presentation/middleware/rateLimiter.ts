@@ -2,25 +2,34 @@ import type { NextFunction, Request, Response } from 'express'
 import { type RateLimitRequestHandler, rateLimit } from 'express-rate-limit'
 import { rateLimited } from '../../domain/errors.js'
 
-let redisStore: unknown = null
-let redisStorePromise: Promise<unknown> | null = null
+interface RedisStoreLike {
+  sendCommand: (...args: unknown[]) => unknown
+}
 
-async function createRedisStore(prefix: string) {
+let redisStore: RedisStoreLike | null = null
+let redisStorePromise: Promise<RedisStoreLike | undefined> | null = null
+
+async function createRedisStore(prefix: string): Promise<RedisStoreLike | undefined> {
   const redisUrl = process.env.REDIS_URL
   if (!redisUrl || process.env.NODE_ENV === 'test') return undefined
 
   try {
     const { RedisStore } = await import('rate-limit-redis')
+    // ioredis 是可选依赖，未安装时会进入 catch 分支降级到内存存储
     // @ts-expect-error - ioredis 是可选依赖，类型声明可能不可用
     const IORedisModule = await import('ioredis')
-    const IORedis = (IORedisModule as unknown as { default: unknown }).default || IORedisModule
+    const IORedis = (IORedisModule as { default?: unknown }).default || IORedisModule
     const redisClient = new (IORedis as new (...args: unknown[]) => unknown)(redisUrl, {
       maxRetriesPerRequest: 3,
       enableOfflineQueue: false,
-    })
-    return new (RedisStore as new (...args: unknown[]) => unknown)({
-      sendCommand: (...args: unknown[]) =>
-        (redisClient as { call: (...args: unknown[]) => unknown }).call(...args),
+    }) as { call: (...args: unknown[]) => unknown }
+    return new (
+      RedisStore as new (opts: {
+        sendCommand: (...args: unknown[]) => unknown
+        prefix: string
+      }) => RedisStoreLike
+    )({
+      sendCommand: (...args: unknown[]) => redisClient.call(...args),
       prefix,
     })
   } catch (e) {
@@ -29,17 +38,19 @@ async function createRedisStore(prefix: string) {
   }
 }
 
-async function getRedisStore(prefix: string): Promise<unknown> {
+async function getRedisStore(prefix: string): Promise<RedisStoreLike | null> {
   if (redisStore) return redisStore
   if (!redisStorePromise) {
     redisStorePromise = createRedisStore(prefix)
   }
-  redisStore = await redisStorePromise
+  const store = await redisStorePromise
+  redisStore = store ?? null
   return redisStore
 }
 
 function formatErrorResponse(_req: Request, res: Response) {
   const err = rateLimited('请求过于频繁，请稍后再试')
+  res.setHeader('Retry-After', '60')
   res.status(429).json({
     code: 429,
     error: err.toJSON(),
@@ -71,6 +82,7 @@ function createLazyRateLimiter(options: LazyRateLimiterOptions): RateLimitReques
     getRedisStore(prefix || 'rl:general:')
       .then((store) => {
         if (store) {
+          // store 是自定义的 RedisStoreLike 类型，需要断言为 rate-limit-redis 的 Store 类型
           const optionsWithStore = { ...baseOptions, store } as unknown as Parameters<
             typeof rateLimit
           >[0]
@@ -113,6 +125,12 @@ export const urlFetchRateLimiter = createLazyRateLimiter({
   windowMs: 60 * 1000,
   limit: 20,
   prefix: 'rl:urlfetch:',
+})
+
+export const chatRateLimiter = createLazyRateLimiter({
+  windowMs: 60 * 1000,
+  limit: 30,
+  prefix: 'rl:chat:',
 })
 
 export async function initRateLimiters(): Promise<void> {

@@ -1,22 +1,61 @@
 import express from 'express'
-import { clearAnalysisCache, getAnalysisCacheStats } from '../../domain/services/analysisCache.js'
-import * as analysisService from '../../domain/services/analysisService.js'
-import * as analysisTaskManager from '../../domain/services/analysisTaskManager.js'
-import * as modelConfigService from '../../domain/services/modelConfigService.js'
-import * as observabilityService from '../../domain/services/observabilityService.js'
-import * as preferenceService from '../../domain/services/preferenceService.js'
-import * as sourceService from '../../domain/services/sourceService.js'
+import type { AnalysisCache } from '../../domain/services/analysisCache.js'
+import type { AnalysisCheckpointService } from '../../domain/services/analysisCheckpointService.js'
+import type { AnalysisService } from '../../domain/services/analysisService.js'
+import type { AnalysisTaskScheduler } from '../../domain/services/analysisTaskScheduler.js'
+import type { IncrementalAnalysisService } from '../../domain/services/incrementalAnalysis.js'
+import type { ModelConfigService } from '../../domain/services/modelConfigService.js'
+import type { ObservabilityService } from '../../domain/services/observabilityService.js'
+import type { PreferenceService } from '../../domain/services/preferenceService.js'
+import type { SourceService } from '../../domain/services/sourceService.js'
 import type { AnalyzeResult, Source } from '../../domain/types.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
+import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
 import { analyzeRateLimiter } from '../middleware/rateLimiter.js'
 import { validateBody } from '../middleware/zodValidator.js'
 import { analyzeSchema } from '../validation/schemas.js'
+
+function getAnalysisService(): AnalysisService {
+  return getService<AnalysisService>(Tokens.AnalysisService)
+}
+
+function getAnalysisCheckpointService(): AnalysisCheckpointService {
+  return getService<AnalysisCheckpointService>(Tokens.AnalysisCheckpointService)
+}
+
+function getAnalysisTaskScheduler(): AnalysisTaskScheduler {
+  return getService<AnalysisTaskScheduler>(Tokens.AnalysisTaskScheduler)
+}
+
+function getAnalysisCache(): AnalysisCache {
+  return getService<AnalysisCache>(Tokens.AnalysisCache)
+}
+
+function getIncrementalAnalysisService(): IncrementalAnalysisService {
+  return getService<IncrementalAnalysisService>(Tokens.IncrementalAnalysis)
+}
+
+function getModelConfigService(): ModelConfigService {
+  return getService<ModelConfigService>(Tokens.ModelConfigService)
+}
+
+function getObservabilityService(): ObservabilityService {
+  return getService<ObservabilityService>(Tokens.ObservabilityService)
+}
+
+function getPreferenceService(): PreferenceService {
+  return getService<PreferenceService>(Tokens.PreferenceService)
+}
+
+function getSourceService(): SourceService {
+  return getService<SourceService>(Tokens.SourceService)
+}
 
 const router = express.Router()
 
 router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await sourceService.listSources(userId, sessionId)
+  const allSources = await getSourceService().listSources(userId, sessionId)
   const sourceIds = req.body.sourceIds || allSources.map((s) => s.id)
   const scenarioType = req.body.scenarioType || 'custom'
   const selectedSources = sourceIds
@@ -33,8 +72,11 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
   let _errorMsg: string | null = null
 
   try {
-    const scenarioKnowledge = await observabilityService.getScenarioKnowledge(scenarioType, 10)
-    const defaultModelConfig = await modelConfigService.getDefaultModelConfig(userId, sessionId)
+    const scenarioKnowledge = await getObservabilityService().getScenarioKnowledge(scenarioType, 10)
+    const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
+      userId,
+      sessionId,
+    )
     const aiConfig = defaultModelConfig
       ? {
           apiKey: defaultModelConfig.apiKey,
@@ -44,7 +86,7 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
         }
       : undefined
 
-    const result = await analysisService.analyzeSources(
+    const result = await getAnalysisService().analyzeSources(
       selectedSources,
       scenarioType,
       scenarioKnowledge,
@@ -60,8 +102,8 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
     isMock = !process.env.AI_API_KEY && !defaultModelConfig
     const durationMs = Date.now() - startTime
 
-    const riskWeights = await preferenceService.getUserRiskWeights(userId, sessionId)
-    const sortedRisks = preferenceService.sortRisksByPreference(result.risks, riskWeights)
+    const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
+    const sortedRisks = getPreferenceService().sortRisksByPreference(result.risks, riskWeights)
 
     res.json({
       code: 200,
@@ -88,7 +130,7 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
 
 router.post('/analyze/stream', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await sourceService.listSources(userId, sessionId)
+  const allSources = await getSourceService().listSources(userId, sessionId)
   const sourceIds = req.body.sourceIds || allSources.map((s) => s.id)
   const scenarioType = req.body.scenarioType || 'custom'
   const selectedSources = sourceIds
@@ -109,8 +151,8 @@ router.post('/analyze/stream', async (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`)
   }
 
-  const scenarioKnowledge = await observabilityService.getScenarioKnowledge(scenarioType, 10)
-  const defaultModelConfig = await modelConfigService.getDefaultModelConfig(userId, sessionId)
+  const scenarioKnowledge = await getObservabilityService().getScenarioKnowledge(scenarioType, 10)
+  const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(userId, sessionId)
   const aiConfig = defaultModelConfig
     ? {
         apiKey: defaultModelConfig.apiKey,
@@ -120,7 +162,7 @@ router.post('/analyze/stream', async (req, res) => {
       }
     : undefined
 
-  const initialLog = await analysisService.createAnalysisLogEntry({
+  const initialLog = await getAnalysisService().createAnalysisLogEntry({
     userId,
     sessionId,
     scenarioType,
@@ -132,8 +174,8 @@ router.post('/analyze/stream', async (req, res) => {
 
   const isMockMode = !process.env.AI_API_KEY && !defaultModelConfig
 
-  analysisService
-    .analyzeSourcesStreamWithLog(
+  getAnalysisService()
+    .analyzeWithStreaming(
       analysisLogId,
       selectedSources,
       scenarioType,
@@ -157,8 +199,11 @@ router.post('/analyze/stream', async (req, res) => {
           })
         },
         onComplete: async (result) => {
-          const riskWeights = await preferenceService.getUserRiskWeights(userId, sessionId)
-          const sortedRisks = preferenceService.sortRisksByPreference(result.risks, riskWeights)
+          const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
+          const sortedRisks = getPreferenceService().sortRisksByPreference(
+            result.risks,
+            riskWeights,
+          )
           const finalResult = {
             ...result,
             risks: sortedRisks,
@@ -193,7 +238,7 @@ router.post('/analyze/stream', async (req, res) => {
 
 router.post('/analyze/async', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await sourceService.listSources(userId, sessionId)
+  const allSources = await getSourceService().listSources(userId, sessionId)
   const sourceIds = req.body.sourceIds || allSources.map((s) => s.id)
   const scenarioType = req.body.scenarioType || 'custom'
   const selectedSources = sourceIds
@@ -204,9 +249,9 @@ router.post('/analyze/async', async (req, res) => {
     return res.status(400).json({ code: 400, msg: '没有可分析的材料' })
   }
 
-  const scenarioKnowledge = await observabilityService.getScenarioKnowledge(scenarioType, 10)
+  const scenarioKnowledge = await getObservabilityService().getScenarioKnowledge(scenarioType, 10)
 
-  const taskId = await analysisTaskManager.createTask({
+  const taskId = await getAnalysisTaskScheduler().createTask({
     sources: selectedSources,
     scenarioType,
     scenarioKnowledge,
@@ -226,18 +271,18 @@ router.post('/analyze/async', async (req, res) => {
 router.get('/analyze/status/:taskId', async (req, res) => {
   const { taskId } = req.params
 
-  const taskStatus = await analysisTaskManager.getTaskStatus(taskId)
+  const taskStatus = await getAnalysisTaskScheduler().getTaskStatus(taskId)
 
   if (!taskStatus) {
     return res.status(404).json({ code: 404, msg: '任务不存在或已过期' })
   }
 
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const riskWeights = await preferenceService.getUserRiskWeights(userId, sessionId)
+  const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
 
   let resultWithPreferences = taskStatus.result
   if (resultWithPreferences) {
-    const sortedRisks = preferenceService.sortRisksByPreference(
+    const sortedRisks = getPreferenceService().sortRisksByPreference(
       resultWithPreferences.risks,
       riskWeights,
     )
@@ -267,7 +312,7 @@ router.post('/analyze/resume', async (req, res) => {
     return res.status(400).json({ code: 400, msg: '缺少 analysisLogId' })
   }
 
-  const allSources = await sourceService.listSources(userId, sessionId)
+  const allSources = await getSourceService().listSources(userId, sessionId)
   const sources = sourceIds
     ? sourceIds.map((id: string) => allSources.find((s: Source) => s.id === id)).filter(Boolean)
     : allSources
@@ -277,10 +322,14 @@ router.post('/analyze/resume', async (req, res) => {
   }
 
   try {
-    const result = await analysisService.resumeAnalysisFromCheckpoint(analysisLogId, sources, {
-      userId,
-      sessionId,
-    })
+    const result = await getAnalysisCheckpointService().resumeAnalysisFromCheckpoint(
+      analysisLogId,
+      sources,
+      {
+        userId,
+        sessionId,
+      },
+    )
 
     res.json({
       code: 200,
@@ -313,16 +362,21 @@ router.post('/analyze/step/:index/retry', async (req, res) => {
     return res.status(400).json({ code: 400, msg: '无效的步骤索引' })
   }
 
-  const allSources = await sourceService.listSources(userId, sessionId)
+  const allSources = await getSourceService().listSources(userId, sessionId)
   const sources = sourceIds
     ? sourceIds.map((id: string) => allSources.find((s: Source) => s.id === id)).filter(Boolean)
     : allSources
 
   try {
-    const result = await analysisService.retryAnalysisStep(analysisLogId, stepIndex, sources, {
-      userId,
-      sessionId,
-    })
+    const result = await getAnalysisCheckpointService().retryAnalysisStep(
+      analysisLogId,
+      stepIndex,
+      sources,
+      {
+        userId,
+        sessionId,
+      },
+    )
 
     res.json({
       code: 200,
@@ -354,7 +408,7 @@ router.post('/analyze/step/:index/skip', async (req, res) => {
   }
 
   try {
-    const result = await analysisService.skipAnalysisStep(analysisLogId, stepIndex, {
+    const result = await getAnalysisCheckpointService().skipAnalysisStep(analysisLogId, stepIndex, {
       userId,
       sessionId,
     })
@@ -377,7 +431,7 @@ router.get('/analyze/checkpoint/:analysisLogId', async (req, res) => {
   const { analysisLogId } = req.params
 
   try {
-    const checkpoint = await analysisService.getAnalysisCheckpoint(analysisLogId)
+    const checkpoint = await getAnalysisCheckpointService().getAnalysisCheckpoint(analysisLogId)
     if (!checkpoint) {
       return res.status(404).json({ code: 404, msg: 'Checkpoint 不存在' })
     }
@@ -400,7 +454,7 @@ router.post('/analyze/incremental', async (req, res) => {
     return res.status(400).json({ code: 400, msg: '缺少已有结果或新材料ID' })
   }
 
-  const allSources = await sourceService.listSources(userId, sessionId)
+  const allSources = await getSourceService().listSources(userId, sessionId)
 
   const existingSourceIds = existingResult.meta?.sourceIds || []
   const existingSources = existingSourceIds
@@ -419,9 +473,9 @@ router.post('/analyze/incremental', async (req, res) => {
   const startTime = Date.now()
 
   try {
-    const scenarioKnowledge = await observabilityService.getScenarioKnowledge(scenario, 10)
+    const scenarioKnowledge = await getObservabilityService().getScenarioKnowledge(scenario, 10)
 
-    const diffResult = await analysisService.performDiffBasedIncrementalAnalysis(
+    const diffResult = await getIncrementalAnalysisService().performDiffBasedIncrementalAnalysis(
       existingResult as AnalyzeResult,
       existingSources,
       [...existingSources, ...newSources],
@@ -437,8 +491,8 @@ router.post('/analyze/incremental', async (req, res) => {
     const durationMs = Date.now() - startTime
     const isMock = !process.env.AI_API_KEY
 
-    const riskWeights = await preferenceService.getUserRiskWeights(userId, sessionId)
-    const sortedRisks = preferenceService.sortRisksByPreference(
+    const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
+    const sortedRisks = getPreferenceService().sortRisksByPreference(
       diffResult.result.risks,
       riskWeights,
     )
@@ -481,14 +535,14 @@ router.post('/draft', async (req, res) => {
   }
   try {
     const { userId, sessionId } = await getUserIdAndSessionId(req)
-    const draftStyle = await preferenceService.getUserDraftStyle(userId, sessionId)
+    const draftStyle = await getPreferenceService().getUserDraftStyle(userId, sessionId)
     const stylePref = {
       formality: draftStyle.formality,
       friendliness: draftStyle.friendliness,
       conciseness: draftStyle.conciseness,
       preferredTone: draftStyle.preferredTone,
     }
-    const draft = await analysisService.generateDraft(risk, context || '', stylePref)
+    const draft = await getAnalysisService().generateDraft(risk, context || '', stylePref)
     res.json({ code: 200, data: { draft } })
   } catch (e) {
     console.error('Draft error:', e)
@@ -498,11 +552,11 @@ router.post('/draft', async (req, res) => {
 
 // 分析缓存统计与控制（热门场景预计算可观测性）
 router.get('/analysis/cache/stats', (_req, res) => {
-  res.json({ code: 200, data: getAnalysisCacheStats() })
+  res.json({ code: 200, data: getAnalysisCache().getAnalysisCacheStats() })
 })
 
 router.delete('/analysis/cache', (_req, res) => {
-  clearAnalysisCache()
+  getAnalysisCache().clearAnalysisCache()
   console.log('[Cache] 已手动清空分析缓存')
   res.json({ code: 200, msg: '缓存已清空' })
 })
@@ -510,7 +564,7 @@ router.delete('/analysis/cache', (_req, res) => {
 // 手动触发预热（运维用）
 router.post('/analysis/cache/preheat', async (_req, res) => {
   try {
-    const result = await analysisService.preheatScenarioPresets()
+    const result = await getAnalysisService().preheatScenarioPresets()
     res.json({ code: 200, data: result })
   } catch (e) {
     console.error('Preheat trigger error:', e)

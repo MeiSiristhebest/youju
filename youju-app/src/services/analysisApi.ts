@@ -48,6 +48,76 @@ export const analysisApi = {
     }
   },
 
+  async generateDraftStream(params: {
+    riskId: string
+    riskTitle: string
+    riskDescription: string
+    sourceNames: string[]
+    style?: 'polite' | 'direct' | 'neutral'
+    onDelta?: (text: string) => void
+    signal?: AbortSignal
+  }): Promise<string> {
+    const response = await fetch('/api/draft/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...params, stream: true }),
+      signal: params.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Draft generation failed: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    let fullText = ''
+    let buffer = ''
+
+    if (!reader) {
+      throw new Error('No response body')
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('event: delta')) {
+          const dataMatch = line.match(/data: (.+)/)
+          if (dataMatch) {
+            try {
+              const data = JSON.parse(dataMatch[1])
+              if (data.text) {
+                fullText += data.text
+                params.onDelta?.(data.text)
+              }
+            } catch {
+              // ignore parse errors
+            }
+          }
+        } else if (line.startsWith('event: complete')) {
+          const dataMatch = line.match(/data: (.+)/)
+          if (dataMatch) {
+            try {
+              const data = JSON.parse(dataMatch[1])
+              if (data.text) {
+                fullText = data.text
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+    }
+
+    return fullText
+  },
+
   async submitRiskFeedback(params: {
     riskId: string
     feedback: 'accurate' | 'inaccurate'

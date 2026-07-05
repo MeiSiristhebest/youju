@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { create } from 'zustand'
 import type { IncrementalPrediction } from '../algorithms/incrementalEngine'
 import type {
   AnalysisDimension,
@@ -144,7 +144,7 @@ export interface AnalysisState {
   setAiEditorTargetRiskId: (riskId: string | null) => void
 }
 
-function getAnalysisState(): AnalysisState {
+function syncState() {
   const resultState = useAnalysisResultStore.getState()
   const dimensionState = useAnalysisDimensionStore.getState()
   const riskState = useAnalysisRiskStore.getState()
@@ -188,97 +188,75 @@ function getAnalysisState(): AnalysisState {
     cancelled: resultState.cancelled,
     riskEditHistory: riskState.riskEditHistory,
     aiEditorTargetRiskId: riskState.aiEditorTargetRiskId,
+  }
+}
 
-    setResult: resultState.setResult,
-    setAnalyzing: resultState.setAnalyzing,
-    setAnalysisStep: stepState.setAnalysisStep,
-    setActiveTab: uiState.setActiveTab,
-    setHighlightedRisk: riskState.setHighlightedRisk,
-    setHighlightedEvidence: riskState.setHighlightedEvidence,
-    setChecklist: resultState.setChecklist,
-    toggleCheckItem: resultState.toggleCheckItem,
-    setShowDraft: uiState.setShowDraft,
-    setDraftText: uiState.setDraftText,
-    setGeneratingDraft: uiState.setGeneratingDraft,
-    setSelectedRisk: riskState.setSelectedRisk,
-    setShowDebug: uiState.setShowDebug,
-    setDebugTab: uiState.setDebugTab,
-    setRiskFeedback: riskState.setRiskFeedback,
-    setStreaming: stepState.setStreaming,
-    setStreamProgress: stepState.setStreamProgress,
-    setStreamError: stepState.setStreamError,
-    setIncrementalPrediction: resultState.setIncrementalPrediction,
-    setCacheHit: resultState.setCacheHit,
-    setLastAnalysisDuration: resultState.setLastAnalysisDuration,
-    setShowIncrementalBanner: resultState.setShowIncrementalBanner,
-    setForceFullAnalysis: resultState.setForceFullAnalysis,
-    setPreviousResult: resultState.setPreviousResult,
-    getCache: resultState.getCache,
-    setCache: resultState.setCache,
-    clearCache: resultState.clearCache,
+export const useAnalysisStore = create<AnalysisState>()((set) => {
+  const unsubResult = useAnalysisResultStore.subscribe(() => set(syncState()))
+  const unsubDimension = useAnalysisDimensionStore.subscribe(() => set(syncState()))
+  const unsubRisk = useAnalysisRiskStore.subscribe(() => set(syncState()))
+  const unsubStep = useAnalysisStepStore.subscribe(() => set(syncState()))
+  const unsubUI = useAnalysisUIStore.subscribe(() => set(syncState()))
+
+  return {
+    ...syncState(),
+
+    setResult: useAnalysisResultStore.getState().setResult,
+    setAnalyzing: useAnalysisResultStore.getState().setAnalyzing,
+    setAnalysisStep: useAnalysisStepStore.getState().setAnalysisStep,
+    setActiveTab: useAnalysisUIStore.getState().setActiveTab,
+    setHighlightedRisk: useAnalysisRiskStore.getState().setHighlightedRisk,
+    setHighlightedEvidence: useAnalysisRiskStore.getState().setHighlightedEvidence,
+    setChecklist: useAnalysisResultStore.getState().setChecklist,
+    toggleCheckItem: useAnalysisResultStore.getState().toggleCheckItem,
+    setShowDraft: useAnalysisUIStore.getState().setShowDraft,
+    setDraftText: useAnalysisUIStore.getState().setDraftText,
+    setGeneratingDraft: useAnalysisUIStore.getState().setGeneratingDraft,
+    setSelectedRisk: useAnalysisRiskStore.getState().setSelectedRisk,
+    setShowDebug: useAnalysisUIStore.getState().setShowDebug,
+    setDebugTab: useAnalysisUIStore.getState().setDebugTab,
+    setRiskFeedback: useAnalysisRiskStore.getState().setRiskFeedback,
+    setStreaming: useAnalysisStepStore.getState().setStreaming,
+    setStreamProgress: useAnalysisStepStore.getState().setStreamProgress,
+    setStreamError: useAnalysisStepStore.getState().setStreamError,
+    setIncrementalPrediction: useAnalysisResultStore.getState().setIncrementalPrediction,
+    setCacheHit: useAnalysisResultStore.getState().setCacheHit,
+    setLastAnalysisDuration: useAnalysisResultStore.getState().setLastAnalysisDuration,
+    setShowIncrementalBanner: useAnalysisResultStore.getState().setShowIncrementalBanner,
+    setForceFullAnalysis: useAnalysisResultStore.getState().setForceFullAnalysis,
+    setPreviousResult: useAnalysisResultStore.getState().setPreviousResult,
+    getCache: useAnalysisResultStore.getState().getCache,
+    setCache: useAnalysisResultStore.getState().setCache,
+    clearCache: useAnalysisResultStore.getState().clearCache,
     resetAnalysis: () => {
-      resultState.resetAnalysis()
-      stepState.resetStepControl()
+      useAnalysisResultStore.getState().resetAnalysis()
+      useAnalysisStepStore.getState().resetStepControl()
     },
-    setDimensions: dimensionState.setDimensions,
-    toggleDimensionEnabled: dimensionState.toggleDimensionEnabled,
-    updateDimensionWeight: dimensionState.updateDimensionWeight,
-    moveDimension: dimensionState.moveDimension,
-    addCustomDimension: dimensionState.addCustomDimension,
-    removeCustomDimension: dimensionState.removeCustomDimension,
-    resetDimensionWeights: dimensionState.resetDimensionWeights,
-    setShowAddDimensionDialog: dimensionState.setShowAddDimensionDialog,
-    setRiskStatusFilter: riskState.setRiskStatusFilter,
-    setRiskStatus: riskState.setRiskStatus,
-    setRiskNotes: riskState.setRiskNotes,
-    getRiskStatus: riskState.getRiskStatus,
-    getRiskNotes: riskState.getRiskNotes,
-    markStepFailed: stepState.markStepFailed,
-    markStepSkipped: stepState.markStepSkipped,
-    clearFailedSteps: stepState.clearFailedSteps,
-    retryStep: stepState.retryStep,
-    resetStepControl: stepState.resetStepControl,
-    setTaskStatus: resultState.setTaskStatus,
-    addAnalysisLog: stepState.addAnalysisLog,
-    clearAnalysisLogs: stepState.clearAnalysisLogs,
-    setLastErrorTimestamp: stepState.setLastErrorTimestamp,
-    setCancelled: resultState.setCancelled,
-    updateRiskDescription: riskState.updateRiskDescription,
-    getRiskEditHistory: riskState.getRiskEditHistory,
-    setAiEditorTargetRiskId: riskState.setAiEditorTargetRiskId,
+    setDimensions: useAnalysisDimensionStore.getState().setDimensions,
+    toggleDimensionEnabled: useAnalysisDimensionStore.getState().toggleDimensionEnabled,
+    updateDimensionWeight: useAnalysisDimensionStore.getState().updateDimensionWeight,
+    moveDimension: useAnalysisDimensionStore.getState().moveDimension,
+    addCustomDimension: useAnalysisDimensionStore.getState().addCustomDimension,
+    removeCustomDimension: useAnalysisDimensionStore.getState().removeCustomDimension,
+    resetDimensionWeights: useAnalysisDimensionStore.getState().resetDimensionWeights,
+    setShowAddDimensionDialog: useAnalysisDimensionStore.getState().setShowAddDimensionDialog,
+    setRiskStatusFilter: useAnalysisRiskStore.getState().setRiskStatusFilter,
+    setRiskStatus: useAnalysisRiskStore.getState().setRiskStatus,
+    setRiskNotes: useAnalysisRiskStore.getState().setRiskNotes,
+    getRiskStatus: useAnalysisRiskStore.getState().getRiskStatus,
+    getRiskNotes: useAnalysisRiskStore.getState().getRiskNotes,
+    markStepFailed: useAnalysisStepStore.getState().markStepFailed,
+    markStepSkipped: useAnalysisStepStore.getState().markStepSkipped,
+    clearFailedSteps: useAnalysisStepStore.getState().clearFailedSteps,
+    retryStep: useAnalysisStepStore.getState().retryStep,
+    resetStepControl: useAnalysisStepStore.getState().resetStepControl,
+    setTaskStatus: useAnalysisResultStore.getState().setTaskStatus,
+    addAnalysisLog: useAnalysisStepStore.getState().addAnalysisLog,
+    clearAnalysisLogs: useAnalysisStepStore.getState().clearAnalysisLogs,
+    setLastErrorTimestamp: useAnalysisStepStore.getState().setLastErrorTimestamp,
+    setCancelled: useAnalysisResultStore.getState().setCancelled,
+    updateRiskDescription: useAnalysisRiskStore.getState().updateRiskDescription,
+    getRiskEditHistory: useAnalysisRiskStore.getState().getRiskEditHistory,
+    setAiEditorTargetRiskId: useAnalysisRiskStore.getState().setAiEditorTargetRiskId,
   }
-}
-
-function subscribe(listener: () => void): () => void {
-  const unsubResult = useAnalysisResultStore.subscribe(listener)
-  const unsubDimension = useAnalysisDimensionStore.subscribe(listener)
-  const unsubRisk = useAnalysisRiskStore.subscribe(listener)
-  const unsubStep = useAnalysisStepStore.subscribe(listener)
-  const unsubUI = useAnalysisUIStore.subscribe(listener)
-  return () => {
-    unsubResult()
-    unsubDimension()
-    unsubRisk()
-    unsubStep()
-    unsubUI()
-  }
-}
-
-function useAnalysisStore(): AnalysisState
-function useAnalysisStore<T>(selector: (state: AnalysisState) => T): T
-function useAnalysisStore<T>(selector?: (state: AnalysisState) => T): T | AnalysisState {
-  const state = useSyncExternalStore(
-    subscribe,
-    () => (selector ? selector(getAnalysisState()) : getAnalysisState()),
-    () => (selector ? selector(getAnalysisState()) : getAnalysisState()),
-  )
-  return state
-}
-
-useAnalysisStore.getState = getAnalysisState
-useAnalysisStore.setState = () => {
-  console.warn('useAnalysisStore.setState is not supported in facade mode')
-}
-useAnalysisStore.subscribe = subscribe
-
-export { useAnalysisStore }
+})

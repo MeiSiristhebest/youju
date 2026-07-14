@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm build",
-  "outputDirectory": "dist",
+  "buildCommand": "pnpm --filter youju-app build",
+  "outputDirectory": "youju-app/dist",
   "installCommand": "pnpm install",
   "rewrites": [
     {

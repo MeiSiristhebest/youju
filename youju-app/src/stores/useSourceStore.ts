@@ -22,6 +22,8 @@ interface SourceState {
   analyzingIntent: boolean
   intentAnalysis: IntentAnalysisResult | null
   editingSourceId: string | null
+  currentTaskId: string | null
+  currentTaskTitle: string | null
 
   setSources: (sources: Source[]) => void
   addSource: (source: Source) => void
@@ -47,6 +49,9 @@ interface SourceState {
   setAnalyzingIntent: (analyzing: boolean) => void
   setIntentAnalysis: (result: IntentAnalysisResult | null) => void
   setEditingSourceId: (id: string | null) => void
+  setCurrentTaskId: (id: string | null) => void
+  setCurrentTaskTitle: (title: string | null) => void
+  setCurrentTask: (task: { id: string; title: string } | null) => void
   resetNewSourceForm: () => void
 }
 
@@ -84,11 +89,13 @@ export const useSourceStore = create<SourceState>()(
       analyzingIntent: false,
       intentAnalysis: null,
       editingSourceId: null,
+      currentTaskId: null,
+      currentTaskTitle: null,
 
       setSources: (sources) => set({ sources }),
       addSource: (source) =>
         set((state) => ({
-          sources: [...state.sources, { createdAt: Date.now(), ...source }],
+          sources: [...state.sources, { createdAt: new Date().toISOString(), ...source }],
         })),
       removeSource: (id) => set((state) => ({ sources: state.sources.filter((s) => s.id !== id) })),
       updateSource: (id, updates) =>
@@ -123,6 +130,13 @@ export const useSourceStore = create<SourceState>()(
       setAnalyzingIntent: (analyzing) => set({ analyzingIntent: analyzing }),
       setIntentAnalysis: (result) => set({ intentAnalysis: result }),
       setEditingSourceId: (id) => set({ editingSourceId: id }),
+      setCurrentTaskId: (id) => set({ currentTaskId: id }),
+      setCurrentTaskTitle: (title) => set({ currentTaskTitle: title }),
+      setCurrentTask: (task) =>
+        set({
+          currentTaskId: task?.id ?? null,
+          currentTaskTitle: task?.title ?? null,
+        }),
       resetNewSourceForm: () =>
         set({
           newSourceName: '',
@@ -132,10 +146,12 @@ export const useSourceStore = create<SourceState>()(
     }),
     {
       name: 'youju-source-store',
-      version: 1,
+      version: 2,
       partialize: (state) => ({
         sources: state.sources,
         selectedSourceId: state.selectedSourceId,
+        currentTaskId: state.currentTaskId,
+        currentTaskTitle: state.currentTaskTitle,
         currentScenario: state.currentScenario,
         scenarioDescription: state.scenarioDescription,
         isDemo: state.isDemo,

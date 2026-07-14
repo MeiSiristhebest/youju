@@ -1,4 +1,5 @@
 import express from 'express'
+import type { ServerResponse } from 'http'
 import type { AnalysisCache } from '../../domain/services/analysisCache.js'
 import type { AnalysisCheckpointService } from '../../domain/services/analysisCheckpointService.js'
 import type { AnalysisService } from '../../domain/services/analysisService.js'
@@ -11,6 +12,7 @@ import type { SourceService } from '../../domain/services/sourceService.js'
 import type { AnalyzeResult, Source } from '../../domain/types.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
 import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
+import { isMockMode } from '../../infrastructure/env.js'
 import { analyzeRateLimiter } from '../middleware/rateLimiter.js'
 import { validateBody } from '../middleware/zodValidator.js'
 import { analyzeSchema } from '../validation/schemas.js'
@@ -55,7 +57,13 @@ const router = express.Router()
 
 router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await getSourceService().listSources(userId, sessionId)
+  const taskId = req.body.task_id as string | undefined
+  let allSources: Source[]
+  if (taskId) {
+    allSources = await getSourceService().listSources(userId, sessionId, taskId)
+  } else {
+    allSources = await getSourceService().listSources(userId, sessionId)
+  }
   const sourceIds = req.body.sourceIds || allSources.map((s) => s.id)
   const scenarioType = req.body.scenarioType || 'custom'
   const selectedSources = sourceIds
@@ -73,19 +81,26 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
 
   try {
     const scenarioKnowledge = await getObservabilityService().getScenarioKnowledge(scenarioType, 10)
-    const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
-      userId,
-      sessionId,
-    )
-    const aiConfig = defaultModelConfig
-      ? {
+    // 优先从请求体获取 aiConfig，回退到数据库查询
+    let aiConfig = req.body.aiConfig
+    let defaultModelConfigApiKey: string | undefined
+    if (!aiConfig) {
+      const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
+        userId,
+        sessionId,
+      )
+      if (defaultModelConfig) {
+        aiConfig = {
           apiKey: defaultModelConfig.apiKey,
           baseURL: defaultModelConfig.baseURL,
           model: defaultModelConfig.model,
           provider: defaultModelConfig.provider,
         }
-      : undefined
+        defaultModelConfigApiKey = defaultModelConfig.apiKey
+      }
+    }
 
+    const isDemo = req.body.isDemo || false
     const result = await getAnalysisService().analyzeSources(
       selectedSources,
       scenarioType,
@@ -96,20 +111,19 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
         taskId: null,
         persist: true,
         aiConfig,
+        isDemo,
       },
     )
 
-    isMock = !process.env.AI_API_KEY && !defaultModelConfig
+    isMock = isMockMode(aiConfig?.apiKey || defaultModelConfigApiKey, isDemo)
     const durationMs = Date.now() - startTime
 
     const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
-    const sortedRisks = getPreferenceService().sortRisksByPreference(result.risks, riskWeights)
 
     res.json({
       code: 200,
       data: {
         ...result,
-        risks: sortedRisks,
         meta: {
           durationMs,
           isMock,
@@ -128,117 +142,228 @@ router.post('/analyze', analyzeRateLimiter, validateBody(analyzeSchema), async (
   }
 })
 
-router.post('/analyze/stream', async (req, res) => {
-  const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await getSourceService().listSources(userId, sessionId)
-  const sourceIds = req.body.sourceIds || allSources.map((s) => s.id)
-  const scenarioType = req.body.scenarioType || 'custom'
-  const selectedSources = sourceIds
-    .map((id: string) => allSources.find((s: Source) => s.id === id))
-    .filter(Boolean)
+const analyzeStreamHandler: express.RequestHandler = async (req, res) => {
+  console.log('[Analyze Stream] 收到流式分析请求')
+  try {
+    const { userId, sessionId } = await getUserIdAndSessionId(req)
+    console.log('[Analyze Stream] userId:', userId, 'sessionId:', sessionId?.substring(0, 20))
 
-  if (selectedSources.length === 0) {
-    return res.status(400).json({ code: 400, msg: '没有可分析的材料' })
-  }
+    const taskId = req.body.task_id as string | undefined
+    let allSources: Source[]
+    if (taskId) {
+      allSources = await getSourceService().listSources(userId, sessionId, taskId)
+    } else {
+      allSources = await getSourceService().listSources(userId, sessionId)
+    }
+    console.log('[Analyze Stream] 所有材料数量:', allSources.length)
 
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
-  res.setHeader('Connection', 'keep-alive')
-  res.setHeader('X-Accel-Buffering', 'no')
+    const sourceIds = req.body.sourceIds || allSources.map((s) => s.id)
+    const scenarioType = req.body.scenarioType || 'custom'
+    console.log('[Analyze Stream] 请求的 sourceIds:', sourceIds, 'scenarioType:', scenarioType)
 
-  const sendEvent = (event: string, data: unknown) => {
-    res.write(`event: ${event}\n`)
-    res.write(`data: ${JSON.stringify(data)}\n\n`)
-  }
+    const selectedSources = sourceIds
+      .map((id: string) => allSources.find((s: Source) => s.id === id))
+      .filter(Boolean)
+    console.log('[Analyze Stream] 找到的材料数量:', selectedSources.length)
 
-  const scenarioKnowledge = await getObservabilityService().getScenarioKnowledge(scenarioType, 10)
-  const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(userId, sessionId)
-  const aiConfig = defaultModelConfig
-    ? {
-        apiKey: defaultModelConfig.apiKey,
-        baseURL: defaultModelConfig.baseURL,
-        model: defaultModelConfig.model,
-        provider: defaultModelConfig.provider,
+    if (selectedSources.length === 0) {
+      console.log('[Analyze Stream] 没有材料，返回 400')
+      return res.status(400).json({ code: 400, msg: '没有可分析的材料' })
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('X-Accel-Buffering', 'no')
+    console.log('[Analyze Stream] SSE headers 已设置')
+
+    let clientDisconnected = false
+    let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+
+    const sendEvent = (event: string, data: unknown) => {
+      if (clientDisconnected || res.writableEnded) return
+      console.log(`[Analyze Stream] 发送事件: ${event}`)
+      res.write(`event: ${event}\n`)
+      res.write(`data: ${JSON.stringify(data)}\n\n`)
+    }
+
+    heartbeatInterval = setInterval(() => {
+      if (!clientDisconnected && !res.writableEnded) {
+        res.write(`event: ping\n`)
+        res.write(`data: ${JSON.stringify({ timestamp: Date.now() })}\n\n`)
       }
-    : undefined
+    }, 15000)
 
-  const initialLog = await getAnalysisService().createAnalysisLogEntry({
-    userId,
-    sessionId,
-    scenarioType,
-    sourceCount: selectedSources.length,
-  })
-  const analysisLogId = initialLog.id
-
-  sendEvent('init', { analysisLogId, sourceCount: selectedSources.length })
-
-  const isMockMode = !process.env.AI_API_KEY && !defaultModelConfig
-
-  getAnalysisService()
-    .analyzeWithStreaming(
-      analysisLogId,
-      selectedSources,
-      scenarioType,
-      scenarioKnowledge,
-      {
-        onStepStart: (step) => {
-          sendEvent('step_start', {
-            stepId: step.id,
-            stepName: step.name,
-            stepIndex: step.index,
-            analysisLogId,
-          })
-        },
-        onStepComplete: (step) => {
-          sendEvent('step_complete', {
-            stepId: step.id,
-            stepName: step.name,
-            stepIndex: step.index,
-            partialResult: step.output?.data || null,
-            analysisLogId,
-          })
-        },
-        onComplete: async (result) => {
-          const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
-          const sortedRisks = getPreferenceService().sortRisksByPreference(
-            result.risks,
-            riskWeights,
-          )
-          const finalResult = {
-            ...result,
-            risks: sortedRisks,
-            meta: {
-              ...result.meta,
-              isMock: isMockMode,
-              sourceCount: selectedSources.length,
-              sourceIds,
-              analysisLogId,
-            },
-            preferences: {
-              riskWeights,
-            },
-          }
-          sendEvent('complete', finalResult)
-          res.end()
-        },
-        onError: (error) => {
-          sendEvent('error', { message: error.message, analysisLogId })
-          res.end()
-        },
-      },
-      aiConfig,
-    )
-    .catch((error) => {
-      if (!res.writableEnded) {
-        sendEvent('error', { message: error.message, analysisLogId })
-        res.end()
+    req.on('close', () => {
+      clientDisconnected = true
+      console.log('[Analyze Stream] 客户端断开连接')
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
       }
     })
-})
+
+    const scenarioKnowledge = await getObservabilityService().getScenarioKnowledge(scenarioType, 10)
+    console.log('[Analyze Stream] 场景知识数量:', scenarioKnowledge?.length || 0)
+
+    // 优先从请求体获取 aiConfig，回退到数据库查询
+    let aiConfig = req.body.aiConfig
+    let defaultModelConfigApiKey: string | undefined
+    if (!aiConfig) {
+      const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
+        userId,
+        sessionId,
+      )
+      console.log(
+        '[Analyze Stream] 默认模型配置(DB):',
+        defaultModelConfig ? defaultModelConfig.provider : '无',
+      )
+      if (defaultModelConfig) {
+        aiConfig = {
+          apiKey: defaultModelConfig.apiKey,
+          baseURL: defaultModelConfig.baseURL,
+          model: defaultModelConfig.model,
+          provider: defaultModelConfig.provider,
+        }
+        defaultModelConfigApiKey = defaultModelConfig.apiKey
+      }
+    } else {
+      console.log('[Analyze Stream] 使用请求体 aiConfig, provider:', aiConfig.provider || '未指定')
+    }
+
+    const isDemo = req.body.isDemo || false
+    console.log('[Analyze Stream] isDemo:', isDemo)
+
+    const initialLog = await getAnalysisService().createAnalysisLogEntry({
+      userId,
+      sessionId,
+      scenarioType,
+      sourceCount: selectedSources.length,
+    })
+    const analysisLogId = initialLog.id
+    console.log('[Analyze Stream] 创建分析日志成功, analysisLogId:', analysisLogId)
+
+    sendEvent('init', { analysisLogId, sourceCount: selectedSources.length })
+    console.log('[Analyze Stream] init 事件已发送')
+
+    const isMock = isMockMode(aiConfig?.apiKey || defaultModelConfigApiKey, isDemo)
+    console.log('[Analyze Stream] isMock:', isMock)
+
+    const streamStartTime = Date.now()
+
+    getAnalysisService()
+      .analyzeWithStreaming(
+        analysisLogId,
+        selectedSources,
+        scenarioType,
+        scenarioKnowledge,
+        {
+          onStepStart: (step) => {
+            console.log(`[Analyze Stream] 步骤开始: ${step.name}`)
+            sendEvent('step_start', {
+              stepId: step.id,
+              stepName: step.name,
+              stepIndex: step.index,
+              analysisLogId,
+            })
+          },
+          onStepComplete: (step) => {
+            console.log(`[Analyze Stream] 步骤完成: ${step.name}`)
+            sendEvent('step_complete', {
+              stepId: step.id,
+              stepName: step.name,
+              stepIndex: step.index,
+              partialResult: step.output?.data || null,
+              analysisLogId,
+            })
+          },
+          onStepError: (step) => {
+            console.log(`[Analyze Stream] 步骤错误: ${step.name}`, step.error)
+            sendEvent('step_error', {
+              stepId: step.id,
+              stepName: step.name,
+              stepIndex: step.index,
+              error: step.error,
+              analysisLogId,
+            })
+          },
+          onComplete: async (result) => {
+            console.log('[Analyze Stream] 分析完成')
+            if (heartbeatInterval) {
+              clearInterval(heartbeatInterval)
+            }
+            const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
+            const streamDurationMs = Date.now() - streamStartTime
+            const finalResult = {
+              ...result,
+              meta: {
+                ...result.meta,
+                durationMs: result.meta?.durationMs || streamDurationMs,
+                isMock,
+                sourceCount: selectedSources.length,
+                sourceIds,
+                analysisLogId,
+              },
+              preferences: {
+                riskWeights,
+              },
+            }
+            console.log('[Analyze Stream] complete 事件数据:', {
+              hasSummary: !!finalResult.summary,
+              riskCount: finalResult.risks?.length || 0,
+              hasChecklist: !!finalResult.checklist,
+              hasMeta: !!finalResult.meta,
+              keys: Object.keys(finalResult),
+            })
+            sendEvent('complete', finalResult)
+            if (!res.writableEnded) res.end()
+            console.log('[Analyze Stream] 响应已结束')
+          },
+          onError: (error) => {
+            console.error('[Analyze Stream] 分析错误:', error.message)
+            if (heartbeatInterval) {
+              clearInterval(heartbeatInterval)
+            }
+            sendEvent('error', { message: error.message, analysisLogId })
+            if (!res.writableEnded) res.end()
+          },
+        },
+        aiConfig,
+        isDemo,
+        userId,
+        sessionId,
+      )
+      .catch((error) => {
+        console.error('[Analyze Stream] Promise catch 错误:', error)
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval)
+        }
+        if (!res.writableEnded) {
+          sendEvent('error', { message: error.message, analysisLogId })
+          res.end()
+        }
+      })
+
+    console.log('[Analyze Stream] 分析已启动，等待结果...')
+  } catch (e) {
+    console.error('[Analyze Stream] 路由处理错误:', e)
+    if (!res.writableEnded) {
+      res.status(500).json({ code: 500, msg: '分析失败' })
+    }
+  }
+}
+
+router.post('/analyze/stream', analyzeStreamHandler)
+router.post('/analyze/incremental/stream', analyzeStreamHandler)
 
 router.post('/analyze/async', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await getSourceService().listSources(userId, sessionId)
+  const sourceTaskId = req.body.task_id as string | undefined
+  let allSources: Source[]
+  if (sourceTaskId) {
+    allSources = await getSourceService().listSources(userId, sessionId, sourceTaskId)
+  } else {
+    allSources = await getSourceService().listSources(userId, sessionId)
+  }
   const sourceIds = req.body.sourceIds || allSources.map((s) => s.id)
   const scenarioType = req.body.scenarioType || 'custom'
   const selectedSources = sourceIds
@@ -257,6 +382,8 @@ router.post('/analyze/async', async (req, res) => {
     scenarioKnowledge,
     userId,
     sessionId,
+    aiConfig: req.body.aiConfig,
+    isDemo: req.body.isDemo,
   })
 
   res.json({
@@ -282,13 +409,8 @@ router.get('/analyze/status/:taskId', async (req, res) => {
 
   let resultWithPreferences = taskStatus.result
   if (resultWithPreferences) {
-    const sortedRisks = getPreferenceService().sortRisksByPreference(
-      resultWithPreferences.risks,
-      riskWeights,
-    )
     resultWithPreferences = {
       ...resultWithPreferences,
-      risks: sortedRisks,
       preferences: {
         riskWeights,
       },
@@ -306,13 +428,18 @@ router.get('/analyze/status/:taskId', async (req, res) => {
 
 router.post('/analyze/resume', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const { analysisLogId, sourceIds } = req.body
+  const { analysisLogId, sourceIds, aiConfig, task_id } = req.body
 
   if (!analysisLogId) {
     return res.status(400).json({ code: 400, msg: '缺少 analysisLogId' })
   }
 
-  const allSources = await getSourceService().listSources(userId, sessionId)
+  let allSources: Source[]
+  if (task_id) {
+    allSources = await getSourceService().listSources(userId, sessionId, task_id)
+  } else {
+    allSources = await getSourceService().listSources(userId, sessionId)
+  }
   const sources = sourceIds
     ? sourceIds.map((id: string) => allSources.find((s: Source) => s.id === id)).filter(Boolean)
     : allSources
@@ -328,6 +455,7 @@ router.post('/analyze/resume', async (req, res) => {
       {
         userId,
         sessionId,
+        aiConfig,
       },
     )
 
@@ -351,7 +479,7 @@ router.post('/analyze/resume', async (req, res) => {
 router.post('/analyze/step/:index/retry', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
   const { index } = req.params
-  const { analysisLogId, sourceIds } = req.body
+  const { analysisLogId, sourceIds, task_id } = req.body
 
   if (!analysisLogId) {
     return res.status(400).json({ code: 400, msg: '缺少 analysisLogId' })
@@ -362,7 +490,12 @@ router.post('/analyze/step/:index/retry', async (req, res) => {
     return res.status(400).json({ code: 400, msg: '无效的步骤索引' })
   }
 
-  const allSources = await getSourceService().listSources(userId, sessionId)
+  let allSources: Source[]
+  if (task_id) {
+    allSources = await getSourceService().listSources(userId, sessionId, task_id)
+  } else {
+    allSources = await getSourceService().listSources(userId, sessionId)
+  }
   const sources = sourceIds
     ? sourceIds.map((id: string) => allSources.find((s: Source) => s.id === id)).filter(Boolean)
     : allSources
@@ -448,13 +581,19 @@ router.get('/analyze/checkpoint/:analysisLogId', async (req, res) => {
 
 router.post('/analyze/incremental', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const { existingResult, newSourceIds, scenarioType, analysisLogId } = req.body
+  const { existingResult, newSourceIds, scenarioType, analysisLogId, isDemo, task_id, aiConfig } =
+    req.body
 
   if (!existingResult || !newSourceIds || newSourceIds.length === 0) {
     return res.status(400).json({ code: 400, msg: '缺少已有结果或新材料ID' })
   }
 
-  const allSources = await getSourceService().listSources(userId, sessionId)
+  let allSources: Source[]
+  if (task_id) {
+    allSources = await getSourceService().listSources(userId, sessionId, task_id)
+  } else {
+    allSources = await getSourceService().listSources(userId, sessionId)
+  }
 
   const existingSourceIds = existingResult.meta?.sourceIds || []
   const existingSources = existingSourceIds
@@ -485,23 +624,20 @@ router.post('/analyze/incremental', async (req, res) => {
         userId,
         sessionId,
         analysisLogId: analysisLogId || null,
+        isDemo,
+        aiConfig,
       },
     )
 
     const durationMs = Date.now() - startTime
-    const isMock = !process.env.AI_API_KEY
+    const isMock = isMockMode(undefined, isDemo)
 
     const riskWeights = await getPreferenceService().getUserRiskWeights(userId, sessionId)
-    const sortedRisks = getPreferenceService().sortRisksByPreference(
-      diffResult.result.risks,
-      riskWeights,
-    )
 
     res.json({
       code: 200,
       data: {
         ...diffResult.result,
-        risks: sortedRisks,
         meta: {
           ...diffResult.result.meta,
           durationMs,

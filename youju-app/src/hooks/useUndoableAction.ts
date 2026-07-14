@@ -22,6 +22,7 @@ export function useUndoableAction<T>(
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastIdRef = useRef<string | null>(null)
   const currentItemRef = useRef<T | null>(null)
+  const actionExecutedRef = useRef(false)
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -37,25 +38,30 @@ export function useUndoableAction<T>(
       toastIdRef.current = null
     }
     currentItemRef.current = null
+    actionExecutedRef.current = false
   }, [clearTimer, dismissToast])
 
   const execute = useCallback(
     (item: T) => {
       clearTimer()
       currentItemRef.current = item
+      actionExecutedRef.current = false
 
       const handleUndo = async () => {
         clearTimer()
+        if (!actionExecutedRef.current) {
+          await action(item)
+          actionExecutedRef.current = true
+        }
         await undo(item)
         currentItemRef.current = null
         toastIdRef.current = null
+        actionExecutedRef.current = false
       }
 
-      const handleAction = async () => {
-        await action(item)
-        currentItemRef.current = null
-        toastIdRef.current = null
-      }
+      // 立即执行 action
+      action(item)
+      actionExecutedRef.current = true
 
       toastIdRef.current = showToast(message, 'info', {
         actionLabel: undoLabel,
@@ -64,7 +70,9 @@ export function useUndoableAction<T>(
       })
 
       timerRef.current = setTimeout(() => {
-        handleAction()
+        currentItemRef.current = null
+        toastIdRef.current = null
+        actionExecutedRef.current = false
       }, duration * 1000)
     },
     [action, undo, message, undoLabel, duration, clearTimer, showToast],

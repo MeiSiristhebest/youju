@@ -10,7 +10,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { getRiskTypeLabel } from '@/constants/riskLabels'
+import { cn, formatDimensionName } from '@/lib/utils'
 import { useAnalysisStore } from '../../../stores'
 import type { Risk, RiskLevel, RiskStatus } from '../../../types'
 
@@ -37,13 +38,6 @@ const statusLabelMap: Record<RiskStatus, string> = {
   ignored: '已忽略',
 }
 
-const typeLabelMap: Record<string, string> = {
-  conflict: '直接矛盾',
-  promise: '承诺未落文字',
-  missing: '信息缺失',
-  info: '信息提示',
-}
-
 const confidenceGroupLabels: Record<ConfidenceGroup, string> = {
   high: '高置信度 (≥80%)',
   medium: '中置信度 (50%-80%)',
@@ -67,6 +61,7 @@ export function RiskGroupedView({ onEvidenceClick }: RiskGroupedViewProps) {
   const selectedRisk = useAnalysisStore((state) => state.selectedRisk)
   const setSelectedRisk = useAnalysisStore((state) => state.setSelectedRisk)
   const getRiskStatus = useAnalysisStore((state) => state.getRiskStatus)
+  const scenarioType = useAnalysisStore((state) => state.result?.scenario?.type)
 
   const [groupBy, setGroupBy] = useState<GroupByType>('dimension')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -84,11 +79,11 @@ export function RiskGroupedView({ onEvidenceClick }: RiskGroupedViewProps) {
       switch (groupBy) {
         case 'dimension':
           groupKey = risk.dimension || '未分类'
-          groupLabel = risk.dimension || '未分类'
+          groupLabel = formatDimensionName(risk.dimension) || '未分类'
           break
         case 'type':
           groupKey = risk.type || 'unknown'
-          groupLabel = typeLabelMap[risk.type] || risk.type || '未知类型'
+          groupLabel = getRiskTypeLabel(risk.type, scenarioType)
           break
         case 'confidence': {
           const confGroup = getConfidenceGroup(risk.confidence || 0)
@@ -124,7 +119,7 @@ export function RiskGroupedView({ onEvidenceClick }: RiskGroupedViewProps) {
     })
 
     return sortedGroups
-  }, [risks, groupBy])
+  }, [risks, groupBy, scenarioType])
 
   useEffect(() => {
     if (groups.length > 0 && expandedGroups.size === 0) {
@@ -188,7 +183,7 @@ export function RiskGroupedView({ onEvidenceClick }: RiskGroupedViewProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 overflow-hidden">
       <div className="px-4 py-2 border-b border-rule bg-paper-dark/30 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Layers size={14} strokeWidth={1.5} className="text-ink-faint" />
@@ -248,10 +243,10 @@ export function RiskGroupedView({ onEvidenceClick }: RiskGroupedViewProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto flex flex-col">
         {groups.length === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
+          <div className="flex-1 flex flex-col items-center justify-center px-4">
+            <div className="w-16 h-16 mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
               <CheckCircle size={28} strokeWidth={1.5} />
             </div>
             <p className="text-sm font-medium text-ink mb-1">一切正常</p>
@@ -359,7 +354,7 @@ export function RiskGroupedView({ onEvidenceClick }: RiskGroupedViewProps) {
 
                             <div className="w-24 shrink-0">
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-paper border border-rule/60 text-ink-muted">
-                                {typeLabelMap[risk.type] || risk.type}
+                                {getRiskTypeLabel(risk.type, scenarioType)}
                               </span>
                             </div>
 

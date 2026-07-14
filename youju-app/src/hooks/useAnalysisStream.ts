@@ -1,9 +1,11 @@
+import { STREAM_TIMEOUT } from '../config/runtime'
 import { isDemoScenario, runDemoAnalysisStream } from '../services/demoAnalysisStream'
 import { streamFetch } from '../services/streamClient'
+import { useModelConfigStore } from '../stores/useModelConfigStore'
+import { useSourceStore } from '../stores/useSourceStore'
 import type { AnalyzeResult, Source } from '../types'
 
 const MAX_RETRY_COUNT = 3
-const TIMEOUT_MS = 120000
 
 const ANALYSIS_STEPS = [
   { key: 'scenario', name: '场景识别', desc: '理解材料内容，识别场景类型' },
@@ -23,6 +25,7 @@ export interface StreamCallbacks {
     stepIndex: number,
     partialResult: unknown,
   ) => void
+  onStepError?: (stepId: string, stepName: string, stepIndex: number, error: string) => void
   onProgress?: (progress: number, message?: string) => void
 }
 
@@ -84,6 +87,7 @@ export async function streamAnalyze(
     scenarioType,
     onStepStart,
     onStepComplete,
+    onStepError,
     onProgress,
     abortController = new AbortController(),
     isIncremental = false,
@@ -110,14 +114,24 @@ export async function streamAnalyze(
     logFn(`${prefix} ${message}`, details || '')
   }
 
-  const body: Record<string, any> = { sourceIds, scenarioType }
+  const aiConfig = useModelConfigStore.getState().getAIConfig()
+  const isDemo = sourceIds.every((id) => id.startsWith('demo_'))
+  const currentTaskId = useSourceStore.getState().currentTaskId
+  const body: Record<string, any> = { sourceIds, scenarioType, aiConfig, isDemo }
+  if (currentTaskId) {
+    body.task_id = currentTaskId
+  }
   if (isIncremental && existingResult?.meta?.sourceIds) {
     body.existingResult = existingResult
     const existingIds = existingResult.meta.sourceIds as string[]
     body.newSourceIds = sourceIds.filter((id) => !existingIds.includes(id))
   }
 
-  log('info', `Creating request to ${url}`, { bodySize: JSON.stringify(body).length })
+  log('info', `Creating request to ${url}`, {
+    bodySize: JSON.stringify(body).length,
+    hasAiConfig: !!aiConfig,
+    isDemo,
+  })
 
   setStreaming(true)
   setStreamError(null)
@@ -127,7 +141,7 @@ export async function streamAnalyze(
       method: 'POST',
       body,
       signal: abortController.signal,
-      timeout: TIMEOUT_MS,
+      timeout: STREAM_TIMEOUT,
       retries: MAX_RETRY_COUNT - 1,
       onEvent: (event) => {
         try {
@@ -178,8 +192,26 @@ export async function streamAnalyze(
               break
             }
 
+            case 'step_error': {
+              log('error', 'Step error', {
+                stepId: parsed.stepId,
+                stepName: parsed.stepName,
+                stepIndex: parsed.stepIndex,
+                error: parsed.error,
+              })
+              onStepError?.(parsed.stepId, parsed.stepName, parsed.stepIndex, parsed.error)
+              break
+            }
+
             case 'complete':
-              finalResult = parsed.result as AnalyzeResult
+              log('info', 'Analysis complete event received', {
+                hasSummary: !!parsed.summary,
+                riskCount: parsed.risks?.length || 0,
+                hasChecklist: !!parsed.checklist,
+                hasMeta: !!parsed.meta,
+                rawKeys: parsed ? Object.keys(parsed) : [],
+              })
+              finalResult = parsed as unknown as AnalyzeResult
               log('info', 'Analysis complete')
               onProgress?.(100, '分析完成')
               break

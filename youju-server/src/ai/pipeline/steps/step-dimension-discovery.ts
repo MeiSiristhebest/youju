@@ -1,5 +1,11 @@
-import type { ReasoningStep, SharedMainCallResult } from '../../../domain/types.js'
-import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
+import type { ReasoningStep } from '../../../domain/types.js'
+import { isMockMode } from '../../../infrastructure/env.js'
+import { callAI } from '../../llm.js'
+import { generateMockStepData } from '../../mock.js'
+import { analysisCache } from '../../promptCache.js'
+import { CURRENT_PROMPT_VERSION, getStepSystemPrompt } from '../../prompts/index.js'
+import { buildStep3UserPrompt } from '../../prompts/stepUserPrompts.js'
+import { extractJSON } from '../../validator.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
 
 export const systemPromptFragment = `
@@ -8,19 +14,20 @@ From all materials, extract the meaningful dimensions that should be compared.
 These are NOT pre-defined — you DISCOVER them from the content.
 
 For each dimension you identify:
-  • What is it? (e.g., "monthly salary", "move-in date", "security deposit", "delivery deadline")
+  • What is it? (e.g., "月薪"、"入住日期"、"押金金额"、"交付期限")
   • Why does it matter? (why is this dimension important to verify?)
   • What type of value? (number, date, boolean, text)
 
 Dimension categories you commonly find (but are NOT limited to):
-  • Financial: price, salary, deposit, fine, compensation, bonus
-  • Temporal: start date, deadline, duration, trial period, validity
-  • Legal/Contractual: liability, termination conditions, penalty clauses, responsibilities
-  • Quality/Scope: deliverables, specifications, inclusions/exclusions
-  • Logistics: location, delivery method, parties involved
-  • Benefits: welfare, insurance, perks, amenities
+  • 财务类: 价格、薪资、押金、罚款、补偿金、奖金
+  • 时间类: 开始日期、截止日期、期限、试用期、有效期
+  • 法律/合同类: 责任、终止条件、违约条款、义务
+  • 质量/范围类: 交付物、规格、包含/排除项
+  • 物流类: 地点、交付方式、相关方
+  • 福利类: 福利、保险、补贴、设施
 
 IMPORTANT: Always discover dimensions from the actual content, never force-fit a template.
+All dimension names MUST be in Chinese.
 `
 
 export const outputSchema = {
@@ -36,90 +43,73 @@ export const outputSchema = {
   },
 }
 
-const MAIN_CALL_STEP_COUNT = 5
-
 export const stepDimensionDiscovery: StepExecutor = async (
   input: StepInput,
 ): Promise<StepOutput> => {
   const startTime = Date.now()
+  const isMock = isMockMode(input.aiConfig?.apiKey, input.isDemo)
 
-  const scenarioOutput = input.previousOutputs['step-scenario-discovery'] as
-    | { mainCallResult?: SharedMainCallResult }
-    | undefined
-  const mainResult = scenarioOutput?.mainCallResult
-  const parsed = mainResult?.parsed
-
-  const dimensions: string[] = []
-  if (parsed?.scenario?.key_dimensions) {
-    dimensions.push(...parsed.scenario.key_dimensions)
-  }
-  if (parsed?.extracted_entities) {
-    for (const entity of parsed.extracted_entities) {
-      if (!dimensions.includes(entity.dimension)) {
-        dimensions.push(entity.dimension)
-      }
-    }
-  }
-  if (parsed?.risks) {
-    for (const risk of parsed.risks) {
-      if (!dimensions.includes(risk.dimension)) {
-        dimensions.push(risk.dimension)
-      }
+  // Mock 模式：从 generateMockStepData 获取独立步骤数据
+  if (isMock) {
+    const mockData = generateMockStepData(input.sources)
+    return {
+      data: mockData.dimensionDiscovery,
+      modelVersion: 'mock-rule-engine',
+      promptVersion: CURRENT_PROMPT_VERSION,
+      tokenPrompt: 0,
+      tokenCompletion: 0,
+      latencyMs: Date.now() - startTime,
     }
   }
 
-  const reasoningStep = parsed?.reasoning_trace?.find((r: ReasoningStep) =>
+  // 真实模式：独立 AI 调用（带 prompt cache）
+  const step1Output = input.previousOutputs['step-scenario-discovery']
+  const step2Output = input.previousOutputs['step-input-parsing']
+  const systemPrompt = getStepSystemPrompt('step-3-dimension-discovery', CURRENT_PROMPT_VERSION)
+  const userPrompt = buildStep3UserPrompt(
+    input.sources,
+    step1Output as Record<string, unknown>,
+    step2Output as Record<string, unknown>,
+  )
+  const aiResponse = await callAI(userPrompt, systemPrompt, 2, input.aiConfig, {
+    enabled: true,
+    cacheInstance: analysisCache,
+  })
+
+  const parsed = extractJSON(aiResponse.content)
+  const reasoningTrace = parsed?.reasoning_trace as ReasoningStep[] | undefined
+  const reasoningStep = reasoningTrace?.find((r) =>
     String(r.step).toUpperCase().includes('DIMENSION'),
   )
 
-  const tokenPrompt = mainResult ? Math.ceil(mainResult.tokenPrompt / MAIN_CALL_STEP_COUNT) : 0
-  const tokenCompletion = mainResult
-    ? Math.ceil(mainResult.tokenCompletion / MAIN_CALL_STEP_COUNT)
-    : 0
+  const rawDimensions = parsed?.dimensions as
+    | Array<{ name?: string; description?: string }>
+    | string[]
+    | undefined
+  const dimensions: string[] = Array.isArray(rawDimensions)
+    ? rawDimensions.map((d) => (typeof d === 'string' ? d : d.name || ''))
+    : []
+  const categoriesRaw = parsed?.categories
+  const categories: Record<string, string[]> =
+    categoriesRaw && !Array.isArray(categoriesRaw) && typeof categoriesRaw === 'object'
+      ? (categoriesRaw as Record<string, string[]>)
+      : Array.isArray(categoriesRaw)
+        ? { all: categoriesRaw as string[] }
+        : {}
 
   return {
     data: {
       dimensions,
       dimensionCount: dimensions.length,
+      categories,
       reasoning: reasoningStep?.result || '维度发现完成',
+      reasoning_trace: reasoningTrace || [],
     },
-    modelVersion: mainResult?.model || process.env.AI_MODEL || 'mock-rule-engine',
+    modelVersion: aiResponse.model,
     promptVersion: CURRENT_PROMPT_VERSION,
-    tokenPrompt,
-    tokenCompletion,
+    tokenPrompt: aiResponse.tokenPrompt,
+    tokenCompletion: aiResponse.tokenCompletion,
     latencyMs: Date.now() - startTime,
+    rawOutput: aiResponse.content,
   }
-}
-
-function _categorizeDimensions(dimensions: string[]): Record<string, string[]> {
-  const categories: Record<string, string[]> = {
-    financial: [],
-    temporal: [],
-    legal: [],
-    quality: [],
-    logistics: [],
-    benefits: [],
-    other: [],
-  }
-
-  for (const dim of dimensions) {
-    const d = dim.toLowerCase()
-    if (d.match(/salary|price|cost|fee|deposit|bonus|compensation|amount|pay|薪|金|钱|费/)) {
-      categories.financial.push(dim)
-    } else if (d.match(/date|deadline|duration|start|end|trial|period|time|期|时间|日期/)) {
-      categories.temporal.push(dim)
-    } else if (d.match(/liability|termination|responsibility|legal|contract|责任|义务|条款/)) {
-      categories.legal.push(dim)
-    } else if (d.match(/quality|scope|deliverable|spec|质量|范围/)) {
-      categories.quality.push(dim)
-    } else if (d.match(/location|delivery|logistics|地点|位置|交付/)) {
-      categories.logistics.push(dim)
-    } else if (d.match(/benefit|welfare|insurance|perk|福利|保险/)) {
-      categories.benefits.push(dim)
-    } else {
-      categories.other.push(dim)
-    }
-  }
-
-  return categories
 }

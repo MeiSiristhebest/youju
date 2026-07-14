@@ -1,41 +1,32 @@
-import type {
-  AIRawOutput,
-  ReasoningStep,
-  Risk,
-  SharedMainCallResult,
-} from '../../../domain/types.js'
-import { CURRENT_PROMPT_VERSION } from '../../prompts/index.js'
+import type { Evidence, ReasoningStep, Risk, RiskLevel, RiskType } from '../../../domain/types.js'
+import { isMockMode } from '../../../infrastructure/env.js'
+import { callAI } from '../../llm.js'
+import { generateMockStepData } from '../../mock.js'
+import { analysisCache } from '../../promptCache.js'
+import { CURRENT_PROMPT_VERSION, getStepSystemPrompt } from '../../prompts/index.js'
+import { buildStep5UserPrompt } from '../../prompts/stepUserPrompts.js'
+import { extractJSON } from '../../validator.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
 
-type RawRisk = AIRawOutput['risks'][number]
+interface AIRisk {
+  dimension?: string
+  type?: RiskType
+  level?: RiskLevel
+  title?: string
+  description?: string
+  confidence?: number
+  evidence?: Array<{
+    sourceName: string
+    sourceType: string
+    quote: string
+    confidence: number
+  }>
+}
 
 export const systemPromptFragment = `
 Step 5: DISCREPANCY DETECTION & EVIDENCE VALIDATION
 For each dimension, analyze and classify findings into one of the risk types
 defined in domain/rules/riskRules.ts (conflict, promise, missing, info).
-Overview of each type:
-
-  CONFLICT (conflict):
-  → Multiple sources describe the same dimension with differing/contradictory values
-  → Each claim must have supporting evidence (quote)
-
-  PROMISE UNWRITTEN (promise):
-  → A commitment/promise appears in an informal source but is absent from formal sources
-
-  MISSING INFORMATION (missing):
-  → A dimension important/expected for this scenario is absent from all sources
-  → Use your judgment: would a reasonable person expect this to be specified?
-
-  INFO (info):
-  → Observation worth noting that does not rise to risk level
-
-The exact classification conditions (e.g. minimum source counts) are defined
-in domain/rules/riskRules.ts and must be respected.
-
-Every finding MUST have:
-  • At least one evidence entry with exact source quote
-  • Clear reasoning for why it's categorized this way
-  • Confidence score
 `
 
 export const outputSchema = {
@@ -73,37 +64,73 @@ export const outputSchema = {
   totalRisks: { type: 'number', description: 'total number of risks' },
 }
 
-const MAIN_CALL_STEP_COUNT = 5
-
 export const stepDiscrepancyDetection: StepExecutor = async (
   input: StepInput,
 ): Promise<StepOutput> => {
   const startTime = Date.now()
+  const isMock = isMockMode(input.aiConfig?.apiKey, input.isDemo)
 
-  const scenarioOutput = input.previousOutputs['step-scenario-discovery'] as
-    | { mainCallResult?: SharedMainCallResult }
+  // Mock 模式：从 generateMockStepData 获取独立步骤数据
+  if (isMock) {
+    const mockData = generateMockStepData(input.sources)
+    return {
+      data: mockData.discrepancyDetection,
+      modelVersion: 'mock-rule-engine',
+      promptVersion: CURRENT_PROMPT_VERSION,
+      tokenPrompt: 0,
+      tokenCompletion: 0,
+      latencyMs: Date.now() - startTime,
+    }
+  }
+
+  // 真实模式：独立 AI 调用（带 prompt cache）
+  const step1Output = input.previousOutputs['step-scenario-discovery']
+  const step4Output = input.previousOutputs['step-cross-source-extraction'] as
+    | { entities?: unknown[] }
     | undefined
-  const mainResult = scenarioOutput?.mainCallResult
-  const parsed = mainResult?.parsed
+  const systemPrompt = getStepSystemPrompt('step-5-discrepancy-detection', CURRENT_PROMPT_VERSION)
+  const userPrompt = buildStep5UserPrompt(
+    input.sources,
+    step1Output as Record<string, unknown>,
+    step4Output || {},
+  )
+  const aiResponse = await callAI(userPrompt, systemPrompt, 2, input.aiConfig, {
+    enabled: true,
+    cacheInstance: analysisCache,
+  })
 
-  const rawRisks: RawRisk[] = parsed?.risks || []
-  const risks: Risk[] = rawRisks.map((r: RawRisk, i: number) => {
-    const sourceNames: string[] = r.evidence?.map((e) => String(e.sourceName)) || []
+  const parsed = extractJSON(aiResponse.content)
+  const reasoningTrace = parsed?.reasoning_trace as ReasoningStep[] | undefined
+  const reasoningStep = reasoningTrace?.find(
+    (r) =>
+      String(r.step).toUpperCase().includes('DISCREPANCY') ||
+      String(r.step).toUpperCase().includes('DETECTION'),
+  )
+
+  const aiRisks = (parsed?.risks as AIRisk[] | undefined) || []
+
+  // 在代码中生成 id 和 sources（AI 不输出这两个字段）
+  const risks: Risk[] = aiRisks.map((r, i) => {
+    const evidence: Evidence[] = (r.evidence || []).map((e) => ({
+      sourceName: e.sourceName,
+      sourceType: e.sourceType,
+      quote: e.quote,
+      confidence: e.confidence,
+    }))
+    const avgConfidence =
+      evidence.length > 0
+        ? evidence.reduce((sum, e) => sum + (e.confidence || 0), 0) / evidence.length
+        : r.confidence || 0
     return {
       id: `r${i + 1}`,
-      dimension: r.dimension,
-      type: r.type,
-      level: r.level,
-      title: r.title,
-      description: r.description,
-      sources: [...new Set(sourceNames)],
-      evidence:
-        r.evidence?.map((e) => ({
-          sourceName: e.sourceName,
-          sourceType: e.sourceType,
-          quote: e.quote,
-          confidence: e.confidence,
-        })) || [],
+      dimension: r.dimension || 'unknown',
+      type: r.type || 'info',
+      level: r.level || 'info',
+      title: r.title || '未命名风险',
+      description: r.description || '',
+      sources: [...new Set(evidence.map((e) => e.sourceName))],
+      evidence,
+      confidence: typeof r.confidence === 'number' ? r.confidence : avgConfidence,
     }
   })
 
@@ -130,17 +157,6 @@ export const stepDiscrepancyDetection: StepExecutor = async (
     }
   }
 
-  const reasoningStep = parsed?.reasoning_trace?.find(
-    (r: ReasoningStep) =>
-      String(r.step).toUpperCase().includes('DISCREPANCY') ||
-      String(r.step).toUpperCase().includes('DETECTION'),
-  )
-
-  const tokenPrompt = mainResult ? Math.ceil(mainResult.tokenPrompt / MAIN_CALL_STEP_COUNT) : 0
-  const tokenCompletion = mainResult
-    ? Math.ceil(mainResult.tokenCompletion / MAIN_CALL_STEP_COUNT)
-    : 0
-
   return {
     data: {
       risks,
@@ -148,11 +164,13 @@ export const stepDiscrepancyDetection: StepExecutor = async (
       byLevel,
       totalRisks: risks.length,
       reasoning: reasoningStep?.result || '差异检测完成',
+      reasoning_trace: reasoningTrace || [],
     },
-    modelVersion: mainResult?.model || process.env.AI_MODEL || 'mock-rule-engine',
+    modelVersion: aiResponse.model,
     promptVersion: CURRENT_PROMPT_VERSION,
-    tokenPrompt,
-    tokenCompletion,
+    tokenPrompt: aiResponse.tokenPrompt,
+    tokenCompletion: aiResponse.tokenCompletion,
     latencyMs: Date.now() - startTime,
+    rawOutput: aiResponse.content,
   }
 }

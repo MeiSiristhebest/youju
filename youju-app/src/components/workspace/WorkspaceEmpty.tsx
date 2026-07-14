@@ -69,7 +69,7 @@ export function WorkspaceEmpty({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center text-center px-6 py-10 w-full',
+        'h-full flex flex-col items-center justify-center text-center px-6 w-full',
         className,
       )}
     >

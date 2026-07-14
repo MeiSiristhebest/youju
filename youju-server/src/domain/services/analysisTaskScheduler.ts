@@ -1,4 +1,4 @@
-import type { AnalyzeResult, ScenarioKnowledge, Source } from '../types.js'
+import type { AIConfig, AnalyzeResult, ScenarioKnowledge, Source } from '../types.js'
 import type { AnalysisService } from './analysisService.js'
 
 export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed'
@@ -121,6 +121,8 @@ export class AnalysisTaskScheduler {
     scenarioKnowledge?: ScenarioKnowledge[]
     userId: number | null
     sessionId: string | null
+    aiConfig?: AIConfig
+    isDemo?: boolean
   }): string {
     const taskId = this.generateTaskId()
     const now = new Date().toISOString()
@@ -155,6 +157,8 @@ export class AnalysisTaskScheduler {
       scenarioKnowledge?: ScenarioKnowledge[]
       userId: number | null
       sessionId: string | null
+      aiConfig?: AIConfig
+      isDemo?: boolean
     },
   ): Promise<void> {
     const task = this.tasks.get(taskId)
@@ -233,6 +237,8 @@ export class AnalysisTaskScheduler {
           sessionId: params.sessionId,
           taskId,
           persist: true,
+          aiConfig: params.aiConfig,
+          isDemo: params.isDemo,
         },
       )
     } catch (error) {

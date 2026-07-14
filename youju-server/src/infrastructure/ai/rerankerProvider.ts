@@ -1,14 +1,11 @@
 import type { RerankerPort } from '../../domain/ports/aiPorts.js'
 import type { ProviderHealth, ProviderWithHealth } from '../../domain/ports/providerRegistry.js'
 import type { SourceChunk } from '../../domain/types.js'
+import { getEnv } from '../env.js'
 
 export interface RerankerProvider extends RerankerPort, ProviderWithHealth {
   readonly id: string
 }
-
-const DEFAULT_BASE_URL = 'https://api.siliconflow.cn/v1'
-const DEFAULT_MODEL = 'bge-reranker-v2-m3'
-const MAX_RETRIES = 2
 
 interface RerankApiResult {
   index: number
@@ -39,15 +36,15 @@ export class DefaultRerankerProvider implements RerankerProvider {
   }
 
   private get baseURL(): string {
-    return this.config.baseURL || process.env.RERANKER_BASE_URL || DEFAULT_BASE_URL
+    return this.config.baseURL || getEnv().RERANKER_BASE_URL
   }
 
   private get apiKey(): string {
-    return this.config.apiKey ?? process.env.RERANKER_API_KEY ?? ''
+    return this.config.apiKey ?? getEnv().RERANKER_API_KEY ?? ''
   }
 
   private get model(): string {
-    return this.config.model || process.env.RERANKER_MODEL || DEFAULT_MODEL
+    return this.config.model || getEnv().RERANKER_MODEL
   }
 
   async rerank(
@@ -83,13 +80,14 @@ export class DefaultRerankerProvider implements RerankerProvider {
     documents: string[],
     topN: number,
   ): Promise<RerankApiResponse> {
+    const maxRetries = getEnv().RERANKER_MAX_RETRIES
     let lastError: Error | null = null
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await this.callRerankApi(query, documents, topN)
       } catch (e) {
         lastError = e as Error
-        if (attempt < MAX_RETRIES) {
+        if (attempt < maxRetries) {
           await sleep(1000 * (attempt + 1))
         }
       }
@@ -174,15 +172,16 @@ export class DefaultRerankerProvider implements RerankerProvider {
 }
 
 export function createRerankerProviderFromEnv(): RerankerProvider | null {
-  const apiKey = process.env.RERANKER_API_KEY || ''
+  const env = getEnv()
+  const apiKey = env.RERANKER_API_KEY ?? ''
   if (!apiKey) {
     return null
   }
 
   const config: RerankerProviderConfig = {
-    baseURL: process.env.RERANKER_BASE_URL,
+    baseURL: env.RERANKER_BASE_URL,
     apiKey,
-    model: process.env.RERANKER_MODEL,
+    model: env.RERANKER_MODEL,
   }
 
   return new DefaultRerankerProvider('default', config)

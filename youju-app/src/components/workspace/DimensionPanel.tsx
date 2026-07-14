@@ -49,7 +49,7 @@ function StarRating({
             size={14}
             className={cn(
               'transition-colors',
-              star <= displayValue ? 'text-amber-400 fill-amber-400' : 'text-ink-faint',
+              star <= displayValue ? 'text-accent-tertiary fill-accent-tertiary' : 'text-ink-faint',
             )}
           />
         </button>
@@ -312,7 +312,7 @@ export function DimensionPanel({
 
         <div className="flex items-center gap-4 text-[10px] text-ink-faint">
           <div className="flex items-center gap-1">
-            <Star size={10} className="text-amber-400 fill-amber-400" />
+            <Star size={10} className="text-accent-tertiary fill-accent-tertiary" />
             <span>权重影响风险排序</span>
           </div>
           <div className="flex items-center gap-1">
@@ -331,8 +331,8 @@ export function DimensionPanel({
 
       <div className="flex-1 overflow-y-auto">
         {sortedDimensions.length === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
+          <div className="flex flex-col items-center justify-center text-center py-16 px-4">
+            <div className="w-16 h-16 mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
               <Star size={28} strokeWidth={1.5} />
             </div>
             <p className="text-sm font-medium text-ink mb-1">暂无分析维度</p>

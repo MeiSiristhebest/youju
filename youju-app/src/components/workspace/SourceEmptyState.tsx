@@ -6,8 +6,8 @@ export interface SourceEmptyStateProps {
 
 export function SourceEmptyState({ onClearFilters }: SourceEmptyStateProps) {
   return (
-    <div className="px-3 py-10 text-center">
-      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint">
+    <div className="h-full flex flex-col items-center justify-center text-center px-3">
+      <div className="w-12 h-12 mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint">
         <Search size={20} strokeWidth={1.5} />
       </div>
       <p className="text-xs text-ink-faint mb-1">没有找到匹配的材料</p>

@@ -1,4 +1,5 @@
 import express from 'express'
+import { getEnv } from '../../infrastructure/env.js'
 import {
   handleCleanup,
   handleDailyBackup,
@@ -14,7 +15,7 @@ function verifyCronSecret(
   res: express.Response,
   next: express.NextFunction,
 ): void {
-  const cronSecret = process.env.CRON_SECRET
+  const cronSecret = getEnv().CRON_SECRET
   if (!cronSecret) {
     console.error('[Cron] CRON_SECRET 环境变量未配置')
     res.status(500).json({ code: 500, msg: '服务器未配置 Cron 密钥' })

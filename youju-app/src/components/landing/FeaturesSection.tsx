@@ -12,9 +12,9 @@ export function FeaturesSection() {
       const cards = gsap.utils.toArray<HTMLElement>('[data-bento-card]')
       if (cards.length === 0) return
 
-      gsap.from(cards, {
-        y: 50,
-        opacity: 0,
+      gsap.to(cards, {
+        y: 0,
+        opacity: 1,
         stagger: { each: 0.15, from: 'start' },
         duration: 0.9,
         ease: 'power3.out',
@@ -46,7 +46,7 @@ export function FeaturesSection() {
           {/* 大卡片 2x2：多源证据聚合 + 内嵌材料列表 */}
           <div
             data-bento-card
-            className="md:col-span-2 md:row-span-2 group relative rounded-lg border border-rule/60 bg-paper/60 p-6 lg:p-8 transition-colors hover:border-accent/40 overflow-hidden"
+            className="md:col-span-2 md:row-span-2 group relative rounded-lg border border-rule/60 bg-paper/60 p-6 lg:p-8 transition-colors hover:border-accent/40 overflow-hidden gsap-reveal"
           >
             <div className="flex items-start justify-between mb-6">
               <div className="w-12 h-12 rounded-md bg-accent-bg text-accent border border-accent-faint flex items-center justify-center">
@@ -103,7 +103,7 @@ export function FeaturesSection() {
           {/* 中卡片 1x2：智能冲突检测 + 内嵌冲突高亮 */}
           <div
             data-bento-card
-            className="md:col-span-1 md:row-span-2 group relative rounded-lg border border-rule/60 bg-paper/60 p-6 lg:p-8 transition-colors hover:border-accent-secondary/40 overflow-hidden"
+            className="md:col-span-1 md:row-span-2 group relative rounded-lg border border-rule/60 bg-paper/60 p-6 lg:p-8 transition-colors hover:border-accent-secondary/40 overflow-hidden gsap-reveal"
           >
             <div className="flex items-start justify-between mb-6">
               <div className="w-12 h-12 rounded-md bg-accent-secondary-bg text-accent-secondary border border-accent-secondary-faint flex items-center justify-center">
@@ -149,7 +149,7 @@ export function FeaturesSection() {
           {/* 宽卡片 3x1：增量式推理 + 内嵌 7 步进度条 */}
           <div
             data-bento-card
-            className="md:col-span-3 group relative rounded-lg border border-rule/60 bg-paper/60 p-6 lg:p-8 transition-colors hover:border-accent-tertiary/40 overflow-hidden"
+            className="md:col-span-3 group relative rounded-lg border border-rule/60 bg-paper/60 p-6 lg:p-8 transition-colors hover:border-accent-tertiary/40 overflow-hidden gsap-reveal"
           >
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-12">
               <div className="lg:w-1/3">
@@ -174,10 +174,8 @@ export function FeaturesSection() {
                 {['场景', '解析', '维度', '要素', '冲突', '校验', '报告'].map((step, i) => (
                   <div key={step} className="group/step relative flex flex-col items-center">
                     <div
-                      className="w-full h-1.5 rounded-full bg-rule group-hover/step:bg-accent-tertiary transition-colors"
-                      style={{
-                        animation: `step-glow-${i + 1} 3s ease-in-out ${i * 0.3}s infinite`,
-                      }}
+                      className="w-full h-1.5 rounded-full bg-rule group-hover/step:bg-accent-tertiary transition-colors step-glow-bar"
+                      style={{ animationDelay: `${i * 0.3}s` }}
                     />
                     <div className="mt-2 text-[9px] font-mono text-ink-faint group-hover/step:text-ink transition-colors">
                       {step}
@@ -191,15 +189,10 @@ export function FeaturesSection() {
         </div>
       </div>
 
-      {/* 内联 step-glow keyframes（避免污染全局） */}
+      {/* step-glow 统一动画 */}
       <style>{`
-        @keyframes step-glow-1 { 0%, 100% { opacity: 0.4; } 14% { opacity: 1; } }
-        @keyframes step-glow-2 { 0%, 100% { opacity: 0.4; } 28% { opacity: 1; } }
-        @keyframes step-glow-3 { 0%, 100% { opacity: 0.4; } 42% { opacity: 1; } }
-        @keyframes step-glow-4 { 0%, 100% { opacity: 0.4; } 56% { opacity: 1; } }
-        @keyframes step-glow-5 { 0%, 100% { opacity: 0.4; } 70% { opacity: 1; } }
-        @keyframes step-glow-6 { 0%, 100% { opacity: 0.4; } 84% { opacity: 1; } }
-        @keyframes step-glow-7 { 0%, 100% { opacity: 0.4; } 98% { opacity: 1; } }
+        @keyframes step-glow { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        .step-glow-bar { animation: step-glow 3s ease-in-out infinite; }
       `}</style>
     </section>
   )

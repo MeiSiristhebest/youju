@@ -1,13 +1,50 @@
-import type { DbModelConfig } from '../../data/types.js'
-import type { UserModelConfig } from '../types.js'
+import type { AIConfig, UserModelConfig } from '../types.js'
+
+interface ModelConfigRecord {
+  id: number
+  user_id: number | null
+  session_id: string | null
+  name: string
+  provider: string
+  api_key: string
+  base_url: string
+  model: string
+  model_mappings: string
+  config_type: string
+  is_default: number
+  created_at: string
+  updated_at: string
+}
+
+interface ModelInfo {
+  id: string
+  name?: string
+}
+
+interface ModelConnectionTestResult {
+  success: boolean
+  model: string
+  latencyMs: number
+  error?: string
+}
+
+interface ModelProviderPort {
+  listModels(config: AIConfig): Promise<ModelInfo[]>
+  testConnection(config: AIConfig): Promise<ModelConnectionTestResult>
+}
 
 type ModelConfigRepo = {
-  listConfigs(userId: number | null, sessionId: string | null): Promise<DbModelConfig[]>
-  getConfigById(id: string): Promise<DbModelConfig | undefined>
+  listConfigs(
+    userId: number | null,
+    sessionId: string | null,
+    configType?: string,
+  ): Promise<ModelConfigRecord[]>
+  getConfigById(id: string): Promise<ModelConfigRecord | undefined>
   getDefaultConfig(
     userId: number | null,
     sessionId: string | null,
-  ): Promise<DbModelConfig | undefined>
+    configType?: string,
+  ): Promise<ModelConfigRecord | undefined>
   createConfig(
     userId: number | null,
     sessionId: string | null,
@@ -18,9 +55,10 @@ type ModelConfigRepo = {
       baseURL: string
       model: string
       modelMappings: string
+      configType: string
       isDefault: boolean
     },
-  ): Promise<DbModelConfig>
+  ): Promise<ModelConfigRecord>
   updateConfig(
     id: string,
     userId: number | null,
@@ -32,21 +70,26 @@ type ModelConfigRepo = {
       baseURL?: string
       model?: string
       modelMappings?: string
+      configType?: string
       isDefault?: boolean
     },
-  ): Promise<DbModelConfig | undefined>
+  ): Promise<ModelConfigRecord | undefined>
   deleteConfig(id: string, userId: number | null, sessionId: string | null): Promise<boolean>
   setDefault(id: string, userId: number | null, sessionId: string | null): Promise<boolean>
 }
 
 export class ModelConfigService {
-  constructor(private readonly repo: ModelConfigRepo) {}
+  constructor(
+    private readonly repo: ModelConfigRepo,
+    private readonly modelProvider: ModelProviderPort,
+  ) {}
 
   async listModelConfigs(
     userId: number | null,
     sessionId: string | null,
+    configType?: string,
   ): Promise<UserModelConfig[]> {
-    const configs = await this.repo.listConfigs(userId, sessionId)
+    const configs = await this.repo.listConfigs(userId, sessionId, configType)
     return configs.map(toDomain)
   }
 
@@ -69,8 +112,9 @@ export class ModelConfigService {
   async getDefaultModelConfig(
     userId: number | null,
     sessionId: string | null,
+    configType: string = 'llm',
   ): Promise<UserModelConfig | null> {
-    const config = await this.repo.getDefaultConfig(userId, sessionId)
+    const config = await this.repo.getDefaultConfig(userId, sessionId, configType)
     if (!config) return null
     return toDomain(config)
   }
@@ -85,6 +129,7 @@ export class ModelConfigService {
       baseURL: string
       model: string
       modelMappings?: Array<{ alias: string; model: string }>
+      configType?: string
       isDefault?: boolean
     },
   ): Promise<UserModelConfig> {
@@ -95,6 +140,7 @@ export class ModelConfigService {
       baseURL: data.baseURL,
       model: data.model,
       modelMappings: JSON.stringify(data.modelMappings || []),
+      configType: data.configType || 'llm',
       isDefault: data.isDefault || false,
     })
     return toDomain(config)
@@ -111,6 +157,7 @@ export class ModelConfigService {
       baseURL?: string
       model?: string
       modelMappings?: Array<{ alias: string; model: string }>
+      configType?: string
       isDefault?: boolean
     },
   ): Promise<UserModelConfig | null> {
@@ -121,6 +168,7 @@ export class ModelConfigService {
       baseURL?: string
       model?: string
       modelMappings?: string
+      configType?: string
       isDefault?: boolean
     } = {}
     if (data.name !== undefined) updateData.name = data.name
@@ -130,6 +178,7 @@ export class ModelConfigService {
     if (data.model !== undefined) updateData.model = data.model
     if (data.modelMappings !== undefined)
       updateData.modelMappings = JSON.stringify(data.modelMappings)
+    if (data.configType !== undefined) updateData.configType = data.configType
     if (data.isDefault !== undefined) updateData.isDefault = data.isDefault
 
     const config = await this.repo.updateConfig(id, userId, sessionId, updateData)
@@ -152,9 +201,17 @@ export class ModelConfigService {
   ): Promise<boolean> {
     return this.repo.setDefault(id, userId, sessionId)
   }
+
+  async listModels(config: AIConfig): Promise<ModelInfo[]> {
+    return this.modelProvider.listModels(config)
+  }
+
+  async testModelConnection(config: AIConfig): Promise<ModelConnectionTestResult> {
+    return this.modelProvider.testConnection(config)
+  }
 }
 
-function toDomain(db: DbModelConfig): UserModelConfig {
+function toDomain(db: ModelConfigRecord): UserModelConfig {
   let modelMappings = []
   try {
     modelMappings = JSON.parse(db.model_mappings || '[]')
@@ -171,6 +228,7 @@ function toDomain(db: DbModelConfig): UserModelConfig {
     baseURL: db.base_url,
     model: db.model,
     modelMappings,
+    configType: db.config_type || 'llm',
     isDefault: db.is_default === 1,
     createdAt: db.created_at,
     updatedAt: db.updated_at,

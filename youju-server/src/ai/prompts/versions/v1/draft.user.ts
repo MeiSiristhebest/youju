@@ -13,7 +13,7 @@ export function buildDraftUserPrompt(params: {
   const evidenceText = params.evidence
     .map(
       (e, i) =>
-        `[证据${i + 1}] ${e.sourceName}: "${e.quote.substring(0, 100)}${e.quote.length > 100 ? '...' : ''}"`,
+        `  <evidence_item index="${i + 1}" source="${e.sourceName}">${e.quote.substring(0, 100)}${e.quote.length > 100 ? '...' : ''}</evidence_item>`,
     )
     .join('\n')
 
@@ -32,15 +32,16 @@ export function buildDraftUserPrompt(params: {
     }
 
     if (hints.length > 0) {
-      styleHint = `\n用户风格偏好：${hints.join('，')}\n`
+      styleHint = `\n<style_preference>${hints.join('，')}</style_preference>`
     }
   }
 
-  return `请根据以下信息生成一段确认话术：
+  return `<draft_request>
+<risk_point>${params.riskTitle}</risk_point>
+<risk_detail>${params.riskDescription}</risk_detail>
+${evidenceText ? `<evidence_list>\n${evidenceText}\n</evidence_list>` : ''}
+${params.context ? `<extra_context>${params.context}</extra_context>` : ''}${styleHint}
+</draft_request>
 
-风险点：${params.riskTitle}
-详细说明：${params.riskDescription}
-${evidenceText ? `\n相关证据：\n${evidenceText}\n` : ''}
-${params.context ? `额外上下文：${params.context}\n` : ''}${styleHint}
-生成自然、礼貌、清晰的确认消息（中文）：`
+请根据以上信息生成自然、礼貌、清晰的确认消息（中文）：`
 }

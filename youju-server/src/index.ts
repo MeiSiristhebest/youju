@@ -1,7 +1,7 @@
+import { CACHE_ENABLED, startCacheStatsLogger } from './ai/promptCache.js'
 import { createApp } from './app.js'
 import { driver } from './data/db.js'
 import type { AnalysisService } from './domain/services/analysisService.js'
-import { startBackgroundJobs, stopBackgroundJobs } from './infrastructure/backgroundJobs.js'
 import { Tokens } from './infrastructure/di/tokens.js'
 import { getEnv } from './infrastructure/env.js'
 import { logger } from './infrastructure/logger.js'
@@ -16,12 +16,14 @@ const server = app.listen(PORT, () => {
   logger.info('架构: 分层架构 (Presentation → Domain → Data → AI)')
   logger.info('端口注入: AIAnalysisPort → AnalysisAdapter, AIDraftPort → DraftAdapter')
 
-  if (getEnv().ENABLE_BACKGROUND_JOBS === 'true') {
-    startBackgroundJobs()
-    logger.info('定时任务: 已启动 (decay + cleanup)')
+  if (CACHE_ENABLED) {
+    startCacheStatsLogger()
+    logger.info('Prompt Cache: 已启用 (AI_PROMPT_CACHE_ENABLED=true)')
   } else {
-    logger.info('定时任务: 已禁用 (ENABLE_BACKGROUND_JOBS=false)')
+    logger.info('Prompt Cache: 已禁用 (AI_PROMPT_CACHE_ENABLED=false)')
   }
+
+  // 后台定时任务已迁移到 Serverless Cron (scheduledTasks.ts)，不再使用 setInterval 方式
 
   if (getEnv().ENABLE_SCENARIO_PREHEAT === 'true') {
     ;(container.resolve(Tokens.AnalysisService) as AnalysisService)
@@ -56,12 +58,7 @@ async function gracefulShutdown(signal: string) {
     process.exit(1)
   }, 10_000)
 
-  try {
-    stopBackgroundJobs()
-    logger.info('✓ 定时任务已停止')
-  } catch (e) {
-    logger.error({ err: e }, '停止定时任务失败')
-  }
+  // 后台定时任务已迁移到 Serverless Cron，无需手动停止
 
   server.close(() => {
     logger.info('✓ HTTP 服务器已关闭')

@@ -1,4 +1,4 @@
-export type SourceType = 'chat' | 'doc' | 'web' | 'screenshot' | 'contract'
+export type SourceType = 'chat' | 'doc' | 'web' | 'screenshot' | 'contract' | 'other'
 export type RiskLevel = 'critical' | 'warning' | 'info'
 export type ScenarioType =
   | 'legal_case'

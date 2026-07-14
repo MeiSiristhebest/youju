@@ -68,10 +68,10 @@ export function ConflictCompareView({ risk }: ConflictCompareViewProps) {
                         <div
                           className={`h-full rounded-full ${
                             ev.confidence < 0.5
-                              ? 'bg-rose-400'
+                              ? 'bg-danger'
                               : ev.confidence < 0.8
-                                ? 'bg-amber-400'
-                                : 'bg-emerald-400'
+                                ? 'bg-warning'
+                                : 'bg-success'
                           }`}
                           style={{ width: `${ev.confidence * 100}%` }}
                         />

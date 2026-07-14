@@ -4,7 +4,7 @@ import type { AnalysisCheckpointPort } from '../ports/servicePorts.js'
 export type { AnalysisCheckpointPort } from '../ports/servicePorts.js'
 
 import { classifyRiskLevel } from '../rules/riskRules.js'
-import type { AIAnalysisPort, AnalyzeResult, Source } from '../types.js'
+import type { AIAnalysisPort, AIConfig, AnalyzeResult, Source } from '../types.js'
 
 export class AnalysisCheckpointService implements AnalysisCheckpointPort {
   constructor(
@@ -20,6 +20,7 @@ export class AnalysisCheckpointService implements AnalysisCheckpointPort {
       userId?: number | null
       sessionId?: string | null
       taskId?: string | null
+      aiConfig?: AIConfig
     },
   ): Promise<AnalyzeResult> {
     const checkpoint = await this.analysisLogRepo.getCheckpoint(analysisLogId)
@@ -39,6 +40,7 @@ export class AnalysisCheckpointService implements AnalysisCheckpointPort {
       {
         scenarioType: undefined,
         scenarioKnowledge: [],
+        aiConfig: options?.aiConfig,
       },
     )
 

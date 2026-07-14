@@ -1,33 +1,12 @@
-import { BarChart3, Brain, Settings } from 'lucide-react'
+import { BarChart3, Settings } from 'lucide-react'
 import { useUIPreferenceStore } from '../../../stores/useUIPreferenceStore'
-import { SectionTitle, SelectRow, SettingRow, Slider, Toggle } from './shared'
+import { SectionTitle, SettingRow, Slider, Toggle } from './shared'
 
 export function AnalysisTab() {
   const { analysisSettings, updateAnalysisSettings } = useUIPreferenceStore()
 
   return (
     <div className="space-y-8">
-      <SectionTitle
-        icon={<Brain size={16} strokeWidth={1.5} />}
-        title="AI 模型设置"
-        description="配置分析使用的 AI 模型"
-      />
-      <div className="bg-paper-dark/30 border border-rule/50 rounded-lg divide-y divide-rule/40 px-4 py-3">
-        <SelectRow
-          label="默认分析模型"
-          description="选择默认使用的 AI 模型进行分析"
-          value={analysisSettings.defaultModel}
-          options={[
-            { value: 'gpt-4o', label: 'GPT-4o (推荐)' },
-            { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-            { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-            { value: 'claude-sonnet', label: 'Claude Sonnet' },
-            { value: 'claude-opus', label: 'Claude Opus' },
-          ]}
-          onChange={(v) => updateAnalysisSettings({ defaultModel: v })}
-        />
-      </div>
-
       <SectionTitle
         icon={<BarChart3 size={16} strokeWidth={1.5} />}
         title="分析参数"

@@ -1,9 +1,50 @@
 import { Bell, Mail } from 'lucide-react'
+import { useEffect } from 'react'
+import { preferenceApi } from '../../../services/preferenceApi'
 import { useUIPreferenceStore } from '../../../stores/useUIPreferenceStore'
+import { useToast } from '../../common/Toast'
 import { SectionTitle, SettingRow, Toggle } from './shared'
 
 export function NotificationsTab() {
   const { notificationSettings, updateNotificationSettings } = useUIPreferenceStore()
+  const { showToast } = useToast()
+
+  // 组件挂载时从后端加载设置
+  useEffect(() => {
+    preferenceApi
+      .getNotificationSettings()
+      .then((settings) => {
+        updateNotificationSettings({
+          emailNotification: settings.emailNotifications,
+          analysisCompleteReminder: settings.analysisComplete,
+          weeklyDigest: settings.weeklyDigest,
+          productUpdates: settings.productUpdates,
+        })
+      })
+      .catch(() => {
+        // 加载失败时使用本地默认值
+      })
+  }, [])
+
+  // 更新设置时同步到后端
+  const handleUpdate = async (updates: Partial<typeof notificationSettings>) => {
+    updateNotificationSettings(updates)
+
+    // 映射到后端字段名
+    const backendUpdates: Record<string, boolean> = {}
+    if ('emailNotification' in updates)
+      backendUpdates.emailNotifications = updates.emailNotification!
+    if ('analysisCompleteReminder' in updates)
+      backendUpdates.analysisComplete = updates.analysisCompleteReminder!
+    if ('weeklyDigest' in updates) backendUpdates.weeklyDigest = updates.weeklyDigest!
+    if ('productUpdates' in updates) backendUpdates.productUpdates = updates.productUpdates!
+
+    try {
+      await preferenceApi.setNotificationSettings(backendUpdates)
+    } catch {
+      showToast('保存设置失败，请重试', 'error')
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -19,7 +60,7 @@ export function NotificationsTab() {
           action={
             <Toggle
               checked={notificationSettings.emailNotification}
-              onChange={(v) => updateNotificationSettings({ emailNotification: v })}
+              onChange={(v) => handleUpdate({ emailNotification: v })}
             />
           }
         />
@@ -57,7 +98,7 @@ export function NotificationsTab() {
           action={
             <Toggle
               checked={notificationSettings.analysisCompleteReminder}
-              onChange={(v) => updateNotificationSettings({ analysisCompleteReminder: v })}
+              onChange={(v) => handleUpdate({ analysisCompleteReminder: v })}
             />
           }
         />
@@ -67,7 +108,17 @@ export function NotificationsTab() {
           action={
             <Toggle
               checked={notificationSettings.weeklyDigest}
-              onChange={(v) => updateNotificationSettings({ weeklyDigest: v })}
+              onChange={(v) => handleUpdate({ weeklyDigest: v })}
+            />
+          }
+        />
+        <SettingRow
+          label="产品更新"
+          description="接收新功能发布和重要更新通知"
+          action={
+            <Toggle
+              checked={notificationSettings.productUpdates ?? true}
+              onChange={(v) => handleUpdate({ productUpdates: v })}
             />
           }
         />

@@ -1,7 +1,6 @@
 import { useGSAP } from '@gsap/react'
 import { ArrowRight, ChevronRight } from 'lucide-react'
-import { useEffect, useRef } from 'react'
-import { useScrollY } from '../../hooks/useScrollY'
+import { useRef } from 'react'
 import { gsap } from '../../lib/gsap'
 import { MagneticButton } from '../ui/MagneticButton'
 import { Marquee } from '../ui/Marquee'
@@ -28,92 +27,21 @@ const marqueeItems = [
 ]
 
 /**
- * 纸张颗粒动画 Canvas 组件
- * 仅在桌面端启用，移动端降级为静态
- */
-function GrainCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>(0)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const isMobile = window.matchMedia('(max-width: 768px)').matches
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    if (isMobile || prefersReducedMotion) {
-      return
-    }
-
-    const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = canvas.offsetWidth * dpr
-      canvas.height = canvas.offsetHeight * dpr
-      ctx.scale(dpr, dpr)
-    }
-
-    resizeCanvas()
-    window.addEventListener('resize', resizeCanvas)
-
-    let frameCount = 0
-    const drawGrain = () => {
-      frameCount++
-
-      if (frameCount % 3 !== 0) {
-        animationRef.current = requestAnimationFrame(drawGrain)
-        return
-      }
-
-      const w = canvas.offsetWidth
-      const h = canvas.offsetHeight
-      const imageData = ctx.createImageData(w, h)
-      const data = imageData.data
-
-      for (let i = 0; i < data.length; i += 4) {
-        const value = Math.random() * 255
-        data[i] = value
-        data[i + 1] = value
-        data[i + 2] = value
-        data[i + 3] = Math.random() * 15
-      }
-
-      ctx.putImageData(imageData, 0, 0)
-      animationRef.current = requestAnimationFrame(drawGrain)
-    }
-
-    drawGrain()
-
-    return () => {
-      window.removeEventListener('resize', resizeCanvas)
-      cancelAnimationFrame(animationRef.current)
-    }
-  }, [])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none mix-blend-overlay"
-      style={{ opacity: 0.08 }}
-    />
-  )
-}
-
-/**
  * 浮动证据卡片 — 桌面端展示简化风险检测卡片
  */
 function FloatingEvidenceCard() {
   return (
     <div
       data-hero-floating
-      className="hidden lg:block absolute right-10 top-1/2 -translate-y-1/2 w-[340px]"
-      style={{ animation: 'float-y 6s ease-in-out infinite' }}
+      className="hidden lg:block absolute right-10 top-1/2 w-[340px]"
+      style={{
+        opacity: 0,
+        transform: 'translateY(-50%) translateX(60px) rotate(5deg)',
+        animation: 'float-y 6s ease-in-out infinite',
+      }}
     >
       <div
-        className="relative rounded-lg border border-rule/60 bg-paper/80 backdrop-blur-md p-5 shadow-xl"
+        className="relative rounded-lg border border-rule/60 bg-paper/95 p-5 shadow-xl"
         style={{ transform: 'rotate(-2deg)' }}
       >
         {/* 光晕 */}
@@ -155,7 +83,6 @@ function FloatingEvidenceCard() {
 }
 
 export function HeroSection({ onStart }: HeroSectionProps) {
-  const scrollY = useScrollY()
   const sectionRef = useRef<HTMLElement>(null)
 
   useGSAP(
@@ -163,40 +90,37 @@ export function HeroSection({ onStart }: HeroSectionProps) {
       const section = sectionRef.current
       if (!section) return
 
-      // Timeline 编排入场
       const tl = gsap.timeline({ delay: 0.2 })
 
-      tl.from('[data-hero-eyebrow]', {
-        y: 20,
-        opacity: 0,
-        duration: 0.6,
-      })
-        .from(
-          '[data-hero-title] [data-split-char]',
-          {
-            y: 80,
-            opacity: 0,
-            rotateX: -40,
-            stagger: 0.04,
-            duration: 0.8,
-            ease: 'power3.out',
-          },
-          '-=0.2',
-        )
-        .from('[data-hero-subtitle]', { y: 20, opacity: 0, duration: 0.7 }, '-=0.4')
-        .from('[data-hero-cta]', { y: 20, opacity: 0, duration: 0.6 }, '-=0.3')
-        .from('[data-hero-stats]', { y: 20, opacity: 0, duration: 0.6 }, '-=0.2')
-        .from('[data-hero-floating]', { x: 60, opacity: 0, rotate: 5, duration: 1 }, '-=0.8')
-        .from('[data-hero-scroll-hint]', { y: -10, opacity: 0, duration: 0.5 }, '-=0.3')
+      tl.to('[data-hero-eyebrow]', { y: 0, opacity: 1, duration: 0.6 })
+        .to('[data-hero-subtitle]', { y: 0, opacity: 1, duration: 0.7 }, '-=0.4')
+        .to('[data-hero-cta]', { y: 0, opacity: 1, duration: 0.6 }, '-=0.3')
+        .to('[data-hero-stats]', { y: 0, opacity: 1, duration: 0.6 }, '-=0.2')
+        .to('[data-hero-floating]', { x: 0, opacity: 1, rotate: -2, duration: 1 }, '-=0.8')
+        .to('[data-hero-scroll-hint]', { y: 0, opacity: 1, duration: 0.5 }, '-=0.3')
 
-      // 视差：背景随滚动上移（GSAP scrub 更顺滑）
-      gsap.to('[data-hero-bg]', {
-        y: scrollY * 0.15,
+      // 背景层视差滚动（GSAP 直接操作 DOM，避免 React 重渲染）
+      gsap.set('[data-hero-bg-inner]', { scale: 1.1 })
+      gsap.to('[data-hero-bg-inner]', {
+        yPercent: 15,
         ease: 'none',
         scrollTrigger: {
           trigger: section,
           start: 'top top',
           end: 'bottom top',
+          scrub: 1,
+        },
+      })
+
+      // 内容层视差 + 渐隐（跟随滚动自然淡出）
+      gsap.to('[data-hero-content]', {
+        yPercent: 8,
+        opacity: 0,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: section,
+          start: 'top top',
+          end: '50% top',
           scrub: 1,
         },
       })
@@ -208,10 +132,7 @@ export function HeroSection({ onStart }: HeroSectionProps) {
     <section ref={sectionRef} className="relative min-h-[100svh] flex items-center overflow-hidden">
       {/* 动态背景层 */}
       <div className="absolute inset-0 z-0" data-hero-bg>
-        <div
-          className="absolute inset-0 scale-110"
-          style={{ transform: `scale(1.1) translateY(${scrollY * 0.15}px)` }}
-        >
+        <div className="absolute inset-0" data-hero-bg-inner>
           {/* 第一层：暖色纸质渐变基底 */}
           <div className="absolute inset-0 bg-gradient-to-br from-paper-dark via-paper to-paper-deep" />
 
@@ -264,8 +185,6 @@ export function HeroSection({ onStart }: HeroSectionProps) {
             }}
           />
 
-          <GrainCanvas />
-
           <div
             className="absolute inset-0"
             style={{
@@ -284,13 +203,10 @@ export function HeroSection({ onStart }: HeroSectionProps) {
       <FloatingEvidenceCard />
 
       {/* 内容层 */}
-      <div
-        className="relative z-10 w-full px-6 lg:px-10 pt-28"
-        style={{ transform: `translateY(${scrollY * 0.08}px)`, opacity: 1 - scrollY / 600 }}
-      >
+      <div className="relative z-10 w-full px-6 lg:px-10 pt-28" data-hero-content>
         <div className="max-w-7xl mx-auto">
           <div className="max-w-2xl">
-            <div data-hero-eyebrow>
+            <div data-hero-eyebrow className="gsap-reveal">
               <div className="flex items-center gap-3 mb-8">
                 <span className="text-[11px] font-mono tracking-[0.2em] uppercase text-accent">
                   有据 YOUJU · 2026
@@ -323,12 +239,12 @@ export function HeroSection({ onStart }: HeroSectionProps) {
 
             <p
               data-hero-subtitle
-              className="mt-8 max-w-lg text-base text-ink-muted leading-relaxed"
+              className="gsap-reveal mt-8 max-w-lg text-base text-ink-muted leading-relaxed"
             >
               上传材料，AI 自动梳理事实脉络、标记矛盾承诺、生成可溯源的结论。每一条判断都有据可查。
             </p>
 
-            <div data-hero-cta className="mt-10 flex flex-wrap items-center gap-4">
+            <div data-hero-cta className="gsap-reveal mt-10 flex flex-wrap items-center gap-4">
               <MagneticButton
                 onClick={onStart}
                 iconRight={<ArrowRight size={16} strokeWidth={1.5} />}
@@ -347,7 +263,7 @@ export function HeroSection({ onStart }: HeroSectionProps) {
 
           <div
             data-hero-stats
-            className="mt-24 pt-8 border-t border-rule/50 grid grid-cols-3 gap-8 max-w-2xl"
+            className="gsap-reveal mt-24 pt-8 border-t border-rule/50 grid grid-cols-3 gap-8 max-w-2xl"
           >
             {stats.map((stat, i) => (
               <div key={i}>
@@ -367,7 +283,11 @@ export function HeroSection({ onStart }: HeroSectionProps) {
       <div
         data-hero-scroll-hint
         className="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-        style={{ animation: 'scroll-hint 2s ease-in-out infinite' }}
+        style={{
+          opacity: 0,
+          transform: 'translateX(-50%) translateY(-10px)',
+          animation: 'scroll-hint 2s ease-in-out infinite',
+        }}
       >
         <span className="text-[10px] font-mono uppercase tracking-widest text-ink-faint">
           Scroll
@@ -376,7 +296,7 @@ export function HeroSection({ onStart }: HeroSectionProps) {
       </div>
 
       {/* 底部跑马灯 */}
-      <div className="absolute bottom-0 left-0 right-0 py-4 border-t border-rule/40 bg-paper/60 backdrop-blur-sm">
+      <div className="absolute bottom-0 left-0 right-0 py-4 border-t border-rule/40 bg-paper/80">
         <Marquee
           items={marqueeItems}
           speed={40}

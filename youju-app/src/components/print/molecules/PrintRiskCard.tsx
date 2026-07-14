@@ -7,9 +7,10 @@ interface PrintRiskCardProps {
   risk: Risk
   index: number
   compact?: boolean
+  scenarioType?: string
 }
 
-export function PrintRiskCard({ risk, index, compact = false }: PrintRiskCardProps) {
+export function PrintRiskCard({ risk, index, compact = false, scenarioType }: PrintRiskCardProps) {
   const sourceNames = risk.evidence?.map((e) => e.sourceName) || risk.sources
 
   if (compact) {
@@ -132,7 +133,7 @@ export function PrintRiskCard({ risk, index, compact = false }: PrintRiskCardPro
           color: KAMI.stone,
         }}
       >
-        <span>{typeLabel(risk.type)}</span>
+        <span>{typeLabel(risk.type, scenarioType)}</span>
         {risk.dimension && (
           <>
             <span style={{ color: KAMI.border }}>·</span>

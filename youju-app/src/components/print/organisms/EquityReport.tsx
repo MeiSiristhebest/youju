@@ -18,6 +18,7 @@ export function EquityReport({ result, sources, title = '信息对齐分析报�
   const now = new Date()
   const criticalRisks = r.risks.filter((x) => x.level === 'critical')
   const warningRisks = r.risks.filter((x) => x.level === 'warning')
+  const scenarioType = r.scenario?.type
 
   const summaryItems = [
     { label: '严重风险', count: r.summary.critical, color: KAMI.danger, bg: KAMI.dangerBg },
@@ -148,6 +149,7 @@ export function EquityReport({ result, sources, title = '信息对齐分析报�
           variant="equity"
           withNumber={false}
           withLine
+          scenarioType={scenarioType}
         />
         <div
           style={{

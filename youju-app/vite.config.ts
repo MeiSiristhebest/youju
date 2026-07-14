@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
+// 后端 API 地址，须与 youju-server/src/infrastructure/env.ts 的 PORT 默认值保持同步
+const BACKEND_TARGET = process.env.BACKEND_TARGET || 'http://localhost:3001'
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -12,9 +15,14 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    strictPort: true,
     proxy: {
+      '/api/v1': {
+        target: BACKEND_TARGET,
+        changeOrigin: true,
+      },
       '/api': {
-        target: 'http://localhost:3001',
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
     },

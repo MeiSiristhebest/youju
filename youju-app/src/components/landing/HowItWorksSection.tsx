@@ -1,6 +1,6 @@
 import { useGSAP } from '@gsap/react'
 import { useRef } from 'react'
-import { gsap, ScrollTrigger } from '../../lib/gsap'
+import { gsap } from '../../lib/gsap'
 import { SectionTitle } from '../ui/SectionTitle'
 
 const steps = [
@@ -54,26 +54,21 @@ export function HowItWorksSection() {
 
   useGSAP(
     () => {
-      const isMobile = window.matchMedia('(max-width: 1023px)').matches
       const section = sectionRef.current
       const line = lineRef.current
       if (!section || !line) return
 
       // timeline 连线随滚动绘制
-      gsap.fromTo(
-        line,
-        { scaleY: 0 },
-        {
-          scaleY: 1,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 60%',
-            end: 'bottom 80%',
-            scrub: 1,
-          },
+      gsap.to(line, {
+        scaleY: 1,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: section,
+          start: 'top 60%',
+          end: 'bottom 80%',
+          scrub: 1,
         },
-      )
+      })
 
       // 每个步骤随滚动激活
       const stepEls = gsap.utils.toArray<HTMLElement>('[data-step]')
@@ -81,51 +76,30 @@ export function HowItWorksSection() {
         const num = step.querySelector('[data-step-num]')
         const content = step.querySelector('[data-step-content]')
 
-        gsap.from(content ?? step, {
-          x: 30,
-          opacity: 0,
+        gsap.to(content ?? step, {
+          x: 0,
+          opacity: 1,
           duration: 0.8,
           ease: 'power3.out',
           scrollTrigger: {
             trigger: step,
             start: 'top 80%',
-            end: 'top 50%',
-            scrub: isMobile ? false : 1,
-            toggleActions: isMobile ? 'play none none none' : 'play none reverse reverse',
+            once: true,
           },
         })
 
         if (num) {
-          gsap.fromTo(
-            num,
-            { color: 'var(--ink-faint)' },
-            {
-              color: 'var(--accent)',
-              scrollTrigger: {
-                trigger: step,
-                start: 'top 70%',
-                end: 'bottom 70%',
-                scrub: true,
-              },
+          gsap.to(num, {
+            color: 'var(--accent)',
+            scrollTrigger: {
+              trigger: step,
+              start: 'top 70%',
+              end: 'bottom 70%',
+              scrub: true,
             },
-          )
+          })
         }
       })
-
-      // 桌面端 pin（仅 lg 及以上）
-      if (!isMobile) {
-        const pinST = ScrollTrigger.create({
-          trigger: section,
-          start: 'top top',
-          end: '+=400%',
-          pin: section.querySelector('[data-pin-target]'),
-          pinSpacing: false,
-        })
-
-        return () => {
-          pinST.kill()
-        }
-      }
     },
     { scope: sectionRef },
   )
@@ -136,7 +110,7 @@ export function HowItWorksSection() {
       id="how-it-works"
       className="relative py-24 lg:py-32 px-6 lg:px-12 bg-paper-dark/30"
     >
-      <div className="mx-auto max-w-7xl" data-pin-target>
+      <div className="mx-auto max-w-7xl">
         <SectionTitle
           variant="centered"
           eyebrow="THE PIPELINE"
@@ -147,7 +121,11 @@ export function HowItWorksSection() {
         <div className="mt-20 relative">
           {/* timeline 连线 */}
           <div className="absolute left-[7px] lg:left-1/2 lg:-translate-x-1/2 top-2 bottom-2 w-px bg-rule">
-            <div ref={lineRef} className="absolute inset-0 bg-accent origin-top" />
+            <div
+              ref={lineRef}
+              className="absolute inset-0 bg-accent origin-top"
+              style={{ transform: 'scaleY(0)' }}
+            />
           </div>
 
           <div className="space-y-12 lg:space-y-16">
@@ -175,7 +153,7 @@ export function HowItWorksSection() {
                 {/* 内容卡 */}
                 <div
                   data-step-content
-                  className={`lg:flex-1 ${i % 2 === 1 ? 'lg:text-left' : 'lg:text-right'}`}
+                  className={`lg:flex-1 gsap-reveal-right ${i % 2 === 1 ? 'lg:text-left' : 'lg:text-right'}`}
                 >
                   <div className="inline-block max-w-md rounded-lg border border-rule/60 bg-paper/60 backdrop-blur-sm p-5 lg:p-6">
                     <div className="flex items-center justify-between gap-3 mb-2">

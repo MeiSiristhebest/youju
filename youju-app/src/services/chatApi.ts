@@ -1,4 +1,7 @@
 import { readSSEStream } from '../lib/sseParser'
+import { storage, storageKeys } from '../lib/storage'
+import { useApiLogsStore } from '../stores'
+import { useModelConfigStore } from '../stores/useModelConfigStore'
 import type {
   ChatCitation,
   ChatMemory,
@@ -10,7 +13,33 @@ import type {
 import { apiClient } from './apiClient'
 import { handleApiError } from './errorHandler'
 
+const recordApiLog = (
+  method: string,
+  url: string,
+  statusCode: number,
+  durationMs: number,
+  requestBody?: unknown,
+  responseBody?: unknown,
+  error?: string,
+) => {
+  try {
+    const path = url.startsWith('http') ? new URL(url).pathname : url
+    useApiLogsStore.getState().addLog({
+      method: method.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
+      path,
+      statusCode,
+      durationMs,
+      requestBody,
+      responseBody,
+      error,
+    })
+  } catch {
+    // ignore log errors
+  }
+}
+
 export interface CreateConversationParams {
+  taskId?: string
   title?: string
   scenarioType?: string
   sourceIds?: string[]
@@ -45,8 +74,8 @@ export interface StreamMessageParams {
  * 与 apiClient.request 中保持一致（else if 优先级）。
  */
 function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('youju_token')
-  const sessionId = localStorage.getItem('youju_session_id')
+  const token = storage.getItem(storageKeys.token)
+  const sessionId = storage.getItem(storageKeys.sessionId)
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) {
     headers.Authorization = `Bearer ${token}`
@@ -77,9 +106,20 @@ export const chatApi = {
     }
   },
 
-  async listConversations(params?: { limit?: number; offset?: number }): Promise<Conversation[]> {
+  async listConversations(params?: {
+    limit?: number
+    offset?: number
+    taskId?: string
+    scenarioType?: string
+  }): Promise<Conversation[]> {
     try {
-      const query = params ? `?limit=${params.limit || 20}&offset=${params.offset || 0}` : ''
+      const parts: string[] = []
+      if (params?.limit) parts.push(`limit=${params.limit}`)
+      if (params?.offset !== undefined) parts.push(`offset=${params.offset}`)
+      if (params?.taskId) parts.push(`task_id=${encodeURIComponent(params.taskId)}`)
+      if (params?.scenarioType)
+        parts.push(`scenario_type=${encodeURIComponent(params.scenarioType)}`)
+      const query = parts.length > 0 ? `?${parts.join('&')}` : ''
       return await apiClient.get<Conversation[]>(`/api/chat/conversations${query}`)
     } catch (error) {
       throw handleApiError(error)
@@ -129,137 +169,92 @@ export const chatApi = {
     conversationId: string,
     params: StreamMessageParams,
   ): Promise<ChatSSECompleteResult> {
-    const response = await fetch(`/api/chat/conversations/${conversationId}/messages/stream`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        content: params.content,
-        contextSourceIds: params.contextSourceIds,
-        scenarioType: params.scenarioType,
-      }),
-      signal: params.signal,
-    })
-
-    if (!response.ok) {
-      throw new Error(`Chat stream failed: ${response.status}`)
+    const url = `/api/chat/conversations/${conversationId}/messages/stream`
+    const aiConfig = useModelConfigStore.getState().getAIConfig()
+    const requestBody = {
+      content: params.content,
+      contextSourceIds: params.contextSourceIds,
+      scenarioType: params.scenarioType,
+      ...(aiConfig ? { aiConfig } : {}),
     }
+    const startTime = Date.now()
 
-    let result: ChatSSECompleteResult = defaultCompleteResult()
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(requestBody),
+        signal: params.signal,
+      })
 
-    await readSSEStream(
-      response,
-      (event) => {
-        let data: unknown
-        try {
-          data = JSON.parse(event.data)
-        } catch {
-          return
-        }
-        switch (event.event) {
-          case 'init': {
-            const init = data as { conversationId: string; messageId?: string }
-            params.onInit?.(init)
-            break
-          }
-          case 'token': {
-            const tokenEvt = data as { token: string }
-            params.onToken?.(tokenEvt.token)
-            break
-          }
-          case 'tool_call': {
-            const toolEvt = data as { name: string; args: unknown }
-            params.onToolCall?.(toolEvt.name, toolEvt.args)
-            break
-          }
-          case 'citation': {
-            const citationEvt = data as { citations: ChatCitation[] }
-            params.onCitation?.(citationEvt.citations)
-            break
-          }
-          case 'complete': {
-            result = data as ChatSSECompleteResult
-            params.onComplete?.(result)
-            break
-          }
-          case 'error': {
-            const errorEvt = data as { message: string }
-            params.onError?.(new Error(errorEvt.message))
-            break
-          }
-        }
-      },
-      params.signal,
-    )
+      if (!response.ok) {
+        const duration = Date.now() - startTime
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.msg || `Chat stream failed: ${response.status}`
+        recordApiLog('POST', url, response.status, duration, requestBody, errorData, errorMessage)
+        throw new Error(errorMessage)
+      }
 
-    return result
-  },
+      let result: ChatSSECompleteResult = defaultCompleteResult()
 
-  async regenerateMessage(
-    messageId: string,
-    params: Omit<StreamMessageParams, 'content'>,
-  ): Promise<ChatSSECompleteResult> {
-    const response = await fetch(`/api/chat/messages/${messageId}/regenerate`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        contextSourceIds: params.contextSourceIds,
-        scenarioType: params.scenarioType,
-      }),
-      signal: params.signal,
-    })
+      await readSSEStream(
+        response,
+        (event) => {
+          let data: unknown
+          try {
+            data = JSON.parse(event.data)
+          } catch {
+            return
+          }
+          switch (event.event) {
+            case 'init': {
+              const init = data as { conversationId: string; messageId?: string }
+              params.onInit?.(init)
+              break
+            }
+            case 'token': {
+              const tokenEvt = data as { token: string }
+              params.onToken?.(tokenEvt.token)
+              break
+            }
+            case 'tool_call': {
+              const toolEvt = data as { name: string; args: unknown }
+              params.onToolCall?.(toolEvt.name, toolEvt.args)
+              break
+            }
+            case 'citation': {
+              const citationEvt = data as { citations: ChatCitation[] }
+              params.onCitation?.(citationEvt.citations)
+              break
+            }
+            case 'complete': {
+              result = data as ChatSSECompleteResult
+              params.onComplete?.(result)
+              break
+            }
+            case 'error': {
+              const errorEvt = data as { message: string }
+              params.onError?.(new Error(errorEvt.message))
+              break
+            }
+          }
+        },
+        params.signal,
+      )
 
-    if (!response.ok) {
-      throw new Error(`Chat regenerate failed: ${response.status}`)
+      const duration = Date.now() - startTime
+      recordApiLog('POST', url, response.status, duration, requestBody, result)
+      return result
+    } catch (error) {
+      const duration = Date.now() - startTime
+      const err = error as Error
+      if (err.name === 'AbortError') {
+        recordApiLog('POST', url, 408, duration, requestBody, undefined, '请求已取消')
+      } else if (!err.message.startsWith('Chat stream failed:')) {
+        recordApiLog('POST', url, -1, duration, requestBody, undefined, err.message)
+      }
+      throw error
     }
-
-    let result: ChatSSECompleteResult = defaultCompleteResult()
-
-    await readSSEStream(
-      response,
-      (event) => {
-        let data: unknown
-        try {
-          data = JSON.parse(event.data)
-        } catch {
-          return
-        }
-        switch (event.event) {
-          case 'init': {
-            const init = data as { conversationId: string; messageId?: string }
-            params.onInit?.(init)
-            break
-          }
-          case 'token': {
-            const tokenEvt = data as { token: string }
-            params.onToken?.(tokenEvt.token)
-            break
-          }
-          case 'tool_call': {
-            const toolEvt = data as { name: string; args: unknown }
-            params.onToolCall?.(toolEvt.name, toolEvt.args)
-            break
-          }
-          case 'citation': {
-            const citationEvt = data as { citations: ChatCitation[] }
-            params.onCitation?.(citationEvt.citations)
-            break
-          }
-          case 'complete': {
-            result = data as ChatSSECompleteResult
-            params.onComplete?.(result)
-            break
-          }
-          case 'error': {
-            const errorEvt = data as { message: string }
-            params.onError?.(new Error(errorEvt.message))
-            break
-          }
-        }
-      },
-      params.signal,
-    )
-
-    return result
   },
 
   // SubTask 22.5: 长期记忆 CRUD API（对应后端 /api/v1/chat/memory）

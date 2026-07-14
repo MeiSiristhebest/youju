@@ -6,6 +6,7 @@ export interface Conversation {
   id: string
   userId: string | null
   sessionId: string | null
+  taskId: string | null
   title: string
   scenarioType: string | null
   sourceIds: string[]

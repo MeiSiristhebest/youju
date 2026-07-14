@@ -1,8 +1,7 @@
 import crypto from 'node:crypto'
+import { getEnv } from '../../infrastructure/env.js'
+import type { ModeCheckerPort } from '../ports/infrastructurePorts.js'
 import type { AnalyzeResult, ScenarioKnowledge, Source } from '../types.js'
-
-const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
-const DEFAULT_MAX_ENTRIES = 50
 
 interface CacheEntry {
   result: AnalyzeResult
@@ -14,10 +13,13 @@ export class AnalysisCache {
   private cache = new Map<string, CacheEntry>()
   private ttlMs: number
   private maxEntries: number
+  private readonly modeChecker: ModeCheckerPort
 
-  constructor() {
-    this.ttlMs = Number(process.env.ANALYSIS_CACHE_TTL_MS) || DEFAULT_TTL_MS
-    this.maxEntries = Number(process.env.ANALYSIS_CACHE_MAX_ENTRIES) || DEFAULT_MAX_ENTRIES
+  constructor(modeChecker: ModeCheckerPort) {
+    this.modeChecker = modeChecker
+    const env = getEnv()
+    this.ttlMs = env.ANALYSIS_CACHE_TTL_MS
+    this.maxEntries = env.ANALYSIS_CACHE_MAX_ENTRIES
   }
 
   computeAnalysisFingerprint(
@@ -107,9 +109,9 @@ export class AnalysisCache {
     }
   }
 
-  shouldUseCache(options?: { persist?: boolean }): boolean {
+  shouldUseCache(options?: { persist?: boolean; isDemo?: boolean }): boolean {
     if (options?.persist === false) return false
-    if (!process.env.AI_API_KEY) return false
+    if (this.modeChecker.isMockMode(undefined, options?.isDemo)) return false
     return true
   }
 

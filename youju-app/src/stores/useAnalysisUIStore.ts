@@ -12,9 +12,6 @@ interface AnalysisUIState {
     | 'trace'
     | 'dimensions'
     | 'chat'
-  showDraft: boolean
-  draftText: string
-  generatingDraft: boolean
   showDebug: boolean
   debugTab: 'info' | 'stats'
 
@@ -30,9 +27,6 @@ interface AnalysisUIState {
       | 'dimensions'
       | 'chat',
   ) => void
-  setShowDraft: (show: boolean) => void
-  setDraftText: (text: string | ((prev: string) => string)) => void
-  setGeneratingDraft: (generating: boolean) => void
   setShowDebug: (show: boolean) => void
   setDebugTab: (tab: 'info' | 'stats') => void
 }
@@ -41,19 +35,10 @@ export const useAnalysisUIStore = create<AnalysisUIState>()(
   persist(
     (set) => ({
       activeTab: 'overview',
-      showDraft: false,
-      draftText: '',
-      generatingDraft: false,
       showDebug: false,
       debugTab: 'info',
 
       setActiveTab: (activeTab) => set({ activeTab }),
-      setShowDraft: (showDraft) => set({ showDraft }),
-      setDraftText: (draftText) =>
-        set((state) => ({
-          draftText: typeof draftText === 'function' ? draftText(state.draftText) : draftText,
-        })),
-      setGeneratingDraft: (generatingDraft) => set({ generatingDraft }),
       setShowDebug: (showDebug) => set({ showDebug }),
       setDebugTab: (debugTab) => set({ debugTab }),
     }),

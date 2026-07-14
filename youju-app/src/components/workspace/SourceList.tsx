@@ -26,6 +26,7 @@ const typeIcons: Record<SourceType, ReactNode> = {
   web: <Link size={14} strokeWidth={1.5} />,
   screenshot: <FileText size={14} strokeWidth={1.5} />,
   contract: <FileText size={14} strokeWidth={1.5} />,
+  other: <FileText size={14} strokeWidth={1.5} />,
 }
 
 const statusConfig: Record<
@@ -138,7 +139,7 @@ function SourceItemActions({
   const isProcessing = source.status === 'uploading' || source.status === 'parsing'
 
   return (
-    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+    <div className="flex items-center gap-0.5">
       <button
         type="button"
         className="w-6 h-6 rounded-md flex items-center justify-center text-ink-faint hover:text-ink hover:bg-paper transition-colors"

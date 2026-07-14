@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { storage } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 
 export interface TourStep {
@@ -42,56 +43,66 @@ export function ProductTour({
       const element = document.querySelector(step.target)
       if (!element) return
 
-      const rect = element.getBoundingClientRect()
-      const padding = step.highlightPadding ?? 8
-
-      setPosition({
-        top: rect.top - padding,
-        left: rect.left - padding,
-        width: rect.width + padding * 2,
-        height: rect.height + padding * 2,
+      element.scrollIntoView({
+        block: 'center',
+        inline: 'center',
+        behavior: 'smooth',
       })
 
-      const placement = step.placement ?? 'bottom'
-      const tooltipWidth = 320
-      const tooltipHeight = 160
-      const gap = 12
+      const updateAfterScroll = () => {
+        const rect = element.getBoundingClientRect()
+        const padding = step.highlightPadding ?? 8
 
-      let tooltipTop = 0
-      let tooltipLeft = 0
+        setPosition({
+          top: rect.top - padding,
+          left: rect.left - padding,
+          width: rect.width + padding * 2,
+          height: rect.height + padding * 2,
+        })
 
-      switch (placement) {
-        case 'top':
-          tooltipTop = rect.top - tooltipHeight - gap
-          tooltipLeft = rect.left + rect.width / 2 - tooltipWidth / 2
-          break
-        case 'bottom':
-          tooltipTop = rect.bottom + gap
-          tooltipLeft = rect.left + rect.width / 2 - tooltipWidth / 2
-          break
-        case 'left':
-          tooltipTop = rect.top + rect.height / 2 - tooltipHeight / 2
-          tooltipLeft = rect.left - tooltipWidth - gap
-          break
-        case 'right':
-          tooltipTop = rect.top + rect.height / 2 - tooltipHeight / 2
-          tooltipLeft = rect.right + gap
-          break
+        const placement = step.placement ?? 'bottom'
+        const tooltipWidth = 320
+        const tooltipHeight = 180
+        const gap = 12
+
+        let tooltipTop = 0
+        let tooltipLeft = 0
+
+        switch (placement) {
+          case 'top':
+            tooltipTop = rect.top - tooltipHeight - gap
+            tooltipLeft = rect.left + rect.width / 2 - tooltipWidth / 2
+            break
+          case 'bottom':
+            tooltipTop = rect.bottom + gap
+            tooltipLeft = rect.left + rect.width / 2 - tooltipWidth / 2
+            break
+          case 'left':
+            tooltipTop = rect.top + rect.height / 2 - tooltipHeight / 2
+            tooltipLeft = rect.left - tooltipWidth - gap
+            break
+          case 'right':
+            tooltipTop = rect.top + rect.height / 2 - tooltipHeight / 2
+            tooltipLeft = rect.right + gap
+            break
+        }
+
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
+
+        if (tooltipLeft < 16) tooltipLeft = 16
+        if (tooltipLeft + tooltipWidth > viewportWidth - 16) {
+          tooltipLeft = viewportWidth - tooltipWidth - 16
+        }
+        if (tooltipTop < 16) tooltipTop = 16
+        if (tooltipTop + tooltipHeight > viewportHeight - 16) {
+          tooltipTop = viewportHeight - tooltipHeight - 16
+        }
+
+        setTooltipPosition({ top: tooltipTop, left: tooltipLeft })
       }
 
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
-
-      if (tooltipLeft < 16) tooltipLeft = 16
-      if (tooltipLeft + tooltipWidth > viewportWidth - 16) {
-        tooltipLeft = viewportWidth - tooltipWidth - 16
-      }
-      if (tooltipTop < 16) tooltipTop = 16
-      if (tooltipTop + tooltipHeight > viewportHeight - 16) {
-        tooltipTop = viewportHeight - tooltipHeight - 16
-      }
-
-      setTooltipPosition({ top: tooltipTop, left: tooltipLeft })
+      setTimeout(updateAfterScroll, 300)
     }
 
     setIsAnimating(true)
@@ -131,7 +142,7 @@ export function ProductTour({
 
   const handleComplete = () => {
     if (localStorageKey) {
-      localStorage.setItem(localStorageKey, 'true')
+      storage.setItem(localStorageKey, 'true')
     }
     onComplete?.()
     onClose()
@@ -139,7 +150,7 @@ export function ProductTour({
 
   const handleSkip = () => {
     if (localStorageKey) {
-      localStorage.setItem(localStorageKey, 'true')
+      storage.setItem(localStorageKey, 'true')
     }
     onClose()
   }
@@ -162,7 +173,7 @@ export function ProductTour({
   if (!isOpen || !step) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-50 pointer-events-none">
+    <div className="fixed inset-0 z-[9998] pointer-events-none">
       <svg
         className="absolute inset-0 w-full h-full pointer-events-auto"
         style={{ pointerEvents: 'none' }}

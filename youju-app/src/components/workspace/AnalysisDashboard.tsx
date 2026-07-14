@@ -1,148 +1,12 @@
-import {
-  BarChart3,
-  Clock,
-  FileText,
-  Percent,
-  PieChart,
-  Shield,
-  TrendingDown,
-  TrendingUp,
-} from 'lucide-react'
+import { Clock, FileText, Percent, Shield } from 'lucide-react'
 import { useMemo } from 'react'
+import { getRiskTypeShortLabel } from '@/constants/riskLabels'
 import { cn } from '@/lib/utils'
 import type { AnalyzeResult } from '../../types'
-import { ConfidenceBar } from '../ui/ConfidenceBar'
 
 interface AnalysisDashboardProps {
   result: AnalyzeResult
   className?: string
-}
-
-interface StatCardProps {
-  icon: React.ReactNode
-  iconBgClass: string
-  iconColorClass: string
-  value: string
-  label: string
-  trend?: {
-    value: string
-    direction: 'up' | 'down'
-    positive?: boolean
-  }
-  extra?: React.ReactNode
-  className?: string
-}
-
-function StatCard({
-  icon,
-  iconBgClass,
-  iconColorClass,
-  value,
-  label,
-  trend,
-  extra,
-  className,
-}: StatCardProps) {
-  return (
-    <div
-      className={cn(
-        'bg-paper border border-rule/40 rounded-lg p-4 transition-colors duration-200 hover:border-rule/80',
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div
-          className={cn(
-            'w-9 h-9 rounded-lg flex items-center justify-center',
-            iconBgClass,
-            iconColorClass,
-          )}
-        >
-          {icon}
-        </div>
-        {trend && (
-          <div
-            className={cn(
-              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
-              trend.positive !== false ? 'text-success bg-success-bg' : 'text-danger bg-danger-bg',
-            )}
-          >
-            {trend.direction === 'up' ? (
-              <TrendingUp size={10} strokeWidth={2} />
-            ) : (
-              <TrendingDown size={10} strokeWidth={2} />
-            )}
-            {trend.value}
-          </div>
-        )}
-      </div>
-      <div className="text-2xl font-display font-semibold text-ink tracking-tight mb-1">
-        {value}
-      </div>
-      <div className="text-xs text-ink-muted">{label}</div>
-      {extra && <div className="mt-3">{extra}</div>}
-    </div>
-  )
-}
-
-function RiskLevelDots({
-  critical,
-  warning,
-  info,
-}: {
-  critical: number
-  warning: number
-  info: number
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-1.5">
-        <div className="w-2 h-2 rounded-full bg-danger" />
-        <span className="text-[10px] text-ink-muted font-medium">{critical}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="w-2 h-2 rounded-full bg-warning" />
-        <span className="text-[10px] text-ink-muted font-medium">{warning}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="w-2 h-2 rounded-full bg-success" />
-        <span className="text-[10px] text-ink-muted font-medium">{info}</span>
-      </div>
-    </div>
-  )
-}
-
-interface StepTimingItem {
-  name: string
-  durationMs: number
-  percent: number
-}
-
-function StepTimingChart({ steps }: { steps: StepTimingItem[] }) {
-  const maxPercent = Math.max(...steps.map((s) => s.percent), 1)
-
-  return (
-    <div className="space-y-2.5">
-      {steps.map((step, idx) => (
-        <div key={idx} className="space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-ink-muted truncate max-w-[120px]">{step.name}</span>
-            <span className="text-[10px] text-ink-faint font-mono">
-              {step.durationMs > 1000
-                ? `${(step.durationMs / 1000).toFixed(1)}s`
-                : `${step.durationMs}ms`}
-            </span>
-          </div>
-          <div className="h-1.5 bg-paper-dark rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-accent/60 to-accent transition-[width] duration-500 ease-out"
-              style={{ width: `${(step.percent / maxPercent) * 100}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
 }
 
 interface RiskTypeItem {
@@ -159,59 +23,63 @@ const RISK_TYPE_COLORS: Record<string, string> = {
   info: 'bg-success',
 }
 
-const RISK_TYPE_LABELS: Record<string, string> = {
-  conflict: '冲突',
-  promise: '承诺缺失',
-  missing: '遗漏',
-  info: '提示',
+interface StepTimingItem {
+  name: string
+  durationMs: number
+  percent: number
 }
 
-function RiskTypeDistribution({ types }: { types: RiskTypeItem[] }) {
-  const total = types.reduce((sum, t) => sum + t.count, 0)
-
+function ReportSection({
+  number,
+  title,
+  subtitle,
+  children,
+}: {
+  number: string
+  title: string
+  subtitle?: string
+  children: React.ReactNode
+}) {
   return (
-    <div className="space-y-3">
-      <div className="flex h-3 rounded-full overflow-hidden bg-paper-dark">
-        {types.map((type, idx) => (
-          <div
-            key={idx}
-            className={cn('h-full transition-all duration-500', type.color)}
-            style={{ width: `${total > 0 ? (type.count / total) * 100 : 0}%` }}
-          />
-        ))}
+    <section className="py-7">
+      <div className="flex items-baseline gap-3 mb-5">
+        <span className="text-xs font-mono text-ink-faint tabular-nums">{number}</span>
+        <h3 className="text-base font-medium text-ink tracking-tight">{title}</h3>
+        {subtitle && <span className="text-xs text-ink-faint">— {subtitle}</span>}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {types.map((type, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <div className={cn('w-2 h-2 rounded-full', type.color)} />
-            <span className="text-[10px] text-ink-muted flex-1 truncate">{type.type}</span>
-            <span className="text-[10px] text-ink-faint font-mono">{type.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+      <div className="pl-7">{children}</div>
+    </section>
   )
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="bg-paper border border-rule/40 rounded-lg p-4 animate-pulse">
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-9 h-9 rounded-lg bg-paper-dark" />
-            <div className="w-14 h-5 rounded bg-paper-dark" />
+    <div className="px-8 py-10 animate-pulse space-y-6">
+      <div className="h-8 w-48 bg-paper-dark rounded" />
+      <div className="h-px bg-rule/40" />
+      <div className="grid grid-cols-4 gap-8">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <div className="h-3 w-14 bg-paper-dark rounded" />
+            <div className="h-8 w-16 bg-paper-dark rounded" />
           </div>
-          <div className="h-7 w-20 bg-paper-dark rounded mb-1.5" />
-          <div className="h-3 w-16 bg-paper-dark rounded mb-3" />
-          <div className="h-4 w-full bg-paper-dark rounded" />
-        </div>
-      ))}
+        ))}
+      </div>
+      <div className="h-px bg-rule/40" />
+      <div className="space-y-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="space-y-1.5">
+            <div className="h-3 w-32 bg-paper-dark rounded" />
+            <div className="h-1 w-full bg-paper-dark rounded-full" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
 export function AnalysisDashboard({ result, className }: AnalysisDashboardProps) {
+  const scenarioType = result?.scenario?.type
   const stats = useMemo(() => {
     const risks = result.risks || []
     const sourceCount = result.meta?.sourceCount ?? result.riskRelations?.associations?.length ?? 0
@@ -249,7 +117,7 @@ export function AnalysisDashboard({ result, className }: AnalysisDashboardProps)
 
     const riskTypes: RiskTypeItem[] = Object.entries(typeCounts)
       .map(([type, count]) => ({
-        type: RISK_TYPE_LABELS[type] || type,
+        type: getRiskTypeShortLabel(type, scenarioType),
         count,
         color: RISK_TYPE_COLORS[type] || 'bg-accent',
         percent: risks.length > 0 ? (count / risks.length) * 100 : 0,
@@ -273,97 +141,228 @@ export function AnalysisDashboard({ result, className }: AnalysisDashboardProps)
       stepTimings,
       riskTypes,
     }
-  }, [result])
+  }, [result, scenarioType])
+
+  const metrics = [
+    {
+      icon: <FileText size={16} strokeWidth={1.5} />,
+      label: '材料总数',
+      value: `${stats.sourceCount}`,
+    },
+    {
+      icon: <Shield size={16} strokeWidth={1.5} />,
+      label: '风险总数',
+      value: `${stats.totalRisks}`,
+    },
+    {
+      icon: <Percent size={16} strokeWidth={1.5} />,
+      label: '置信度',
+      value: `${stats.avgConfidence}%`,
+      subValue: stats.avgConfidence >= 80 ? '高' : stats.avgConfidence >= 50 ? '中' : '低',
+      confidence: stats.avgConfidence,
+    },
+    {
+      icon: <Clock size={16} strokeWidth={1.5} />,
+      label: '分析耗时',
+      value: stats.durationStr,
+    },
+  ]
+
+  const maxStepPercent = Math.max(...stats.stepTimings.map((s) => s.percent), 1)
 
   return (
-    <div className={cn('p-4', className)}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <StatCard
-          icon={<FileText size={18} strokeWidth={1.5} />}
-          iconBgClass="bg-accent-bg"
-          iconColorClass="text-accent"
-          value={`${stats.sourceCount} 份`}
-          label="材料总数"
-          trend={{
-            value: '12%',
-            direction: 'up',
-            positive: true,
-          }}
-        />
+    <div className={cn('px-8 py-10 max-w-4xl mx-auto', className)}>
+      {/* 报告标题 */}
+      <header className="pb-6 border-b border-rule/40">
+        <h2 className="text-2xl font-display font-medium text-ink tracking-tight mb-1">分析概览</h2>
+        <p className="text-sm text-ink-muted">本次 AI 交叉验证分析的关键指标与分布</p>
+      </header>
 
-        <StatCard
-          icon={<Shield size={18} strokeWidth={1.5} />}
-          iconBgClass="bg-danger-bg"
-          iconColorClass="text-danger"
-          value={`${stats.totalRisks} 个`}
-          label="风险总数"
-          extra={
-            <RiskLevelDots
-              critical={stats.criticalCount}
-              warning={stats.warningCount}
-              info={stats.infoCount}
-            />
-          }
-        />
-
-        <StatCard
-          icon={<Percent size={18} strokeWidth={1.5} />}
-          iconBgClass="bg-success-bg"
-          iconColorClass="text-success"
-          value={`${stats.avgConfidence}%`}
-          label="平均置信度"
-          extra={
-            <ConfidenceBar confidence={stats.avgConfidence} size="sm" showLabel={false} fullWidth />
-          }
-        />
-
-        <StatCard
-          icon={<Clock size={18} strokeWidth={1.5} />}
-          iconBgClass="bg-warning-bg"
-          iconColorClass="text-warning"
-          value={stats.durationStr}
-          label="分析耗时"
-          trend={{
-            value: '8%',
-            direction: 'down',
-            positive: true,
-          }}
-        />
-
-        <div className="bg-paper border border-rule/40 rounded-lg p-4 transition-colors duration-200 hover:border-rule/80 sm:col-span-1 lg:col-span-1">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-accent-tertiary-bg text-accent-tertiary flex items-center justify-center">
-              <BarChart3 size={18} strokeWidth={1.5} />
+      {/* 核心指标 */}
+      <ReportSection number="01" title="核心指标" subtitle="四项关键数据一览">
+        <div className="grid grid-cols-4 gap-4">
+          {metrics.map((m, i) => (
+            <div key={i} className="space-y-2 min-w-0">
+              <div className="flex items-center gap-2 text-ink-muted">
+                {m.icon}
+                <span className="text-sm">{m.label}</span>
+              </div>
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="text-2xl font-display font-medium text-ink tracking-tight tabular-nums leading-none whitespace-nowrap overflow-hidden text-ellipsis">
+                  {m.value}
+                </span>
+                {m.subValue && m.confidence !== undefined && (
+                  <span
+                    className={cn(
+                      'text-xs px-1.5 py-0.5 rounded font-medium shrink-0',
+                      m.confidence >= 80
+                        ? 'bg-success-bg text-success'
+                        : m.confidence >= 50
+                          ? 'bg-warning-bg text-warning'
+                          : 'bg-danger-bg text-danger',
+                    )}
+                  >
+                    {m.subValue}
+                  </span>
+                )}
+              </div>
+              {m.confidence !== undefined && (
+                <div className="w-full h-1 bg-paper-dark/40 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-700',
+                      m.confidence >= 80
+                        ? 'bg-success'
+                        : m.confidence >= 50
+                          ? 'bg-warning'
+                          : 'bg-danger',
+                    )}
+                    style={{ width: `${m.confidence}%` }}
+                  />
+                </div>
+              )}
             </div>
-            <div>
-              <div className="text-xs font-medium text-ink">7 步耗时分布</div>
-              <div className="text-[10px] text-ink-faint">各分析步骤占比</div>
+          ))}
+        </div>
+        {/* 风险等级细分 */}
+        <div className="mt-5 flex items-center gap-5 text-xs text-ink-muted">
+          <span>其中：</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-danger" />
+            严重 {stats.criticalCount}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+            警告 {stats.warningCount}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-success" />
+            提示 {stats.infoCount}
+          </span>
+        </div>
+      </ReportSection>
+
+      {/* 置信度 */}
+      <div className="h-px bg-rule/40" />
+      <ReportSection number="02" title="置信度评估" subtitle="AI 对分析结果的确信程度">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl font-display font-medium text-ink tabular-nums leading-none">
+              {stats.avgConfidence}%
+            </span>
+            <span
+              className={cn(
+                'text-sm px-2 py-1 rounded font-medium',
+                stats.avgConfidence >= 80
+                  ? 'bg-success-bg text-success'
+                  : stats.avgConfidence >= 50
+                    ? 'bg-warning-bg text-warning'
+                    : 'bg-danger-bg text-danger',
+              )}
+            >
+              {stats.avgConfidence >= 80 ? '高' : stats.avgConfidence >= 50 ? '中' : '低'}
+            </span>
+          </div>
+          <div className="flex-1">
+            <div className="h-2.5 bg-paper-dark/40 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-700 relative',
+                  stats.avgConfidence >= 80
+                    ? 'bg-gradient-to-r from-success-faint to-success'
+                    : stats.avgConfidence >= 50
+                      ? 'bg-gradient-to-r from-warning-faint to-warning'
+                      : 'bg-gradient-to-r from-danger-faint to-danger',
+                )}
+                style={{ width: `${stats.avgConfidence}%` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
+              </div>
+            </div>
+            <div className="flex justify-between mt-1.5 text-[10px] text-ink-faint">
+              <span>低可信度</span>
+              <span>高可信度</span>
             </div>
           </div>
-          {stats.stepTimings.length > 0 ? (
-            <StepTimingChart steps={stats.stepTimings.slice(0, 7)} />
-          ) : (
-            <div className="text-center py-4 text-[11px] text-ink-faint">暂无步骤数据</div>
-          )}
         </div>
+        <div className="mt-4 p-3 rounded-lg bg-paper-dark/30 border border-rule/40">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            置信度反映 AI 对分析结论的确信程度。高置信度表示 AI
+            有充分的证据支持其判断；低置信度表示结论可能存在不确定性，建议人工复核。
+          </p>
+        </div>
+      </ReportSection>
 
-        <div className="bg-paper border border-rule/40 rounded-lg p-4 transition-colors duration-200 hover:border-rule/80 sm:col-span-1 lg:col-span-1">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-accent-bg text-accent flex items-center justify-center">
-              <PieChart size={18} strokeWidth={1.5} />
+      {/* 步骤耗时 */}
+      <div className="h-px bg-rule/40" />
+      <ReportSection number="03" title="分析步骤耗时" subtitle="7 步推理各步骤时间占比">
+        {stats.stepTimings.length > 0 ? (
+          <div className="space-y-3">
+            {stats.stepTimings.map((step, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr_auto] gap-x-4 items-center">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-ink-muted">{step.name}</span>
+                    <span className="text-xs text-ink-faint font-mono tabular-nums">
+                      {step.durationMs > 1000
+                        ? `${(step.durationMs / 1000).toFixed(1)}s`
+                        : `${step.durationMs}ms`}
+                    </span>
+                  </div>
+                  <div className="h-1 bg-paper-dark/40 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-accent/70 transition-[width] duration-700 ease-out"
+                      style={{ width: `${(step.percent / maxStepPercent) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-ink-faint">暂无步骤数据</p>
+        )}
+      </ReportSection>
+
+      {/* 风险类型分布 */}
+      <div className="h-px bg-rule/40" />
+      <ReportSection number="04" title="风险类型分布" subtitle="按风险类型分类统计">
+        {stats.riskTypes.length > 0 ? (
+          <div className="space-y-4">
+            {/* 堆叠条 */}
+            <div className="flex h-2.5 rounded-full overflow-hidden bg-paper-dark/40">
+              {stats.riskTypes.map((type, idx) => (
+                <div
+                  key={idx}
+                  className={cn('h-full transition-all duration-700', type.color)}
+                  style={{
+                    width: `${stats.totalRisks > 0 ? (type.count / stats.totalRisks) * 100 : 0}%`,
+                  }}
+                />
+              ))}
             </div>
-            <div>
-              <div className="text-xs font-medium text-ink">风险类型分布</div>
-              <div className="text-[10px] text-ink-faint">按风险类型统计</div>
+            {/* 明细列表 */}
+            <div className="space-y-2">
+              {stats.riskTypes.map((type, idx) => (
+                <div key={idx} className="flex items-center gap-3 text-sm">
+                  <span className={cn('w-2 h-2 rounded-full shrink-0', type.color)} />
+                  <span className="text-ink-muted flex-1">{type.type}</span>
+                  <span className="text-ink-faint tabular-nums">
+                    {stats.totalRisks > 0 ? Math.round((type.count / stats.totalRisks) * 100) : 0}%
+                  </span>
+                  <span className="text-ink font-medium tabular-nums w-8 text-right">
+                    {type.count}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-          {stats.riskTypes.length > 0 ? (
-            <RiskTypeDistribution types={stats.riskTypes} />
-          ) : (
-            <div className="text-center py-4 text-[11px] text-ink-faint">暂无风险数据</div>
-          )}
-        </div>
-      </div>
+        ) : (
+          <p className="text-sm text-ink-faint">暂无风险数据</p>
+        )}
+      </ReportSection>
+
+      <div className="h-px bg-rule/40" />
     </div>
   )
 }

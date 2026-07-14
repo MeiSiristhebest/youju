@@ -9,6 +9,7 @@ interface PrintReportRisksProps {
   withNumber?: boolean
   number?: string
   withLine?: boolean
+  scenarioType?: string
 }
 
 export function PrintReportRisks({
@@ -18,6 +19,7 @@ export function PrintReportRisks({
   withNumber = true,
   number,
   withLine = false,
+  scenarioType,
 }: PrintReportRisksProps) {
   if (!risks || risks.length === 0) return null
 
@@ -37,7 +39,7 @@ export function PrintReportRisks({
         {title}
       </PrintSectionTitle>
       {risks.map((risk, i) => (
-        <PrintRiskCard key={risk.id} risk={risk} index={i} />
+        <PrintRiskCard key={risk.id} risk={risk} index={i} scenarioType={scenarioType} />
       ))}
     </div>
   )

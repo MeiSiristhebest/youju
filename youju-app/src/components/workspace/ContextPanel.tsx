@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Maximize2,
   Paperclip,
+  Pencil,
   Sparkles,
   TrendingUp,
   User,
@@ -19,9 +20,10 @@ import {
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
-import { cn } from '@/lib/utils'
+import { getRiskTypeLabel } from '@/constants/riskLabels'
+import { cn, formatDimensionName } from '@/lib/utils'
 import { useAnalysisStore } from '../../stores'
-import type { Evidence, Risk, RiskLevel, RiskStatus } from '../../types'
+import type { Evidence, Risk, RiskLevel, RiskStatus, RiskType } from '../../types'
 import { AiInlineEditor } from './AiInlineEditor'
 import { ContextPanelSkeleton } from './ContextPanelSkeleton'
 import { WorkspaceEmpty } from './WorkspaceEmpty'
@@ -32,9 +34,8 @@ interface ContextPanelProps {
   riskFeedback: Record<string, 'accurate' | 'inaccurate'>
   onClose: () => void
   onGenerateDraft: (risk: Risk) => void
-  onFeedback: (riskId: string, feedback: 'accurate' | 'inaccurate') => void
+  onFeedback: (riskId: string, riskType: RiskType, isAccurate: boolean) => void
   onEvidenceClick?: (sourceId: string, quote: string) => void
-  riskStatus: RiskStatus
   onStatusChange: (riskId: string, status: RiskStatus) => void
   notes: string | null
   notesUpdatedAt: string | null
@@ -42,13 +43,6 @@ interface ContextPanelProps {
   onOpenRiskDetail?: (risk: Risk) => void
   onCollapse?: () => void
   isLoading?: boolean
-}
-
-const RISK_TYPE_LABELS: Record<string, string> = {
-  conflict: '直接矛盾',
-  promise: '承诺未落文字',
-  missing: '信息缺失',
-  info: '信息提示',
 }
 
 const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
@@ -79,7 +73,6 @@ export function ContextPanel({
   onGenerateDraft,
   onFeedback,
   onEvidenceClick,
-  riskStatus,
   onStatusChange,
   notes,
   notesUpdatedAt,
@@ -92,9 +85,18 @@ export function ContextPanel({
   const [notesText, setNotesText] = useState(notes || '')
   const [isSaving, setIsSaving] = useState(false)
   const [showAiEditor, setShowAiEditor] = useState(false)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editTitleValue, setEditTitleValue] = useState('')
+  const [isEditingDescription, setIsEditingDescription] = useState(false)
+  const [editDescriptionValue, setEditDescriptionValue] = useState('')
   const updateRiskDescription = useAnalysisStore((s) => s.updateRiskDescription)
+  const updateRiskTitle = useAnalysisStore((s) => s.updateRiskTitle)
+  const getRiskStatus = useAnalysisStore((s) => s.getRiskStatus)
   const aiEditorTargetRiskId = useAnalysisStore((s) => s.aiEditorTargetRiskId)
   const setAiEditorTargetRiskId = useAnalysisStore((s) => s.setAiEditorTargetRiskId)
+  const scenarioType = useAnalysisStore((s) => s.result?.scenario?.type)
+
+  const riskStatus = selectedRisk ? getRiskStatus(selectedRisk.id, 'pending') : 'pending'
 
   useEffect(() => {
     if (aiEditorTargetRiskId && selectedRisk && aiEditorTargetRiskId === selectedRisk.id) {
@@ -115,10 +117,44 @@ export function ContextPanel({
     }, 800)
   }
 
+  const handleTitleEditStart = () => {
+    setEditTitleValue(selectedRisk?.title || '')
+    setIsEditingTitle(true)
+  }
+
+  const handleTitleEditSubmit = () => {
+    if (selectedRisk && editTitleValue.trim()) {
+      updateRiskTitle(selectedRisk.id, editTitleValue.trim())
+    }
+    setIsEditingTitle(false)
+  }
+
+  const handleTitleEditCancel = () => {
+    setIsEditingTitle(false)
+  }
+
+  const handleDescriptionEditStart = () => {
+    setEditDescriptionValue(selectedRisk?.description || '')
+    setIsEditingDescription(true)
+  }
+
+  const handleDescriptionEditSubmit = () => {
+    if (selectedRisk && editDescriptionValue.trim()) {
+      updateRiskDescription(selectedRisk.id, editDescriptionValue.trim(), '人工编辑')
+    }
+    setIsEditingDescription(false)
+  }
+
+  const handleDescriptionEditCancel = () => {
+    setIsEditingDescription(false)
+  }
+
   useEffect(() => {
     setNotesText(notes || '')
     setShowStatusMenu(false)
     setShowAiEditor(false)
+    setIsEditingTitle(false)
+    setIsEditingDescription(false)
   }, [selectedRisk?.id, notes])
 
   useEffect(() => {
@@ -259,13 +295,13 @@ export function ContextPanel({
             <div>
               <div className="flex items-center gap-2 mb-2">
                 {selectedRisk.isNew && (
-                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold text-white bg-danger rounded-md border border-danger/20">
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold text-danger-foreground bg-danger rounded-md border border-danger/20">
                     NEW
                   </span>
                 )}
                 {selectedRisk.levelChange?.upgraded && (
                   <span
-                    className="inline-flex items-center justify-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white bg-warning rounded-md border border-warning/20"
+                    className="inline-flex items-center justify-center gap-1 px-2 py-0.5 text-[10px] font-bold text-warning-foreground bg-warning rounded-md border border-warning/20"
                     title={`${RISK_LEVEL_LABELS[selectedRisk.levelChange.from]} → ${RISK_LEVEL_LABELS[selectedRisk.levelChange.to]}`}
                   >
                     <TrendingUp size={10} />
@@ -273,26 +309,119 @@ export function ContextPanel({
                   </span>
                 )}
               </div>
-              <h3 className="text-lg font-medium text-ink mb-2 leading-snug font-display tracking-tight">
-                {selectedRisk.title}
-              </h3>
-              <div className="relative group">
-                <p className="text-xs text-ink-faint leading-relaxed">{selectedRisk.description}</p>
-                <button
-                  type="button"
-                  onClick={() => setShowAiEditor(!showAiEditor)}
-                  className={cn(
-                    'absolute -top-1 right-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium transition-all cursor-pointer',
-                    showAiEditor
-                      ? 'opacity-100 bg-accent text-paper'
-                      : 'opacity-0 group-hover:opacity-100 bg-paper-dark text-ink-muted hover:text-accent border border-rule/60',
-                  )}
-                  title="AI 重写 (Cmd+K)"
-                >
-                  <Sparkles size={10} />
-                  AI 重写
-                </button>
-              </div>
+
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={editTitleValue}
+                    onChange={(e) => setEditTitleValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleTitleEditSubmit()
+                      if (e.key === 'Escape') handleTitleEditCancel()
+                    }}
+                    className="flex-1 text-lg font-medium text-ink font-display tracking-tight px-2 py-1 rounded-md border border-accent bg-paper-dark/60 focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleTitleEditSubmit}
+                    className="w-6 h-6 rounded-md flex items-center justify-center bg-accent text-paper hover:bg-accent/80 transition-colors cursor-pointer"
+                  >
+                    <Check size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTitleEditCancel}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-ink-muted hover:text-ink hover:bg-paper-dark transition-colors cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-medium text-ink font-display tracking-tight flex-1 leading-snug">
+                    {selectedRisk.title}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleTitleEditStart}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-ink-muted hover:text-ink hover:bg-paper-dark transition-colors cursor-pointer"
+                    title="编辑标题"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                </div>
+              )}
+
+              {isEditingDescription ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editDescriptionValue}
+                    onChange={(e) => setEditDescriptionValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault()
+                        handleDescriptionEditSubmit()
+                      }
+                      if (e.key === 'Escape') handleDescriptionEditCancel()
+                    }}
+                    className="w-full text-xs text-ink-faint leading-relaxed px-2 py-1.5 rounded-md border border-accent bg-paper-dark/60 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
+                    rows={4}
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDescriptionEditSubmit}
+                      className="px-2 py-1 rounded text-[10px] bg-accent text-paper hover:bg-accent/80 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Check size={10} />
+                      保存
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDescriptionEditCancel}
+                      className="px-2 py-1 rounded text-[10px] text-ink-muted hover:text-ink hover:bg-paper-dark transition-colors cursor-pointer"
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-ink-faint leading-relaxed">
+                    {selectedRisk.description}
+                  </p>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleDescriptionEditStart}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all cursor-pointer',
+                        'bg-paper-dark text-ink-muted hover:text-accent border border-rule/60',
+                      )}
+                      title="编辑描述"
+                    >
+                      <Pencil size={10} />
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAiEditor(!showAiEditor)}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all cursor-pointer',
+                        showAiEditor
+                          ? 'bg-accent text-paper'
+                          : 'bg-paper-dark text-ink-muted hover:text-accent border border-rule/60',
+                      )}
+                      title="AI 重写 (Cmd+K)"
+                    >
+                      <Sparkles size={10} />
+                      AI 重写
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {showAiEditor && (
                 <AiInlineEditor
                   originalText={selectedRisk.description}
@@ -322,14 +451,14 @@ export function ContextPanel({
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-ink-faint">类型</span>
                 <span className="text-[11px] text-ink-muted font-medium">
-                  {RISK_TYPE_LABELS[selectedRisk.type] || selectedRisk.type}
+                  {getRiskTypeLabel(selectedRisk.type, scenarioType)}
                 </span>
               </div>
               {selectedRisk.dimension && (
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-ink-faint">维度</span>
                   <span className="text-[11px] text-ink-muted font-medium">
-                    {selectedRisk.dimension}
+                    {formatDimensionName(selectedRisk.dimension)}
                   </span>
                 </div>
               )}
@@ -373,13 +502,16 @@ export function ContextPanel({
                       key={idx}
                       className={cn(
                         'rounded-lg border bg-paper/[0.02] p-2.5 transition-all duration-200',
-                        onEvidenceClick && ev.sourceId
+                        onEvidenceClick
                           ? 'cursor-pointer hover:border-accent/40 hover:bg-accent-bg/20'
                           : 'border-rule',
                       )}
                       onClick={() => {
-                        if (onEvidenceClick && ev.sourceId) {
-                          onEvidenceClick(ev.sourceId, ev.quote)
+                        if (onEvidenceClick) {
+                          onEvidenceClick(
+                            ev.sourceId || ev.sourceName,
+                            ev.highlightedText || ev.quote,
+                          )
                         }
                       }}
                     >
@@ -427,7 +559,7 @@ export function ContextPanel({
                           : ev.quote}
                         "
                       </p>
-                      {onEvidenceClick && ev.sourceId && (
+                      {onEvidenceClick && (
                         <div className="mt-1.5 flex items-center justify-end">
                           <span className="text-[9px] text-accent font-medium">查看原文 →</span>
                         </div>
@@ -475,7 +607,7 @@ export function ContextPanel({
                       ? 'bg-success-bg text-success'
                       : 'text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink border border-rule/60',
                   )}
-                  onClick={() => onFeedback(selectedRisk.id, 'accurate')}
+                  onClick={() => onFeedback(selectedRisk.id, selectedRisk.type, true)}
                 >
                   <Check size={11} strokeWidth={1.5} />
                   准确
@@ -488,7 +620,7 @@ export function ContextPanel({
                       ? 'bg-danger-bg text-danger'
                       : 'text-ink-muted bg-paper-dark/60 hover:bg-paper-dark hover:text-ink border border-rule/60',
                   )}
-                  onClick={() => onFeedback(selectedRisk.id, 'inaccurate')}
+                  onClick={() => onFeedback(selectedRisk.id, selectedRisk.type, false)}
                 >
                   <XCircle size={11} strokeWidth={1.5} />
                   不准

@@ -13,8 +13,10 @@ import { useShareUtils } from '../hooks/useShare'
 import { useSources } from '../hooks/useSources'
 import { useTasks } from '../hooks/useTasks'
 import { createSnapshotFromResult, historyStorage } from '../lib/history'
+import { isDemoScenario } from '../services/demoAnalysisStream'
+import { sourceApi } from '../services/sourceApi'
+import { taskApi } from '../services/taskApi'
 import {
-  CHAT_TAB_ID,
   useAnalysisStore,
   useChatStore,
   useSourceStore,
@@ -27,6 +29,7 @@ import type {
   ChecklistItem,
   HistorySnapshot,
   Risk,
+  RiskType,
   ScenarioType,
   SharePermission,
   Source,
@@ -257,23 +260,24 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
   } = useShareUtils()
 
   // 对话相关：接入 useChat hook 以供 CommandPalette 等调用
+  const currentTaskId = useSourceStore((s) => s.currentTaskId)
   const {
     createConversation: createChatConversation,
     deleteConversation: deleteChatConversation,
     renameConversation: renameChatConversation,
-  } = useChat()
+  } = useChat(currentTaskId ?? undefined)
   const setActiveChatConversationId = useChatStore((s) => s.setActiveConversationId)
 
-  // 新建对话：创建会话并切换到对话 tab
+  // 新建对话：创建会话并切换到 AI 对话视图
   const handleNewChat = () => {
-    createChatConversation({})
-    useWorkspaceTabsStore.getState().setActiveTab(CHAT_TAB_ID)
+    createChatConversation({ taskId: currentTaskId ?? undefined })
+    useAnalysisStore.getState().setActiveTab('chat')
   }
 
-  // 选择对话：设置活跃会话并切换到对话 tab
+  // 选择对话：设置活跃会话并切换到 AI 对话视图
   const handleSelectChat = (id: string) => {
     setActiveChatConversationId(id)
-    useWorkspaceTabsStore.getState().setActiveTab(CHAT_TAB_ID)
+    useAnalysisStore.getState().setActiveTab('chat')
   }
 
   // 删除对话
@@ -286,18 +290,24 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     renameChatConversation({ id, title })
   }
 
-  const handleFeedback = (riskId: string, feedback: 'accurate' | 'inaccurate') => {
-    submitFeedback({ riskId, feedback })
+  const handleFeedback = (riskId: string, riskType: RiskType, isAccurate: boolean) => {
+    submitFeedback({ riskId, riskType, isAccurate })
   }
 
   const handleLoadScenario = async (scenarioId: ScenarioType) => {
-    const demoSources = DEMO_SOURCES[scenarioId]
+    const scenarioSources = DEMO_SOURCES[scenarioId] as Source[] | undefined
+    const hasPresetSources = !!scenarioSources
+    const isDemoMode = isDemoScenario(scenarioId)
 
     const {
       setSources,
       setSelectedSourceId,
       setIsDemo,
       setCurrentScenario: setCurrentScenarioInStore,
+      setCurrentTask,
+      setIntentAnalysis,
+      setAnalyzingIntent,
+      setScenarioDescription,
     } = useSourceStore.getState()
     const {
       setResult,
@@ -314,19 +324,52 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     setAnalysisStep(0)
     setSelectedRisk(null)
     setChecklist([])
-    setIsDemo(true)
-
-    if (demoSources) {
-      setSources(demoSources)
-      setCurrentScenarioInStore(scenarioId)
-    }
+    setCurrentTask(null)
+    setIntentAnalysis(null)
+    setAnalyzingIntent(false)
+    setScenarioDescription('')
 
     const scenarioInfo = SCENARIOS.find((s) => s.id === scenarioId)
     const tabName = scenarioInfo?.name || '分析任务'
     useWorkspaceTabsStore.getState().openTab(scenarioId, tabName)
-
-    queryClient.setQueryData(['sources'], demoSources || [])
     setMobileSidebarOpen(false)
+
+    if (isDemoMode) {
+      setIsDemo(true)
+      setSources(scenarioSources || [])
+      setCurrentScenarioInStore(scenarioId)
+      queryClient.setQueryData(['sources', null], scenarioSources || [])
+      return
+    }
+
+    setIsDemo(false)
+    setCurrentScenarioInStore(scenarioId)
+    setSources([])
+    queryClient.setQueryData(['sources', null], [])
+
+    try {
+      const initialSources = hasPresetSources
+        ? scenarioSources.map((s) => ({
+            type: s.type,
+            name: s.name,
+            content: s.content,
+            meta: typeof s.meta === 'string' ? s.meta : JSON.stringify(s.meta),
+          }))
+        : undefined
+
+      const task = await taskApi.createTask({
+        title: tabName,
+        scenarioType: scenarioId,
+        sourceIds: [],
+        initialSources,
+      })
+      setCurrentTask({ id: task.id, title: task.title })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['sources', task.id] })
+    } catch (error) {
+      console.error('Failed to create task for scenario:', error)
+      showToast('创建场景任务失败，请重试', 'error')
+    }
   }
 
   const handleShowHistory = () => {
@@ -338,11 +381,19 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     setShowHistory(false)
     const scenarioType = task.scenarioType as ScenarioType
 
+    // 为历史任务创建新的工作区标签页，避免覆盖当前分析
+    const tabName = task.title || SCENARIOS.find((s) => s.id === scenarioType)?.name || '历史任务'
+    useWorkspaceTabsStore.getState().openTab(scenarioType, tabName)
+
     const {
       setSources,
       setSelectedSourceId,
       setIsDemo,
       setCurrentScenario: setCurrentScenarioInStore,
+      setCurrentTask,
+      setIntentAnalysis,
+      setAnalyzingIntent,
+      setScenarioDescription,
     } = useSourceStore.getState()
     const {
       setResult,
@@ -351,14 +402,19 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
       setSelectedRisk,
       setChecklist,
       setDimensions,
+      setActiveTab: setActiveAnalysisTab,
     } = useAnalysisStore.getState()
 
     setSelectedSourceId(null)
     setResult(null)
-    setAnalyzing(true)
     setAnalysisStep(0)
     setSelectedRisk(null)
     setChecklist([])
+    setActiveAnalysisTab('overview')
+    setCurrentTask({ id: task.id, title: task.title })
+    setIntentAnalysis(null)
+    setAnalyzingIntent(false)
+    setScenarioDescription('')
 
     if (DEMO_SOURCES[scenarioType]) {
       setIsDemo(true)
@@ -367,20 +423,22 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
 
       const demoResult = DEMO_RESULTS[scenarioType]
       if (demoResult) {
-        await new Promise((resolve) => setTimeout(resolve, 500))
         setResult(demoResult)
         setDimensions(demoResult.dimensions || [])
         setChecklist(
           demoResult.checklist?.map((c: ChecklistItem) => ({ ...c, checked: false })) || [],
         )
       }
-      setAnalyzing(false)
     } else {
       setIsDemo(false)
       setCurrentScenarioInStore(scenarioType)
 
       try {
-        const taskDetail = await getTask(task.id)
+        const [taskDetail, srcList] = await Promise.all([
+          getTask(task.id),
+          sourceApi.listSources(task.id),
+        ])
+        setSources(srcList)
         if (taskDetail) {
           setResult(taskDetail.result)
           setDimensions(taskDetail.result.dimensions || [])
@@ -392,8 +450,6 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
       } catch (error) {
         console.error('Failed to load task:', error)
         showToast('加载历史任务失败，请重试', 'error')
-      } finally {
-        setAnalyzing(false)
       }
     }
   }
@@ -406,11 +462,19 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     setShowHistory(false)
     const scenarioType = snapshot.scenarioType as ScenarioType
 
+    // 为历史快照创建新的工作区标签页，避免覆盖当前分析
+    const tabName =
+      snapshot.title || SCENARIOS.find((s) => s.id === scenarioType)?.name || '历史分析'
+    useWorkspaceTabsStore.getState().openTab(scenarioType, tabName)
+
     const {
       setSources,
       setSelectedSourceId,
       setIsDemo,
       setCurrentScenario: setCurrentScenarioInStore,
+      setIntentAnalysis,
+      setAnalyzingIntent,
+      setScenarioDescription,
     } = useSourceStore.getState()
     const {
       setResult,
@@ -419,29 +483,55 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
       setSelectedRisk,
       setChecklist,
       setDimensions,
+      setActiveTab: setActiveAnalysisTab,
     } = useAnalysisStore.getState()
 
     setSelectedSourceId(null)
     setResult(null)
-    setAnalyzing(true)
     setAnalysisStep(0)
     setSelectedRisk(null)
     setChecklist([])
+    setActiveAnalysisTab('overview')
+    setIntentAnalysis(null)
+    setAnalyzingIntent(false)
+    setScenarioDescription('')
 
     if (DEMO_SOURCES[scenarioType]) {
       setIsDemo(true)
       setSources(DEMO_SOURCES[scenarioType])
       setCurrentScenarioInStore(scenarioType)
-    }
 
-    setTimeout(() => {
       setResult(snapshot.result)
       setDimensions(snapshot.result.dimensions || [])
       setChecklist(
         snapshot.result.checklist?.map((c: ChecklistItem) => ({ ...c, checked: false })) || [],
       )
-      setAnalyzing(false)
-    }, 300)
+    } else {
+      setIsDemo(false)
+      setCurrentScenarioInStore(scenarioType)
+
+      // 从 snapshot.sourceIds 加载材料
+      const loadSnapshotSources = async () => {
+        try {
+          const allSources = await sourceApi.listSources()
+          const snapshotSources = snapshot.sourceIds
+            .map((id) => allSources.find((s) => s.id === id))
+            .filter(Boolean) as Source[]
+          setSources(snapshotSources)
+        } catch (e) {
+          console.error('Failed to load snapshot sources:', e)
+          setSources([])
+        } finally {
+          setResult(snapshot.result)
+          setDimensions(snapshot.result.dimensions || [])
+          setChecklist(
+            snapshot.result.checklist?.map((c: ChecklistItem) => ({ ...c, checked: false })) || [],
+          )
+        }
+      }
+
+      loadSnapshotSources()
+    }
   }
 
   const handleCompareSnapshots = (snapshotA: HistorySnapshot, snapshotB: HistorySnapshot) => {
@@ -481,21 +571,43 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
 
   const isDemoMode = sources.some((s) => s.id.startsWith('demo_'))
 
-  const handleNewAnalysis = () => {
+  const handleNewAnalysis = async () => {
     const {
       setSources,
       setIsDemo,
       setCurrentScenario: setCurrentScenarioInStore,
+      setCurrentTask,
+      setIntentAnalysis,
+      setAnalyzingIntent,
+      setScenarioDescription,
+      setSelectedSourceId,
     } = useSourceStore.getState()
     setSources([])
     setIsDemo(false)
     setCurrentScenarioInStore(null)
+    setIntentAnalysis(null)
+    setAnalyzingIntent(false)
+    setScenarioDescription('')
+    setSelectedSourceId(null)
     resetAnalysis()
     setSelectedRisk(null)
-    useWorkspaceTabsStore.getState().openTab('custom', '新建分析')
     setMobileSidebarOpen(false)
-    queryClient.setQueryData(['sources'], [])
-    queryClient.invalidateQueries({ queryKey: ['sources'] })
+    queryClient.setQueryData(['sources', null], [])
+
+    try {
+      const task = await taskApi.createTask({
+        title: '未命名分析',
+        scenarioType: 'custom',
+        sourceIds: [],
+      })
+      setCurrentTask({ id: task.id, title: task.title })
+      useWorkspaceTabsStore.getState().openTab('custom', '未命名分析')
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['sources', task.id] })
+    } catch (error) {
+      console.error('Failed to create task:', error)
+      showToast('创建任务失败，请重试', 'error')
+    }
   }
 
   const saveTask = async () => {
@@ -663,7 +775,9 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     setShowAddSource(true)
   }
 
-  const handleAddSource = (_source: Source) => {
+  const handleAddSource = (source: Source) => {
+    const { addSource } = useSourceStore.getState()
+    addSource(source)
     refetchSources()
   }
 
@@ -674,15 +788,18 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     }
   }
 
-  const handleEvidenceClick = (sourceId: string, quote: string) => {
-    setSelectedSourceId(sourceId)
-    const source = sources.find((s) => s.id === sourceId)
+  const handleEvidenceClick = (sourceIdOrName: string, quote: string) => {
+    let source = sources.find((s) => s.id === sourceIdOrName)
+    if (!source) {
+      source = sources.find((s) => s.name === sourceIdOrName)
+    }
     if (source) {
+      setSelectedSourceId(source.id)
       setSourceDetailModalHighlight(quote)
       setSourceDetailModalSource(source)
+      const { setHighlightedEvidence } = useAnalysisStore.getState()
+      setHighlightedEvidence({ sourceId: source.id, quote })
     }
-    const { setHighlightedEvidence } = useAnalysisStore.getState()
-    setHighlightedEvidence({ sourceId, quote })
   }
 
   const scenario = SCENARIOS.find((s) => s.id === currentScenario)

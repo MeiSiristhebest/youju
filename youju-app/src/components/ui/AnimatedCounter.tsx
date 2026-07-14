@@ -10,8 +10,8 @@ interface AnimatedCounterProps {
   prefix?: string
   suffix?: string
   className?: string
-  start?: number // 起始值，默认 0
-  trigger?: boolean // 是否需要 ScrollTrigger 触发
+  start?: number
+  trigger?: boolean
 }
 
 export function AnimatedCounter({
@@ -36,6 +36,7 @@ export function AnimatedCounter({
         val: value,
         duration,
         ease: 'power3.out',
+        paused: trigger,
         onUpdate: () => {
           el.textContent = `${prefix}${counterRef.current.val.toFixed(decimals)}${suffix}`
         },
@@ -46,7 +47,7 @@ export function AnimatedCounter({
           trigger: el,
           start: 'top 85%',
           once: true,
-          animation: tween,
+          onEnter: () => tween.play(),
         })
       }
     },

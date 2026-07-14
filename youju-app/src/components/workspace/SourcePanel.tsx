@@ -44,6 +44,7 @@ export function SourcePanel({
   const handleStartEdit = (source: Source) => {
     setEditingSourceId(source.id)
     setEditingContent(source.content)
+    onSelectSource(source.id)
   }
 
   const handleSaveEdit = (sourceId: string) => {

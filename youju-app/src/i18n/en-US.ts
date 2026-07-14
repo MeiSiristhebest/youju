@@ -167,6 +167,7 @@ export const enUS: TranslationKeys = {
     save: 'Save',
     closePreview: 'Close Preview',
     editPlaceholder: 'Edit material content...',
+    addMaterialsToAnalyze: 'Add materials to auto-analyze scenario intent',
   },
   preference: {
     title: 'Preferences',

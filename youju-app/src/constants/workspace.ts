@@ -111,6 +111,7 @@ export const TYPE_ICONS: Record<SourceType, string> = {
   web: 'globe',
   screenshot: 'image',
   contract: 'scroll-text',
+  other: 'file-question',
 }
 
 export const TYPE_LABELS: Record<SourceType, string> = {
@@ -119,4 +120,5 @@ export const TYPE_LABELS: Record<SourceType, string> = {
   web: '网页',
   screenshot: '截图',
   contract: '合同',
+  other: '其他',
 }

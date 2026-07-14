@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle, Clock, Info, LayoutGrid, Zap } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { getRiskTypeLabel } from '@/constants/riskLabels'
+import { cn, formatDimensionName } from '@/lib/utils'
 import { useAnalysisStore } from '../../../stores'
 import type { Risk, RiskLevel, RiskStatus } from '../../../types'
 import { useToast } from '../../common/Toast'
@@ -46,13 +47,6 @@ const statusColumns: Array<{
   },
 ]
 
-const typeLabelMap: Record<string, string> = {
-  conflict: '直接矛盾',
-  promise: '承诺未落文字',
-  missing: '信息缺失',
-  info: '信息提示',
-}
-
 const LevelDot = ({ level }: { level: RiskLevel }) => (
   <div
     className={cn(
@@ -90,6 +84,7 @@ interface KanbanCardProps {
   isSelected: boolean
   isDragging: boolean
   draggable: boolean
+  scenarioType?: string
   onDragStart: (e: React.DragEvent, risk: Risk) => void
   onDragEnd: () => void
   onClick: (risk: Risk) => void
@@ -100,6 +95,7 @@ function KanbanCard({
   isSelected,
   isDragging,
   draggable,
+  scenarioType,
   onDragStart,
   onDragEnd,
   onClick,
@@ -136,7 +132,7 @@ function KanbanCard({
 
       <div className="flex flex-wrap gap-1.5 mb-2">
         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-paper-dark border border-rule/60 text-ink-muted">
-          {typeLabelMap[risk.type] || risk.type}
+          {getRiskTypeLabel(risk.type, scenarioType)}
         </span>
         {risk.confidence !== undefined && (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-paper-dark border border-rule/60 text-ink-muted font-mono">
@@ -147,7 +143,7 @@ function KanbanCard({
 
       {risk.dimension && (
         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-accent-bg/40 text-accent border border-accent/10">
-          {risk.dimension}
+          {formatDimensionName(risk.dimension)}
         </span>
       )}
     </div>
@@ -160,6 +156,7 @@ export function RiskKanbanView({ onEvidenceClick }: RiskKanbanViewProps) {
   const setSelectedRisk = useAnalysisStore((state) => state.setSelectedRisk)
   const getRiskStatus = useAnalysisStore((state) => state.getRiskStatus)
   const setRiskStatus = useAnalysisStore((state) => state.setRiskStatus)
+  const scenarioType = useAnalysisStore((state) => state.result?.scenario?.type)
   const { showToast } = useToast()
 
   const [draggedRisk, setDraggedRisk] = useState<Risk | null>(null)
@@ -248,19 +245,17 @@ export function RiskKanbanView({ onEvidenceClick }: RiskKanbanViewProps) {
   const totalCount = risks.length
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
-        {totalCount === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center py-16 px-4">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
-                <CheckCircle size={28} strokeWidth={1.5} />
-              </div>
-              <p className="text-sm font-medium text-ink mb-1">一切正常</p>
-              <p className="text-xs text-ink-faint">没有发现风险或冲突</p>
-            </div>
+    <div className="flex flex-col flex-1">
+      {totalCount === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          <div className="w-16 h-16 mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
+            <CheckCircle size={28} strokeWidth={1.5} />
           </div>
-        ) : (
+          <p className="text-sm font-medium text-ink mb-1">一切正常</p>
+          <p className="text-xs text-ink-faint">没有发现风险或冲突</p>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
           <div className="flex gap-4 h-full min-w-max">
             {statusColumns.map((column) => {
               const columnRisks = risksByStatus[column.id]
@@ -292,7 +287,7 @@ export function RiskKanbanView({ onEvidenceClick }: RiskKanbanViewProps) {
                     <span
                       className={cn(
                         'text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-paper border border-rule/60',
-                        column.color,
+                        column.id === 'ignored' ? 'text-ink-muted' : column.color,
                       )}
                     >
                       {columnRisks.length}
@@ -313,6 +308,7 @@ export function RiskKanbanView({ onEvidenceClick }: RiskKanbanViewProps) {
                           isSelected={selectedRisk?.id === risk.id}
                           isDragging={draggedRisk?.id === risk.id}
                           draggable={!isMobile}
+                          scenarioType={scenarioType}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onClick={handleCardClick}
@@ -324,8 +320,8 @@ export function RiskKanbanView({ onEvidenceClick }: RiskKanbanViewProps) {
               )
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

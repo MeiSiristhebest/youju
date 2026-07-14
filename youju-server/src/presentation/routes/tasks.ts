@@ -41,24 +41,30 @@ router.post('/tasks', validateBody(taskCreateSchema), async (req, res) => {
   const { title, scenarioType, sourceIds } = req.body
 
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const allSources = await getSourceService().listSources(userId, sessionId)
-  const selectedSources = sourceIds
-    .map((id: string) => allSources.find((s: Source) => s.id === id))
-    .filter(Boolean)
-
-  if (selectedSources.length === 0) {
-    return res.status(400).json({ code: 400, msg: '没有可分析的材料' })
-  }
 
   try {
     const task = await getTaskService().createTask(userId, sessionId, title, scenarioType)
-    const result = await getAnalysisService().analyzeSources(selectedSources, scenarioType, [], {
-      userId,
-      sessionId,
-      taskId: task.id,
-      persist: true,
-    })
-    res.json({ code: 200, data: { taskId: task.id, ...task, result } })
+
+    if (sourceIds && sourceIds.length > 0) {
+      const allSources = await getSourceService().listSources(userId, sessionId)
+      const selectedSources = sourceIds
+        .map((id: string) => allSources.find((s: Source) => s.id === id))
+        .filter(Boolean)
+
+      if (selectedSources.length === 0) {
+        return res.status(400).json({ code: 400, msg: '没有可分析的材料' })
+      }
+
+      const result = await getAnalysisService().analyzeSources(selectedSources, scenarioType, [], {
+        userId,
+        sessionId,
+        taskId: task.id,
+        persist: true,
+      })
+      res.json({ code: 200, data: { taskId: task.id, ...task, result } })
+    } else {
+      res.json({ code: 200, data: { taskId: task.id, ...task } })
+    }
   } catch (e) {
     console.error('Create task error:', e)
     res.status(500).json({ code: 500, msg: '创建任务失败' })
@@ -100,6 +106,24 @@ router.put('/tasks/:id/checklist', validateBody(checklistUpdateSchema), async (r
   const { checkedItems } = req.body
   await getTaskService().updateTaskChecklistState(taskId, checkedItems)
   res.json({ code: 200, data: { success: true } })
+})
+
+router.put('/tasks/:id/title', async (req, res) => {
+  const { userId, sessionId } = await getUserIdAndSessionId(req)
+  const taskId = String(req.params.id)
+  const { title } = req.body
+
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    return res.status(400).json({ code: 400, msg: '标题不能为空' })
+  }
+
+  const updatedTask = await getTaskService().updateTask(userId, sessionId, taskId, {
+    title: title.trim(),
+  })
+  if (!updatedTask) {
+    return res.status(404).json({ code: 404, msg: '任务不存在' })
+  }
+  res.json({ code: 200, data: { id: updatedTask.id, title: updatedTask.title } })
 })
 
 router.get('/report/:taskId', async (req, res) => {

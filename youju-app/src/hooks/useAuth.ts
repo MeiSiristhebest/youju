@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
+import { TOKEN_REFRESH_THRESHOLD } from '../config/runtime'
 import { authStorage } from '../services/apiClient'
 import { authApi, type LoginResult } from '../services/authApi'
 import { useUIPreferenceStore } from '../stores'
@@ -29,7 +30,7 @@ export const useAuth = () => {
   }
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('youju_token')
+    const savedToken = authStorage.getToken()
     const savedUser = authStorage.getUser()
     if (savedToken) {
       setToken(savedToken)
@@ -49,7 +50,7 @@ export const useAuth = () => {
     if (!token) return
 
     const checkExpiration = () => {
-      const currentToken = localStorage.getItem('youju_token')
+      const currentToken = authStorage.getToken()
       if (!currentToken) return
 
       try {
@@ -59,7 +60,7 @@ export const useAuth = () => {
         const exp = payload.exp * 1000
         const timeUntilExpiry = exp - Date.now()
 
-        if (timeUntilExpiry > 0 && timeUntilExpiry < 5 * 60 * 1000) {
+        if (timeUntilExpiry > 0 && timeUntilExpiry < TOKEN_REFRESH_THRESHOLD) {
           const refreshToken = authStorage.getRefreshToken()
           if (refreshToken) {
             authApi

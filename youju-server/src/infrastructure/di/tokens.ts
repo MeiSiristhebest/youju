@@ -6,10 +6,10 @@
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Repository Tokens (完整 Repository + 读写分离)
+// Repository Tokens
 // ─────────────────────────────────────────────────────────────────────────────
 export const Tokens = {
-  // Repositories - 完整接口（向后兼容）
+  // Repositories
   UserRepository: Symbol('UserRepository'),
   SourceRepository: Symbol('SourceRepository'),
   ChunkRepository: Symbol('ChunkRepository'),
@@ -26,40 +26,6 @@ export const Tokens = {
   MemoryRepository: Symbol('MemoryRepository'),
   PreferenceRepository: Symbol('PreferenceRepository'),
 
-  // Read Repositories
-  UserReadRepository: Symbol('UserReadRepository'),
-  SourceReadRepository: Symbol('SourceReadRepository'),
-  ChunkReadRepository: Symbol('ChunkReadRepository'),
-  TaskReadRepository: Symbol('TaskReadRepository'),
-  TaskResultReadRepository: Symbol('TaskResultReadRepository'),
-  ShareReadRepository: Symbol('ShareReadRepository'),
-  AnalysisLogReadRepository: Symbol('AnalysisLogReadRepository'),
-  AnalysisStepReadRepository: Symbol('AnalysisStepReadRepository'),
-  ScenarioKnowledgeReadRepository: Symbol('ScenarioKnowledgeReadRepository'),
-  ObservabilityReadRepository: Symbol('ObservabilityReadRepository'),
-  ModelConfigReadRepository: Symbol('ModelConfigReadRepository'),
-  ConversationReadRepository: Symbol('ConversationReadRepository'),
-  MessageReadRepository: Symbol('MessageReadRepository'),
-  MemoryReadRepository: Symbol('MemoryReadRepository'),
-  PreferenceReadRepository: Symbol('PreferenceReadRepository'),
-
-  // Write Repositories
-  UserWriteRepository: Symbol('UserWriteRepository'),
-  SourceWriteRepository: Symbol('SourceWriteRepository'),
-  ChunkWriteRepository: Symbol('ChunkWriteRepository'),
-  TaskWriteRepository: Symbol('TaskWriteRepository'),
-  TaskResultWriteRepository: Symbol('TaskResultWriteRepository'),
-  ShareWriteRepository: Symbol('ShareWriteRepository'),
-  AnalysisLogWriteRepository: Symbol('AnalysisLogWriteRepository'),
-  AnalysisStepWriteRepository: Symbol('AnalysisStepWriteRepository'),
-  ScenarioKnowledgeWriteRepository: Symbol('ScenarioKnowledgeWriteRepository'),
-  ObservabilityWriteRepository: Symbol('ObservabilityWriteRepository'),
-  ModelConfigWriteRepository: Symbol('ModelConfigWriteRepository'),
-  ConversationWriteRepository: Symbol('ConversationWriteRepository'),
-  MessageWriteRepository: Symbol('MessageWriteRepository'),
-  MemoryWriteRepository: Symbol('MemoryWriteRepository'),
-  PreferenceWriteRepository: Symbol('PreferenceWriteRepository'),
-
   // AI Ports
   AIAnalysisPort: Symbol('AIAnalysisPort'),
   AIDraftPort: Symbol('AIDraftPort'),
@@ -67,10 +33,17 @@ export const Tokens = {
   EmbeddingPort: Symbol('EmbeddingPort'),
   RerankerPort: Symbol('RerankerPort'),
 
+  // Infrastructure Ports
+  ModeChecker: Symbol('ModeChecker'),
+
+  // Service Ports
+  RiskPreferencePort: Symbol('RiskPreferencePort'),
+
   // Provider Registries
   LLMProviderRegistry: Symbol('LLMProviderRegistry'),
   EmbeddingProviderRegistry: Symbol('EmbeddingProviderRegistry'),
   RerankerProviderRegistry: Symbol('RerankerProviderRegistry'),
+  ModelProviderAdapter: Symbol('ModelProviderAdapter'),
 
   // Services
   UserService: Symbol('UserService'),

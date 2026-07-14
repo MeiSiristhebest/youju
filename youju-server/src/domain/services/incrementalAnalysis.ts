@@ -7,6 +7,7 @@ import type {
   DiffAnalysisResult,
   IncrementalAnalysisOptions,
   IncrementalAnalysisPort,
+  RiskPreferencePort,
 } from '../ports/servicePorts.js'
 
 export type {
@@ -163,7 +164,19 @@ export class IncrementalAnalysisService implements IncrementalAnalysisPort {
     readonly _analysisStepRepo: AnalysisStepRepository,
     readonly _scenarioKnowledgeRepo: ScenarioKnowledgeRepository,
     private readonly analysisPort: AIAnalysisPort,
+    private readonly riskPreferencePort?: RiskPreferencePort,
   ) {}
+
+  private async sortRisks(
+    result: AnalyzeResult,
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<AnalyzeResult> {
+    if (!this.riskPreferencePort) return result
+    const weights = await this.riskPreferencePort.getUserRiskWeights(userId, sessionId)
+    const sortedRisks = this.riskPreferencePort.sortRisksByPreference(result.risks, weights)
+    return { ...result, risks: sortedRisks }
+  }
 
   /**
    * 执行diff-based增量分析
@@ -199,12 +212,18 @@ export class IncrementalAnalysisService implements IncrementalAnalysisPort {
         options,
       )
 
+      const sortedResult = await this.sortRisks(
+        result,
+        options.userId ?? null,
+        options.sessionId ?? null,
+      )
+
       return {
         change,
         affectedSteps,
         recomputedSteps: SOURCE_DEPENDENT_STEPS,
         reusedSteps: [],
-        result,
+        result: sortedResult,
         durationMs: Date.now() - startTime,
         isFullRecompute: true,
       }
@@ -226,12 +245,18 @@ export class IncrementalAnalysisService implements IncrementalAnalysisPort {
         options,
       )
 
+      const sortedResult = await this.sortRisks(
+        result,
+        options.userId ?? null,
+        options.sessionId ?? null,
+      )
+
       return {
         change,
         affectedSteps,
         recomputedSteps: affectedSteps,
         reusedSteps: SOURCE_DEPENDENT_STEPS.filter((s) => !affectedSteps.includes(s)),
-        result,
+        result: sortedResult,
         durationMs: Date.now() - startTime,
         isFullRecompute: false,
       }
@@ -248,12 +273,18 @@ export class IncrementalAnalysisService implements IncrementalAnalysisPort {
       options,
     )
 
+    const sortedResult = await this.sortRisks(
+      result,
+      options.userId ?? null,
+      options.sessionId ?? null,
+    )
+
     return {
       change,
       affectedSteps,
       recomputedSteps: affectedSteps,
       reusedSteps: SOURCE_DEPENDENT_STEPS.filter((s) => !affectedSteps.includes(s)),
-      result,
+      result: sortedResult,
       durationMs: Date.now() - startTime,
       isFullRecompute: false,
     }
@@ -276,6 +307,8 @@ export class IncrementalAnalysisService implements IncrementalAnalysisPort {
     } = await this.analysisPort.analyze(sources, {
       scenarioType,
       scenarioKnowledge,
+      aiConfig: _options.aiConfig,
+      isDemo: _options.isDemo,
     })
 
     const validatedRisks = rawResult.risks.map((risk) => ({
@@ -322,7 +355,7 @@ export class IncrementalAnalysisService implements IncrementalAnalysisPort {
     const { result: rawResult, isMock } = await this.analysisPort.resumeFromCheckpoint(
       sources,
       checkpoint as Parameters<NonNullable<AIAnalysisPort['resumeFromCheckpoint']>>[1],
-      { scenarioType, scenarioKnowledge },
+      { scenarioType, scenarioKnowledge, aiConfig: _options.aiConfig, isDemo: _options.isDemo },
     )
 
     const validatedRisks = rawResult.risks.map((risk) => ({
@@ -372,6 +405,8 @@ export class IncrementalAnalysisService implements IncrementalAnalysisPort {
     const { result: rawResult } = await this.analysisPort.analyze(changedSources, {
       scenarioType,
       scenarioKnowledge,
+      aiConfig: _options.aiConfig,
+      isDemo: _options.isDemo,
     })
 
     // 智能合并结果

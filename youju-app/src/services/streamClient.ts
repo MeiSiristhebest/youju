@@ -1,14 +1,9 @@
+import { API_BASE_URL, API_RETRIES, API_RETRY_DELAY, STREAM_TIMEOUT } from '../config/runtime'
+import { parseSseBuffer, type SseEvent } from '../lib/sseParser'
 import { useApiLogsStore } from '../stores'
-import { parseSseBuffer, type SseEvent } from '../utils/sseParser'
 import { authStorage } from './apiClient'
 
-const DEFAULT_TIMEOUT = 120000
-const DEFAULT_RETRIES = 2
-const RETRY_DELAY = 1000
-
 const isDev = import.meta.env.DEV
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 
 const buildUrl = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -91,8 +86,8 @@ export async function streamFetch(url: string, options: StreamFetchOptions = {})
     onOpen,
     onError,
     signal: externalSignal,
-    timeout = DEFAULT_TIMEOUT,
-    retries = DEFAULT_RETRIES,
+    timeout = STREAM_TIMEOUT,
+    retries = API_RETRIES,
   } = options
 
   const finalUrl = buildUrl(url)
@@ -111,7 +106,7 @@ export async function streamFetch(url: string, options: StreamFetchOptions = {})
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
-      await sleep(RETRY_DELAY * 2 ** (attempt - 1))
+      await sleep(API_RETRY_DELAY * 2 ** (attempt - 1))
     }
 
     const controller = new AbortController()
@@ -198,6 +193,12 @@ export async function streamFetch(url: string, options: StreamFetchOptions = {})
           pendingBuffer = remaining
 
           for (const event of events) {
+            console.log(
+              '[streamFetch] Received event:',
+              event.event,
+              'data length:',
+              event.data.length,
+            )
             onEvent?.(event)
           }
         }

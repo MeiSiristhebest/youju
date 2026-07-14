@@ -1,3 +1,5 @@
+import { getEnv, isTest } from '../../infrastructure/env.js'
+
 // 限流存储接口 — 支持内存、Redis、数据库多种后端
 // 多实例部署时使用 Redis 或数据库存储替代内存存储
 
@@ -141,8 +143,8 @@ let _store: RateLimitStore | null = null
 export async function getRateLimitStore(): Promise<RateLimitStore> {
   if (_store) return _store
 
-  const redisUrl = process.env.REDIS_URL
-  if (redisUrl && process.env.NODE_ENV !== 'test') {
+  const redisUrl = getEnv().REDIS_URL
+  if (redisUrl && !isTest()) {
     try {
       _store = await RedisRateLimitStore.create(redisUrl)
       console.log('✓ 限流存储: Redis')
@@ -153,7 +155,7 @@ export async function getRateLimitStore(): Promise<RateLimitStore> {
   }
 
   _store = new MemoryRateLimitStore()
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTest()) {
     console.log('✓ 限流存储: 内存')
   }
   return _store

@@ -155,7 +155,7 @@ export function PrintPreviewModal({
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium cursor-pointer bg-accent text-white hover:opacity-90 transition-opacity duration-200"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium cursor-pointer bg-accent text-accent-foreground hover:opacity-90 transition-opacity duration-200"
           >
             <Printer size={13} strokeWidth={1.5} />
             打印 / 导出 PDF

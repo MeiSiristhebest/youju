@@ -1,10 +1,9 @@
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react'
+import { storage, storageKeys } from '../lib/storage'
 import { enUS } from './en-US'
 import { type TranslationKeys, zhCN } from './zh-CN'
 
 export type Language = 'zh-CN' | 'en-US'
-
-const LANGUAGE_KEY = 'youju-language'
 
 const translations: Record<Language, TranslationKeys> = {
   'zh-CN': zhCN,
@@ -40,7 +39,7 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined)
 
 function getInitialLanguage(): Language {
   if (typeof window === 'undefined') return 'zh-CN'
-  const saved = localStorage.getItem(LANGUAGE_KEY) as Language | null
+  const saved = storage.getItem(storageKeys.language) as Language | null
   if (saved && saved in translations) return saved
   const browserLang = navigator.language
   if (browserLang.startsWith('zh')) return 'zh-CN'
@@ -55,7 +54,7 @@ export function I18nProvider({ children }: I18nProviderProps) {
   const [language, setLanguageState] = useState<Language>(getInitialLanguage)
 
   useEffect(() => {
-    localStorage.setItem(LANGUAGE_KEY, language)
+    storage.setItem(storageKeys.language, language)
     document.documentElement.lang = language
   }, [language])
 

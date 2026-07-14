@@ -52,6 +52,7 @@ router.post('/conversations', chatRateLimiter, validateBody(chatCreateSchema), a
     const conversation = await getChatService().createConversation({
       userId,
       sessionId,
+      taskId: req.body.task_id,
       title: req.body.title,
       scenarioType: req.body.scenarioType,
       sourceIds: req.body.sourceIds,
@@ -74,7 +75,19 @@ router.get('/conversations', async (req, res) => {
 
   try {
     const pagination = parsePagination(req.query as { limit?: string; offset?: string })
-    const conversations = await getChatService().listConversations(userId, sessionId, pagination)
+    const filters: { taskId?: string; scenarioType?: string } = {}
+    if (typeof req.query.task_id === 'string' && req.query.task_id) {
+      filters.taskId = req.query.task_id
+    }
+    if (typeof req.query.scenario_type === 'string' && req.query.scenario_type) {
+      filters.scenarioType = req.query.scenario_type
+    }
+    const conversations = await getChatService().listConversations(
+      userId,
+      sessionId,
+      pagination,
+      Object.keys(filters).length > 0 ? filters : undefined,
+    )
     res.json({ code: 200, data: conversations })
   } catch (e) {
     console.error('List conversations error:', e)

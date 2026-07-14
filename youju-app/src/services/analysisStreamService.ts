@@ -1,8 +1,36 @@
+import { parseSseBuffer, safeParseJson } from '../lib/sseParser'
+import { storage, storageKeys } from '../lib/storage'
+import { useApiLogsStore } from '../stores'
+import { useModelConfigStore } from '../stores/useModelConfigStore'
 import type { AnalyzeResult } from '../types'
-import { parseSseBuffer, safeParseJson } from '../utils/sseParser'
 
 const MAX_RETRY_COUNT = 3
 const TIMEOUT_MS = 120000
+
+const recordApiLog = (
+  method: string,
+  url: string,
+  statusCode: number,
+  durationMs: number,
+  requestBody?: unknown,
+  responseBody?: unknown,
+  error?: string,
+) => {
+  try {
+    const path = url.startsWith('http') ? new URL(url).pathname : url
+    useApiLogsStore.getState().addLog({
+      method: method.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
+      path,
+      statusCode,
+      durationMs,
+      requestBody,
+      responseBody,
+      error,
+    })
+  } catch {
+    // ignore log errors
+  }
+}
 
 export interface StreamStepCallbacks {
   onStepStart?: (stepId: string, stepName: string, stepIndex: number) => void
@@ -25,8 +53,8 @@ export interface StreamConfig {
 
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {}
-  const token = localStorage.getItem('youju_token')
-  const sessionId = localStorage.getItem('youju_session_id')
+  const token = storage.getItem(storageKeys.token)
+  const sessionId = storage.getItem(storageKeys.sessionId)
   if (token) headers.Authorization = `Bearer ${token}`
   else if (sessionId) headers['X-Session-Id'] = sessionId
   return headers
@@ -138,7 +166,7 @@ async function processStreamResponse(
           }
 
           case 'complete':
-            finalResult = parsed.result as AnalyzeResult
+            finalResult = parsed as unknown as AnalyzeResult
             callbacks.onProgress?.(100, '分析完成')
             callbacks.onComplete?.(finalResult)
             break
@@ -182,7 +210,9 @@ export async function streamAnalyze(
   const url = isIncremental ? '/api/analyze/incremental/stream' : '/api/analyze/stream'
   const headers = getAuthHeaders()
 
+  const aiConfig = useModelConfigStore.getState().getAIConfig()
   const body: Record<string, unknown> = { sourceIds, scenarioType }
+  if (aiConfig) body.aiConfig = aiConfig
   if (isIncremental && existingResult?.meta?.sourceIds) {
     body.existingResult = existingResult
     body.newSourceIds =
@@ -192,8 +222,10 @@ export async function streamAnalyze(
 
   const abortController = new AbortController()
   let retryCount = 0
+  const startTime = Date.now()
 
   while (retryCount < MAX_RETRY_COUNT) {
+    const attemptStartTime = Date.now()
     try {
       const response = await createStreamRequest({
         url,
@@ -210,18 +242,24 @@ export async function streamAnalyze(
       })
 
       if (finalResult) {
+        const duration = Date.now() - startTime
+        recordApiLog('POST', url, response.status, duration, body, finalResult)
         return finalResult
       }
 
       throw new Error('Stream ended without final result')
     } catch (error) {
       const err = error as Error
+      const duration = Date.now() - attemptStartTime
+
       if (err.name === 'AbortError') {
+        recordApiLog('POST', url, 408, duration, body, undefined, '请求已取消')
         throw new Error('分析已取消')
       }
 
       retryCount++
       if (retryCount >= MAX_RETRY_COUNT) {
+        recordApiLog('POST', url, -1, duration, body, undefined, err.message)
         throw err
       }
 

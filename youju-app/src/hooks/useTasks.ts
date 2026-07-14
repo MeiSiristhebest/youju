@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryRetryDelay } from '../config/runtime'
 import { DEMO_HISTORY } from '../constants/demoData'
 import { taskApi } from '../services/taskApi'
 import { useSourceStore, useTaskStore } from '../stores'
@@ -21,7 +22,8 @@ export const useTasks = () => {
       return taskApi.getTasks()
     },
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+    retryDelay: queryRetryDelay,
+    staleTime: 30 * 1000,
   })
 
   const createTaskMutation = useMutation({
@@ -30,7 +32,7 @@ export const useTasks = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+    retryDelay: queryRetryDelay,
   })
 
   const deleteTaskMutation = useMutation({
@@ -44,7 +46,7 @@ export const useTasks = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+    retryDelay: queryRetryDelay,
   })
 
   const updateChecklistMutation = useMutation({
@@ -58,7 +60,7 @@ export const useTasks = () => {
       queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     },
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+    retryDelay: queryRetryDelay,
   })
 
   const getTaskMutation = useMutation({
@@ -102,6 +104,6 @@ export const useTask = (taskId: string | null) => {
     },
     enabled: !!taskId,
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+    retryDelay: queryRetryDelay,
   })
 }

@@ -1,3 +1,5 @@
+import { isProd } from '../infrastructure/env.js'
+
 export type ErrorCode =
   | 'BAD_REQUEST'
   | 'UNAUTHORIZED'
@@ -9,6 +11,8 @@ export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'INTERNAL_ERROR'
   | 'ANALYSIS_FAILED'
+  | 'FILE_TOO_LARGE'
+  | 'SERVICE_UNAVAILABLE'
 
 export class AppError extends Error {
   readonly code: ErrorCode
@@ -52,6 +56,10 @@ function errorCodeToStatus(code: ErrorCode): number {
       return 400
     case 'ANALYSIS_FAILED':
       return 500
+    case 'FILE_TOO_LARGE':
+      return 413
+    case 'SERVICE_UNAVAILABLE':
+      return 503
     default:
       return 500
   }
@@ -89,6 +97,14 @@ export function internalError(message = '服务器内部错误') {
   return new AppError('INTERNAL_ERROR', message, 500)
 }
 
+export function fileTooLarge(message = '文件过大', details?: unknown) {
+  return new AppError('FILE_TOO_LARGE', message, 413, details)
+}
+
+export function serviceUnavailable(message = '服务暂不可用', details?: unknown) {
+  return new AppError('SERVICE_UNAVAILABLE', message, 503, details)
+}
+
 export interface ApiResponse<T = unknown> {
   code: number
   data?: T
@@ -115,7 +131,7 @@ export function errorResponse(err: AppError | Error): ApiResponse {
     code: 500,
     error: {
       code: 'INTERNAL_ERROR',
-      message: process.env.NODE_ENV === 'production' ? '服务器内部错误' : err.message,
+      message: isProd() ? '服务器内部错误' : err.message,
     },
   }
 }

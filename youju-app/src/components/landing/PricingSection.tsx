@@ -1,60 +1,10 @@
 import { useGSAP } from '@gsap/react'
 import { Check, X } from 'lucide-react'
 import { useRef } from 'react'
+import { PRICING_PLANS } from '../../constants/pricing'
 import { gsap } from '../../lib/gsap'
 import { cn } from '../../lib/utils'
 import { SectionTitle } from '../ui/SectionTitle'
-
-const plans = [
-  {
-    name: '免费版',
-    price: '¥0',
-    period: '/月',
-    description: '适合个人偶尔使用',
-    features: [
-      { text: '3 次/月分析', included: true },
-      { text: '基础格式支持（PDF / 文本）', included: true },
-      { text: '7 天历史保留', included: true },
-      { text: '无限分析', included: false },
-      { text: '导出报告', included: false },
-      { text: '优先队列', included: false },
-    ],
-    cta: '免费开始',
-    highlighted: false,
-  },
-  {
-    name: '专业版',
-    price: '¥29',
-    period: '/月',
-    description: '适合频繁使用的专业人士',
-    features: [
-      { text: '无限分析', included: true },
-      { text: '全格式支持', included: true },
-      { text: '永久历史保留', included: true },
-      { text: '导出报告（PDF / Markdown）', included: true },
-      { text: '优先队列', included: true },
-      { text: 'API 接入', included: false },
-    ],
-    cta: '7 天免费试用',
-    highlighted: true,
-  },
-  {
-    name: '团队版',
-    price: '¥99',
-    period: '/人/月',
-    description: '适合团队协作场景',
-    features: [
-      { text: '专业版全部功能', included: true },
-      { text: '团队协作空间', included: true },
-      { text: '共享场景模板', included: true },
-      { text: 'API 接入', included: true },
-      { text: 'SSO 单点登录', included: true },
-      { text: '专属支持', included: true },
-    ],
-    cta: '联系销售',
-    highlighted: false,
-  },
-]
 
 interface PricingSectionProps {
   onStart: () => void
@@ -68,9 +18,9 @@ export function PricingSection({ onStart }: PricingSectionProps) {
       const cards = gsap.utils.toArray<HTMLElement>('[data-price-card]')
       if (cards.length === 0) return
 
-      gsap.from(cards, {
-        y: 50,
-        opacity: 0,
+      gsap.to(cards, {
+        y: 0,
+        opacity: 1,
         stagger: { each: 0.12, from: 'center' },
         duration: 0.9,
         ease: 'power3.out',
@@ -99,12 +49,12 @@ export function PricingSection({ onStart }: PricingSectionProps) {
         />
 
         <div className="mt-16 grid md:grid-cols-3 gap-5 lg:gap-6">
-          {plans.map((plan) => (
+          {PRICING_PLANS.map((plan) => (
             <div
-              key={plan.name}
+              key={plan.id}
               data-price-card
               className={cn(
-                'relative rounded-lg p-6 lg:p-8 flex flex-col',
+                'gsap-reveal relative rounded-lg p-6 lg:p-8 flex flex-col',
                 plan.highlighted
                   ? 'border-2 border-accent bg-paper shadow-lg'
                   : 'border border-rule/60 bg-paper/60',
@@ -123,9 +73,9 @@ export function PricingSection({ onStart }: PricingSectionProps) {
 
               <div className="mb-6 flex items-baseline gap-1">
                 <span className="font-display text-4xl lg:text-5xl font-light text-ink tracking-tight">
-                  {plan.price}
+                  {plan.price === 0 ? '¥0' : `¥${plan.price}`}
                 </span>
-                <span className="text-sm text-ink-muted">{plan.period}</span>
+                <span className="text-sm text-ink-muted">{plan.priceUnit}</span>
               </div>
 
               <ul className="flex-1 space-y-3 mb-6">

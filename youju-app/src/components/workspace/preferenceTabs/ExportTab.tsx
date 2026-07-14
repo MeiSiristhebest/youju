@@ -1,7 +1,18 @@
 import { Download, FileText, Settings, Shield } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { useUIPreferenceStore } from '../../../stores/useUIPreferenceStore'
+import type { PrintStyle } from '../../print/PrintReport'
 import { SectionTitle, SelectRow, SettingRow, Toggle } from './shared'
+
+// 报告风格选项，与 PrintStyle 保持一致
+const REPORT_STYLE_OPTIONS: { value: PrintStyle; label: string; desc: string }[] = [
+  { value: 'standard', label: '标准报告', desc: '分章节详细展示' },
+  { value: 'equity', label: '研报风格', desc: '专业正式研报风' },
+  { value: 'one-pager', label: '一页摘要', desc: '紧凑单页概览' },
+  { value: 'brief', label: '简报备忘', desc: '备忘录式简报' },
+  { value: 'letter', label: '正式函件', desc: '信件格式发送' },
+  { value: 'list', label: '风险清单', desc: '表格化风险列表' },
+]
 
 export function ExportTab() {
   const { exportSettings, updateExportSettings } = useUIPreferenceStore()
@@ -31,20 +42,15 @@ export function ExportTab() {
       <SectionTitle
         icon={<FileText size={16} strokeWidth={1.5} />}
         title="报告风格"
-        description="选择导出报告的内容详略程度"
+        description="选择导出报告的内容呈现方式"
       />
       <div className="bg-paper-dark/30 border border-rule/50 rounded-lg p-4">
         <div className="grid grid-cols-2 gap-2">
-          {[
-            { value: 'standard', label: '标准版', desc: '平衡内容与可读性' },
-            { value: 'detailed', label: '详细版', desc: '包含完整证据链' },
-            { value: 'executive', label: '高管版', desc: '重点摘要与结论' },
-            { value: 'technical', label: '技术版', desc: '包含技术细节' },
-          ].map((style) => (
+          {REPORT_STYLE_OPTIONS.map((style) => (
             <button
               key={style.value}
               type="button"
-              onClick={() => updateExportSettings({ reportStyle: style.value as any })}
+              onClick={() => updateExportSettings({ reportStyle: style.value })}
               className={cn(
                 'p-3 rounded-lg text-left cursor-pointer transition-all duration-200 border',
                 exportSettings.reportStyle === style.value

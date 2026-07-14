@@ -24,9 +24,9 @@ export function FormatsSection() {
       const cards = gsap.utils.toArray<HTMLElement>('[data-format-card]')
       if (cards.length === 0) return
 
-      gsap.from(cards, {
-        y: 30,
-        opacity: 0,
+      gsap.to(cards, {
+        y: 0,
+        opacity: 1,
         stagger: { each: 0.06, from: 'start' },
         duration: 0.7,
         ease: 'power3.out',
@@ -61,7 +61,7 @@ export function FormatsSection() {
               <div
                 key={fmt.name}
                 data-format-card
-                className="group relative rounded-lg border border-rule/60 bg-paper/60 p-5 transition-all hover:border-accent/40 hover:bg-accent-bg/40 hover:-translate-y-0.5"
+                className="gsap-reveal group relative rounded-lg border border-rule/60 bg-paper/60 p-5 transition-all hover:border-accent/40 hover:bg-accent-bg/40 hover:-translate-y-0.5"
               >
                 <div className="flex items-start gap-4">
                   <div className="shrink-0 w-10 h-10 rounded-md bg-paper-dark/60 flex items-center justify-center text-ink-muted group-hover:bg-accent group-hover:text-paper transition-colors">

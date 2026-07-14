@@ -1,4 +1,4 @@
-import type { JwtPort } from '../ports/jwtPort.js'
+import type { JwtPort } from '../ports/infrastructurePorts.js'
 import type { UserService } from './userService.js'
 
 export class AuthService {

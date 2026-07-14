@@ -1,6 +1,7 @@
 import { useGSAP } from '@gsap/react'
-import { ArrowDown, MessageCircle, Settings, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlertTriangle, ArrowDown, MessageCircle, Settings, Trash2, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { SCENARIOS } from '../../constants/workspace'
 import { useChat } from '../../hooks/useChat'
 import { gsap } from '../../lib/gsap'
 import { chatApi } from '../../services/chatApi'
@@ -9,13 +10,20 @@ import { useSourceStore } from '../../stores/useSourceStore'
 import type { Source } from '../../types'
 import type { MessageFeedback } from '../../types/chat'
 import { SourceDetailModal } from '../modals/SourceDetailModal'
+import { ModelSettingsContent } from '../workspace/ModelSettingsContent'
 import { ChatEmpty } from './ChatEmpty'
 import { ChatInput } from './ChatInput'
 import { ChatMessage } from './ChatMessage'
 import { ChatStreamRenderer } from './ChatStreamRenderer'
 
+// 场景 ID → 中文名称映射
+const SCENARIO_NAME_MAP: Record<string, string> = Object.fromEntries(
+  SCENARIOS.map((s) => [s.id, s.name]),
+)
+
 interface ChatPanelProps {
   className?: string
+  taskId?: string
   scenarioType?: string
 }
 
@@ -24,22 +32,86 @@ const NEAR_BOTTOM_THRESHOLD = 100
 // "滚动到最新"按钮显示阈值（px）：距底超过此值时显示
 const SHOW_SCROLL_BUTTON_THRESHOLD = 200
 
-export function ChatPanel({ className, scenarioType }: ChatPanelProps) {
+export function ChatPanel({ className, taskId, scenarioType }: ChatPanelProps) {
   const {
     messages,
     streaming,
     streamingMessage,
     streamingCitations,
     isRetrieving,
+    streamError,
     activeConversationId,
     conversations,
+    loadingConversations,
     sendMessage,
     abortStream,
     sendFeedback,
-  } = useChat()
+    selectConversation,
+    createConversation,
+    resetStream,
+  } = useChat(taskId)
 
   const sources = useSourceStore((s) => s.sources)
   const clearMessages = useChatStore((s) => s.clearMessages)
+  const sourcesRef = useRef(sources)
+  sourcesRef.current = sources
+
+  const creatingRef = useRef(false)
+  const hasMatchedRef = useRef(false)
+
+  // 场景/任务变化时，重置匹配状态
+  useEffect(() => {
+    hasMatchedRef.current = false
+    creatingRef.current = false
+  }, [scenarioType, taskId])
+
+  // 场景切换时，自动切换到对应场景的对话
+  useEffect(() => {
+    if (!scenarioType) return
+    if (loadingConversations) return
+    if (creatingRef.current) return
+    if (hasMatchedRef.current) return
+
+    const existingConv = conversations.find(
+      (c) =>
+        c.scenarioType === scenarioType &&
+        !c.deletedAt &&
+        (taskId ? c.taskId === taskId : !c.taskId),
+    )
+
+    if (existingConv) {
+      if (activeConversationId !== existingConv.id) {
+        selectConversation(existingConv.id)
+      }
+      hasMatchedRef.current = true
+    } else {
+      creatingRef.current = true
+      const scenarioName = SCENARIO_NAME_MAP[scenarioType] ?? scenarioType
+      const sourceIds = sourcesRef.current.map((s) => s.id)
+      createConversation(
+        {
+          taskId,
+          title: scenarioName,
+          scenarioType,
+          sourceIds: sourceIds.length > 0 ? sourceIds : undefined,
+        },
+        {
+          onSettled: () => {
+            creatingRef.current = false
+            hasMatchedRef.current = true
+          },
+        },
+      )
+    }
+  }, [
+    taskId,
+    scenarioType,
+    conversations,
+    activeConversationId,
+    selectConversation,
+    createConversation,
+    loadingConversations,
+  ])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -52,8 +124,17 @@ export function ChatPanel({ className, scenarioType }: ChatPanelProps) {
   // SourceDetailModal 本地状态（证据高亮）
   const [detailSource, setDetailSource] = useState<Source | null>(null)
   const [detailHighlight, setDetailHighlight] = useState('')
+  // 设置面板状态
+  const [showSettings, setShowSettings] = useState(false)
 
   const activeTitle = conversations.find((c) => c.id === activeConversationId)?.title
+  // 标题：优先显示场景中文名称，其次显示会话标题，最后回退到 "AI 对话"
+  const panelTitle = useMemo(() => {
+    if (scenarioType && SCENARIO_NAME_MAP[scenarioType]) {
+      return SCENARIO_NAME_MAP[scenarioType]
+    }
+    return activeTitle ?? 'AI 对话'
+  }, [scenarioType, activeTitle])
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = scrollRef.current
@@ -190,10 +271,12 @@ export function ChatPanel({ className, scenarioType }: ChatPanelProps) {
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-ink font-display tracking-tight truncate">
-              AI 对话
+              {panelTitle}
             </h2>
             <p className="text-[11px] text-ink-faint truncate">
-              {activeTitle ?? (activeConversationId ? '当前会话已就绪' : '选择素材后开始提问')}
+              {scenarioType
+                ? '基于当前场景素材对话'
+                : (activeTitle ?? (activeConversationId ? '当前会话已就绪' : '选择素材后开始提问'))}
             </p>
           </div>
         </div>
@@ -211,6 +294,7 @@ export function ChatPanel({ className, scenarioType }: ChatPanelProps) {
           </button>
           <button
             type="button"
+            onClick={() => setShowSettings(true)}
             aria-label="对话设置"
             title="对话设置"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-faint hover:text-ink hover:bg-paper-dark transition-colors"
@@ -222,6 +306,23 @@ export function ChatPanel({ className, scenarioType }: ChatPanelProps) {
 
       {/* 中间消息流：flex-1 min-h-0 overflow-y-auto 防止内容遮挡 */}
       <div className="relative flex-1 min-h-0 flex flex-col">
+        {/* 错误提示条 */}
+        {streamError && (
+          <div className="shrink-0 px-4 py-2 bg-danger-bg border-b border-danger/20 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-danger shrink-0" strokeWidth={1.5} />
+            <p className="flex-1 text-xs text-danger break-words">{streamError}</p>
+            <button
+              type="button"
+              onClick={() => resetStream()}
+              className="shrink-0 w-6 h-6 grid place-items-center text-danger/70 hover:text-danger hover:bg-danger/10 rounded transition-colors"
+              aria-label="关闭错误提示"
+              title="关闭"
+            >
+              <X size={12} strokeWidth={2} />
+            </button>
+          </div>
+        )}
+
         <div
           ref={scrollRef}
           onScroll={handleScroll}
@@ -279,7 +380,6 @@ export function ChatPanel({ className, scenarioType }: ChatPanelProps) {
           onSend={handleSend}
           onStop={abortStream}
           isStreaming={streaming}
-          disabled={!activeConversationId}
         />
       </footer>
 
@@ -288,6 +388,16 @@ export function ChatPanel({ className, scenarioType }: ChatPanelProps) {
         onClose={() => setDetailSource(null)}
         highlightText={detailHighlight}
       />
+
+      {/* 设置面板 */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSettings(false)} />
+          <div className="relative w-full max-w-xl max-h-[75vh] h-auto bg-paper border border-rule rounded-xl shadow-2xl overflow-hidden flex flex-col animate-[fadeIn_0.15s_ease-out]">
+            <ModelSettingsContent onClose={() => setShowSettings(false)} className="max-h-full" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

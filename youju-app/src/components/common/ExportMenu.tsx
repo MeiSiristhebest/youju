@@ -13,8 +13,10 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { generateReportMarkdown, generateReportText } from '@/lib/reportGenerator'
 import { cn } from '@/lib/utils'
+import { useUIPreferenceStore } from '@/stores/useUIPreferenceStore'
 import type { AnalyzeResult, Source } from '@/types'
 import { PrintPreviewModal } from '../print/PrintPreviewModal'
 import type { PrintStyle } from '../print/PrintReport'
@@ -52,34 +54,34 @@ function markdownToHtml(markdown: string, title: string): string {
   let html = escapeHtml(markdown)
 
   html = html.replace(/```([\s\S]*?)```/g, (_match, code) => {
-    return `<pre style="background:#f5f4ed;border:1px solid #e8e6dc;border-radius:4pt;padding:10pt 12pt;font-family:'JetBrains Mono','Courier New',monospace;font-size:9pt;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;color:#3d3d3a;">${code}</pre>`
+    return `<div style="background:#f7f6f1;border:1px solid #e5e3d9;border-radius:6px;padding:14px 16px;margin:12px 0;"><code style="font-family:'Consolas','Courier New',monospace;font-size:10pt;line-height:1.6;color:#4a4a47;white-space:pre-wrap;word-wrap:break-word;">${code}</code></div>`
   })
 
   html = html.replace(
     /^# (.+)$/gm,
-    "<h1 style=\"font-family:'TsangerJinKai02','Source Han Serif SC','Songti SC',serif;font-size:20pt;color:#141413;border-bottom:1px solid #e8e6dc;padding-bottom:8pt;margin-top:20pt;margin-bottom:12pt;font-weight:500;\">$1</h1>",
+    "<h1 style=\"font-family:'Source Han Serif SC','Songti SC','STSong',serif;font-size:22pt;color:#1a1a18;border-bottom:2px solid #2C5F4A;padding-bottom:14px;margin-top:0;margin-bottom:20px;font-weight:600;letter-spacing:1px;\">$1</h1>",
   )
   html = html.replace(
     /^## (.+)$/gm,
-    "<h2 style=\"font-family:'TsangerJinKai02','Source Han Serif SC','Songti SC',serif;font-size:15pt;color:#141413;border-left:3px solid #1B365D;padding-left:8pt;margin-top:18pt;margin-bottom:10pt;font-weight:500;\">$1</h2>",
+    "<h2 style=\"font-family:'Source Han Serif SC','Songti SC','STSong',serif;font-size:16pt;color:#1a1a18;border-left:4px solid #2C5F4A;padding-left:12px;margin-top:28px;margin-bottom:14px;font-weight:600;\">$1</h2>",
   )
   html = html.replace(
     /^### (.+)$/gm,
-    "<h3 style=\"font-family:'TsangerJinKai02','Source Han Serif SC','Songti SC',serif;font-size:13pt;color:#141413;margin-top:14pt;margin-bottom:8pt;font-weight:500;\">$1</h3>",
+    "<h3 style=\"font-family:'Source Han Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-size:13pt;color:#2a2a28;margin-top:20px;margin-bottom:10px;font-weight:600;\">$1</h3>",
   )
 
   html = html.replace(/^> (.+)$/gm, (_match, text) => {
-    return `<blockquote style="border-left:3px solid #1B365D;padding:6pt 12pt;margin:8pt 0;color:#504e49;background:#f0f3f8;border-radius:0 4pt 4pt 0;">${text}</blockquote>`
+    return `<blockquote style="border-left:4px solid #2C5F4A;padding:10px 16px;margin:12px 0;color:#4a4a47;background:#f0f7f3;border-radius:0 6px 6px 0;font-size:10.5pt;line-height:1.7;">${text}</blockquote>`
   })
 
   html = html.replace(
     /\*\*(.+?)\*\*/g,
-    '<strong style="color:#141413;font-weight:600;">$1</strong>',
+    '<strong style="color:#1a1a18;font-weight:600;">$1</strong>',
   )
-  html = html.replace(/\*(.+?)\*/g, '<em style="color:#3d3d3a;">$1</em>')
+  html = html.replace(/\*(.+?)\*/g, '<em style="color:#4a4a47;font-style:italic;">$1</em>')
   html = html.replace(
     /`(.+?)`/g,
-    "<code style=\"background:#f5f4ed;padding:1pt 4pt;border-radius:2pt;font-family:'JetBrains Mono','Courier New',monospace;font-size:8.5pt;color:#1B365D;\">$1</code>",
+    "<code style=\"background:#f0f0ec;padding:2px 6px;border-radius:3px;font-family:'Consolas','Courier New',monospace;font-size:9.5pt;color:#2C5F4A;\">$1</code>",
   )
 
   const lines = html.split('\n')
@@ -93,9 +95,11 @@ function markdownToHtml(markdown: string, title: string): string {
 
   const flushList = () => {
     if (listItems.length > 0 && listType) {
-      htmlLines.push(`<${listType} style="margin:8pt 0;padding-left:24pt;color:#3d3d3a;">`)
+      htmlLines.push(
+        `<${listType} style="margin:10px 0 10px 4px;padding-left:24px;color:#3d3d3a;font-size:10.5pt;">`,
+      )
       listItems.forEach((item) => {
-        htmlLines.push(`<li style="margin:4pt 0;line-height:1.6;">${item}</li>`)
+        htmlLines.push(`<li style="margin:6px 0;line-height:1.8;padding-left:4px;">${item}</li>`)
       })
       htmlLines.push(`</${listType}>`)
     }
@@ -107,18 +111,17 @@ function markdownToHtml(markdown: string, title: string): string {
   const flushTable = () => {
     if (tableRows.length > 0) {
       htmlLines.push(
-        '<table style="width:100%;border-collapse:collapse;margin:10pt 0;font-size:10pt;">',
+        '<table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:10.5pt;border-radius:6px;overflow:hidden;">',
       )
       tableRows.forEach((row, i) => {
         const cells = row.split('|').filter((c) => c.trim() !== '')
         const tag = i === 0 ? 'th' : 'td'
-        const bgColor = i === 0 ? '#f0f3f8' : i % 2 === 0 ? '#faf9f5' : '#ffffff'
+        const bgColor = i === 0 ? '#2C5F4A' : i % 2 === 0 ? '#faf9f5' : '#ffffff'
+        const textColor = i === 0 ? '#ffffff' : '#3d3d3a'
         htmlLines.push('<tr>')
         cells.forEach((cell) => {
           htmlLines.push(
-            `<${tag} style="border:1px solid #e8e6dc;padding:6pt 10pt;text-align:left;vertical-align:top;background:${bgColor};${
-              i === 0 ? 'font-weight:600;color:#1B365D;' : 'color:#3d3d3a;'
-            }">${cell.trim()}</${tag}>`,
+            `<${tag} style="border:1px solid #e5e3d9;padding:10px 14px;text-align:left;vertical-align:top;background:${bgColor};color:${textColor};${i === 0 ? 'font-weight:600;' : ''}line-height:1.6;">${cell.trim()}</${tag}>`,
           )
         })
         htmlLines.push('</tr>')
@@ -174,7 +177,8 @@ function markdownToHtml(markdown: string, title: string): string {
     } else if (
       !trimmed.startsWith('<h') &&
       !trimmed.startsWith('<pre') &&
-      !trimmed.startsWith('</pre') &&
+      !trimmed.startsWith('<div') &&
+      !trimmed.startsWith('</div') &&
       !trimmed.startsWith('<blockquote') &&
       !trimmed.startsWith('</blockquote') &&
       !trimmed.startsWith('<table') &&
@@ -190,10 +194,12 @@ function markdownToHtml(markdown: string, title: string): string {
       !trimmed.startsWith('<th') &&
       !trimmed.startsWith('</th') &&
       !trimmed.startsWith('<td') &&
-      !trimmed.startsWith('</td')
+      !trimmed.startsWith('</td') &&
+      !trimmed.startsWith('<code') &&
+      !trimmed.startsWith('</code')
     ) {
       htmlLines.push(
-        `<p style="margin:8pt 0;line-height:1.7;color:#3d3d3a;font-size:10.5pt;">${line}</p>`,
+        `<p style="margin:10px 0;line-height:1.8;color:#3d3d3a;font-size:10.5pt;text-indent:0;text-align:justify;">${line}</p>`,
       )
     } else {
       htmlLines.push(line)
@@ -206,47 +212,100 @@ function markdownToHtml(markdown: string, title: string): string {
   html = htmlLines.join('\n')
   html = html.replace(/\n{3,}/g, '\n\n')
 
+  const reportTitle = escapeHtml(title)
+  const genDate = new Date().toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
   return `
     <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
     <head>
       <meta charset="utf-8">
-      <title>${escapeHtml(title)}</title>
+      <title>${reportTitle}</title>
       <!--[if gte mso 9]>
       <xml>
         <w:WordDocument>
           <w:View>Print</w:View>
           <w:Zoom>100</w:Zoom>
           <w:DoNotOptimizeForBrowser/>
+          <w:ValidateAgainstSchemas/>
+          <w:SaveIfXMLInvalid>false</w:SaveIfXMLInvalid>
+          <w:IgnoreMixedContent>false</w:IgnoreMixedContent>
+          <w:AlwaysShowPlaceholderText>false</w:AlwaysShowPlaceholderText>
         </w:WordDocument>
+        <w:LatentStyles DefLockedState="false" DefUnhideWhenUsed="true"
+        DefSemiHidden="true" DefQFormat="false" DefPriority="99"
+        LatentStyleCount="267">
+        </w:LatentStyles>
       </xml>
       <![endif]-->
       <style>
         @page {
           size: A4;
-          margin: 2.5cm 2cm;
+          margin: 2.2cm 2.5cm;
         }
         body {
-          font-family: "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+          font-family: "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
           font-size: 10.5pt;
-          line-height: 1.7;
+          line-height: 1.8;
           color: #3d3d3a;
           background: #ffffff;
+          text-align: justify;
         }
         h1, h2, h3, h4, h5, h6 {
-          font-family: "TsangerJinKai02", "Source Han Serif SC", "Songti SC", "STSong", serif;
-          color: #141413;
+          font-family: "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+          color: #1a1a18;
+          page-break-after: avoid;
         }
-        a { color: #1B365D; text-decoration: none; }
+        a { color: #2C5F4A; text-decoration: none; }
         hr {
           border: none;
-          border-top: 1px solid #e8e6dc;
-          margin: 20pt 0;
+          border-top: 1px solid #e5e3d9;
+          margin: 24px 0;
         }
         .page-break { page-break-before: always; }
+        .report-header {
+          text-align: center;
+          margin-bottom: 28px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #e5e3d9;
+        }
+        .report-meta {
+          font-size: 9pt;
+          color: #6b6a64;
+          margin-top: 10px;
+          line-height: 1.6;
+        }
+        .report-footer {
+          margin-top: 32px;
+          padding-top: 16px;
+          border-top: 1px solid #e5e3d9;
+          font-size: 9pt;
+          color: #6b6a64;
+          text-align: center;
+        }
+        table {
+          page-break-inside: avoid;
+        }
+        p {
+          widows: 2;
+          orphans: 2;
+        }
       </style>
     </head>
     <body>
+      <div class="report-header">
+        <h1 style="border:none;padding:0;margin:0;font-size:20pt;">${reportTitle}</h1>
+        <div class="report-meta">
+          生成日期：${genDate}
+        </div>
+      </div>
       ${html}
+      <div class="report-footer">
+        由「有据」生成 · 有据可依，有据可查
+      </div>
     </body>
     </html>
   `
@@ -261,15 +320,34 @@ export function ExportMenu({
   printStyle,
   onPrintStyleChange,
 }: ExportMenuProps) {
+  // 读取用户导出偏好设置
+  const { exportSettings } = useUIPreferenceStore()
+
+  // 如果用户设置了默认报告风格，优先使用
+  const effectivePrintStyle = printStyle || (exportSettings.reportStyle as PrintStyle) || 'standard'
+
   const [internalOpen, setInternalOpen] = useState(false)
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false)
-  const [previewStyle, setPreviewStyle] = useState<PrintStyle>('standard')
+  const [previewStyle, setPreviewStyle] = useState<PrintStyle>(effectivePrintStyle)
   const [showPreview, setShowPreview] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 })
   const { showToast } = useToast()
   const menuRef = useRef<HTMLDivElement>(null)
+  const menuContentRef = useRef<HTMLDivElement>(null)
   const pdfButtonRef = useRef<HTMLButtonElement>(null)
 
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen
+
+  const updateMenuPosition = () => {
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.bottom + 4,
+        left: rect.right - 256,
+        width: 256,
+      })
+    }
+  }
 
   const setIsOpen = (open: boolean) => {
     if (controlledOpen === undefined) {
@@ -280,12 +358,29 @@ export function ExportMenu({
     }
     if (!open) {
       setPdfMenuOpen(false)
+    } else {
+      updateMenuPosition()
     }
   }
 
   useEffect(() => {
+    if (isOpen) {
+      updateMenuPosition()
+      window.addEventListener('resize', updateMenuPosition)
+      window.addEventListener('scroll', updateMenuPosition, true)
+      return () => {
+        window.removeEventListener('resize', updateMenuPosition)
+        window.removeEventListener('scroll', updateMenuPosition, true)
+      }
+    }
+  }, [isOpen])
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const clickedOnTrigger = menuRef.current?.contains(target)
+      const clickedOnMenu = menuContentRef.current?.contains(target)
+      if (!clickedOnTrigger && !clickedOnMenu) {
         setIsOpen(false)
       }
     }
@@ -377,7 +472,8 @@ export function ExportMenu({
     setIsOpen(false)
   }
 
-  const currentStyle = STYLE_OPTIONS.find((s) => s.value === printStyle) || STYLE_OPTIONS[0]
+  const currentStyle =
+    STYLE_OPTIONS.find((s) => s.value === effectivePrintStyle) || STYLE_OPTIONS[0]
 
   return (
     <>
@@ -391,9 +487,20 @@ export function ExportMenu({
           导出
           <ChevronDown size={11} strokeWidth={1.5} />
         </button>
+      </div>
 
-        {isOpen && (
-          <div className="absolute right-0 top-full mt-1 w-64 bg-paper border border-rule rounded-lg shadow-lg z-50 overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+      {isOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={menuContentRef}
+            className="fixed bg-paper border border-rule rounded-lg shadow-2xl z-[2000] overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+            }}
+          >
             {/* PDF Export — click to expand style list inline */}
             <button
               ref={pdfButtonRef}
@@ -493,9 +600,9 @@ export function ExportMenu({
                 <div className="text-[10px] text-ink-faint mt-0.5">复制文本到剪贴板</div>
               </div>
             </button>
-          </div>
+          </div>,
+          document.body,
         )}
-      </div>
 
       {/* 打印预览模态框 */}
       {showPreview && (

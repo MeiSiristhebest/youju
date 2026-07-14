@@ -79,4 +79,36 @@ router.post('/preferences/risk-feedback', validateBody(riskFeedbackSchema), asyn
   res.json({ code: 200, data: stats })
 })
 
+// ========== 通知设置 ==========
+
+router.get('/preferences/notifications', async (req, res) => {
+  const { userId, sessionId } = await getUserIdAndSessionId(req)
+  const settings = await getPreferenceService().getUserNotificationSettings(userId, sessionId)
+  res.json({ code: 200, data: settings })
+})
+
+router.post('/preferences/notifications', async (req, res) => {
+  const { userId, sessionId } = await getUserIdAndSessionId(req)
+  const settings = await getPreferenceService().setUserNotificationSettings(
+    userId,
+    sessionId,
+    req.body,
+  )
+  res.json({ code: 200, data: settings })
+})
+
+// ========== 隐私设置 ==========
+
+router.get('/preferences/privacy', async (req, res) => {
+  const { userId, sessionId } = await getUserIdAndSessionId(req)
+  const settings = await getPreferenceService().getUserPrivacySettings(userId, sessionId)
+  res.json({ code: 200, data: settings })
+})
+
+router.post('/preferences/privacy', async (req, res) => {
+  const { userId, sessionId } = await getUserIdAndSessionId(req)
+  const settings = await getPreferenceService().setUserPrivacySettings(userId, sessionId, req.body)
+  res.json({ code: 200, data: settings })
+})
+
 export default router

@@ -12,6 +12,7 @@ import type { AnalysisResultPersister } from './analysisResultPersister.js'
 export interface StreamAnalysisCallbacks {
   onStepStart?: (step: { id: string; name: string; index: number }) => void
   onStepComplete?: (step: { id: string; name: string; index: number; output: AIStepOutput }) => void
+  onStepError?: (step: { id: string; name: string; index: number; error: string }) => void
   onComplete?: (result: AnalyzeResult) => void
   onError?: (error: Error) => void
 }
@@ -29,6 +30,7 @@ export class AnalysisStreamOrchestrator {
     scenarioKnowledge?: ScenarioKnowledge[],
     callbacks: StreamAnalysisCallbacks = {},
     aiConfig?: AIConfig,
+    isDemo?: boolean,
   ): Promise<AnalyzeResult> {
     const startTime = Date.now()
     const stepDbRecords: Record<string, string[]> = {}
@@ -40,6 +42,7 @@ export class AnalysisStreamOrchestrator {
         scenarioType,
         scenarioKnowledge,
         aiConfig,
+        isDemo,
         onStepStart: (step: { id: string; name: string }) => {
           const stepIndex = Object.keys(stepIndexMap).length
           stepIndexMap[step.id] = stepIndex
@@ -105,6 +108,13 @@ export class AnalysisStreamOrchestrator {
         },
         onStepError: (step: { id: string; name: string; error: string }) => {
           const stepIndex = stepIndexMap[step.id] ?? 0
+          console.log('[AnalysisStreamOrchestrator] onStepError:', step.id, step.name, step.error)
+          callbacks.onStepError?.({
+            id: step.id,
+            name: step.name,
+            index: stepIndex,
+            error: step.error,
+          })
           this.persister
             .persistStepError({
               analysisLogId,
@@ -156,6 +166,7 @@ export class AnalysisStreamOrchestrator {
       taskId?: string | null
       persist?: boolean
       aiConfig?: AIConfig
+      isDemo?: boolean
     },
   ): Promise<AnalyzeResult> {
     const persist = options?.persist ?? true
@@ -181,6 +192,7 @@ export class AnalysisStreamOrchestrator {
         scenarioType,
         scenarioKnowledge,
         aiConfig: options?.aiConfig,
+        isDemo: options?.isDemo,
         onStepStart: (step: { id: string; name: string }) => {
           const stepIndex = Object.keys(stepIndexMap).length
           stepIndexMap[step.id] = stepIndex

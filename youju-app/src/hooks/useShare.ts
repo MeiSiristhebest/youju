@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { SCENARIOS } from '../constants/workspace'
+import { jsonStorage, storage } from '../lib/storage'
 import { shareApi } from '../services/shareApi'
 import { useAnalysisStore, useSourceStore, useUIPreferenceStore } from '../stores'
-import type { ChecklistItem } from '../types'
+import type { AnalyzeResult, ChecklistItem, SharedReport } from '../types'
 
 export function useShareUtils() {
   const _queryClient = useQueryClient()
@@ -84,22 +85,20 @@ export function useShareUtils() {
     setPage('share')
     try {
       if (token.startsWith('demo_')) {
-        const stored = localStorage.getItem(`youju_share_${token}`)
-        if (stored) {
-          const data = JSON.parse(stored)
+        const shareKey = `share_${token}`
+        const data = jsonStorage.getItem<SharedReport>(shareKey)
+        if (data) {
           if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
             setShareError('分享已过期')
-            localStorage.removeItem(`youju_share_${token}`)
+            storage.removeItem(shareKey)
             return
           }
           data.viewCount = (data.viewCount || 0) + 1
-          localStorage.setItem(`youju_share_${token}`, JSON.stringify(data))
+          jsonStorage.setItem(shareKey, data)
           setShareViewCount(data.viewCount)
           setSharedReport(data)
           setResult(data.result)
-          setChecklist(
-            data.result.checklist?.map((c: ChecklistItem) => ({ ...c, checked: false })) || [],
-          )
+          setChecklist(data.result.checklist?.map((c) => ({ ...c, checked: false })) || [])
         } else {
           setShareError('分享不存在或已过期')
         }
@@ -143,7 +142,7 @@ export function useShareUtils() {
       expiresAt: expiresAt ? expiresAt.toISOString() : null,
       viewCount: 0,
     }
-    localStorage.setItem(`youju_share_${mockToken}`, JSON.stringify(mockSharedReport))
+    jsonStorage.setItem(`share_${mockToken}`, mockSharedReport)
 
     setShareLink(fullUrl)
     setShareExpired(expiresAt ? expiresAt.toLocaleString() : '永久有效')

@@ -6,6 +6,7 @@ import {
   FileJson,
   FileText,
   FileText as FileTextIcon,
+  FolderOpen,
   Globe,
   Image,
   Upload,
@@ -15,11 +16,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fileParser } from '../../algorithms/fileParser'
 import { TYPE_LABELS } from '../../constants/workspace'
 import { gsap } from '../../lib/gsap'
+import { cn } from '../../lib/utils'
 import { ocrService } from '../../services/ocrService'
 import { sourceApi } from '../../services/sourceApi'
+import { useSourceStore } from '../../stores/useSourceStore'
 import type { ParsedSource, Source, SourceType } from '../../types'
 
-type AddSourceTab = 'text' | 'file' | 'url' | 'screenshot'
+interface ParsedFileEntry {
+  file: File
+  parsed: ParsedSource
+  type: SourceType
+}
+
+type AddSourceTab = 'text' | 'file' | 'url' | 'screenshot' | 'history'
 
 interface AddSourceModalProps {
   isOpen: boolean
@@ -60,8 +69,35 @@ export function AddSourceModal({
   const [parsingStatus, setParsingStatus] = useState<string>('')
   const [parsedResult, setParsedResult] = useState<ParsedSource | null>(null)
   const [parseError, setParseError] = useState<string>('')
+  const [selectedHistorySource, setSelectedHistorySource] = useState<Source | null>(null)
+  const [parsedFiles, setParsedFiles] = useState<ParsedFileEntry[]>([])
+  const [historySources, setHistorySources] = useState<Source[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
+
+  const currentTaskId = useSourceStore((state) => state.currentTaskId)
+
+  // 加载历史材料（全局查询，不按会话关联）
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'history') return
+    setLoadingHistory(true)
+    sourceApi
+      .listSources(undefined, true)
+      .then((sources) => {
+        // 按 content 去重，保留最新的一条（listSources 已按 id DESC 返回）
+        const seen = new Set<string>()
+        const deduped = sources.filter((s) => {
+          const key = s.content
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        setHistorySources(deduped)
+      })
+      .catch(() => setHistorySources([]))
+      .finally(() => setLoadingHistory(false))
+  }, [isOpen, activeTab])
 
   const resetAndClose = () => {
     setActiveTab('text')
@@ -74,13 +110,15 @@ export function AddSourceModal({
     setParsingStatus('')
     setParsedResult(null)
     setParseError('')
+    setParsedFiles([])
+    setSelectedHistorySource(null)
     onClose()
   }
 
   useEffect(() => {
     if (isOpen && initialFiles && initialFiles.length > 0) {
       setActiveTab('file')
-      handleParseFile(initialFiles[0])
+      handleParseMultipleFiles(initialFiles)
     }
   }, [isOpen, initialFiles])
 
@@ -114,6 +152,7 @@ export function AddSourceModal({
         type: sourceType,
         name: sourceName,
         content: sourceContent,
+        taskId: currentTaskId ?? undefined,
       })
       onAddSource(source)
       resetAndClose()
@@ -122,47 +161,151 @@ export function AddSourceModal({
     }
   }
 
-  const handleParseFile = useCallback(async (file: File) => {
-    if (file.size > MAX_FILE_SIZE) {
-      setParseError('文件大小超过限制（最大 10MB）')
-      setTimeout(() => setParseError(''), 3000)
-      return
-    }
+  const handleParseFile = useCallback(
+    async (file: File) => {
+      if (file.size > MAX_FILE_SIZE) {
+        setParseError(`${file.name} 超过限制（最大 10MB）`)
+        setTimeout(() => setParseError(''), 3000)
+        return
+      }
 
-    setParseError('')
-    setParsingStatus('正在检测文件类型…')
+      setParseError('')
+      setParsingStatus(`正在解析 ${file.name}…`)
 
-    const fileType = fileParser.detectFileType(file)
-    const fileTypeLabel = fileParser.getFileTypeLabel(fileType)
+      const fileType = fileParser.detectFileType(file)
+      const fileTypeLabel = fileParser.getFileTypeLabel(fileType)
 
-    if (fileType === 'unknown') {
-      setParseError('不支持的文件格式')
-      setParsingStatus('')
-      setTimeout(() => setParseError(''), 3000)
-      return
-    }
+      if (fileType === 'unknown') {
+        setParseError(`${file.name}：不支持的文件格式`)
+        setParsingStatus('')
+        setTimeout(() => setParseError(''), 3000)
+        return
+      }
 
-    setParsingStatus(`正在解析 ${fileTypeLabel}…`)
+      setParsingStatus(`正在解析 ${fileTypeLabel}：${file.name}…`)
 
-    try {
-      const result = await fileParser.parseFile(file)
-      setParsedResult(result)
-      setSourceContent(result.text)
-      setSourceName(file.name.replace(/\.[^.]+$/, '') || '解析文件')
-      setParsingStatus(`解析完成（${result.meta.charCount} 字符，${result.meta.lineCount} 行）`)
-      setTimeout(() => setParsingStatus(''), 3000)
-    } catch (_error) {
-      setParseError('文件解析失败')
-      setParsingStatus('')
-      setTimeout(() => setParseError(''), 3000)
-    }
-  }, [])
+      try {
+        const result = await fileParser.parseFile(file)
+        setParsedFiles((prev) => {
+          // 去重：同名且同大小的文件不重复追加
+          const exists = prev.some((e) => e.file.name === file.name && e.file.size === file.size)
+          if (exists) {
+            setParseError(`${file.name} 已在列表中`)
+            setTimeout(() => setParseError(''), 3000)
+            return prev
+          }
+          return [...prev, { file, parsed: result, type: sourceType }]
+        })
+        setParsingStatus(`${file.name} 解析完成（${result.meta.charCount} 字符）`)
+        setTimeout(() => setParsingStatus(''), 3000)
+      } catch (_error) {
+        setParseError(`${file.name} 解析失败`)
+        setParsingStatus('')
+        setTimeout(() => setParseError(''), 3000)
+      }
+    },
+    [sourceType],
+  )
+
+  const handleParseMultipleFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const fileArray = Array.from(files)
+      if (fileArray.length === 0) return
+
+      // 单文件时保持原有行为（显示预览编辑区）
+      if (fileArray.length === 1) {
+        const file = fileArray[0]
+        setParseError('')
+        setParsingStatus('正在检测文件类型…')
+
+        if (file.size > MAX_FILE_SIZE) {
+          setParseError('文件大小超过限制（最大 10MB）')
+          setTimeout(() => setParseError(''), 3000)
+          return
+        }
+
+        const fileType = fileParser.detectFileType(file)
+        const fileTypeLabel = fileParser.getFileTypeLabel(fileType)
+
+        if (fileType === 'unknown') {
+          setParseError('不支持的文件格式')
+          setParsingStatus('')
+          setTimeout(() => setParseError(''), 3000)
+          return
+        }
+
+        setParsingStatus(`正在解析 ${fileTypeLabel}…`)
+
+        try {
+          const result = await fileParser.parseFile(file)
+          setParsedResult(result)
+          setSourceContent(result.text)
+          setSourceName(file.name.replace(/\.[^.]+$/, '') || '解析文件')
+          setParsingStatus(`解析完成（${result.meta.charCount} 字符，${result.meta.lineCount} 行）`)
+          setTimeout(() => setParsingStatus(''), 3000)
+        } catch (_error) {
+          setParseError('文件解析失败')
+          setParsingStatus('')
+          setTimeout(() => setParseError(''), 3000)
+        }
+        return
+      }
+
+      // 多文件模式：逐个解析，添加到列表
+      setParsedResult(null)
+      for (const file of fileArray) {
+        await handleParseFile(file)
+      }
+    },
+    [handleParseFile],
+  )
 
   const handleAddFile = async (file: File) => {
     if (!file) return
     setUploading(true)
     try {
-      const source = await sourceApi.uploadFile(file, sourceType, sourceName || undefined)
+      const source = await sourceApi.uploadFile(
+        file,
+        sourceType,
+        sourceName || undefined,
+        currentTaskId ?? undefined,
+      )
+      onAddSource(source)
+      resetAndClose()
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleAddMultipleFiles = async () => {
+    if (parsedFiles.length === 0) return
+    setUploading(true)
+    try {
+      for (const entry of parsedFiles) {
+        const source = await sourceApi.addTextSource({
+          type: entry.type,
+          name: entry.file.name.replace(/\.[^.]+$/, '') || '解析文件',
+          content: entry.parsed.text,
+          taskId: currentTaskId ?? undefined,
+        })
+        onAddSource(source)
+      }
+      resetAndClose()
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleAddHistorySource = async () => {
+    if (!selectedHistorySource) return
+    setUploading(true)
+    try {
+      const source = await sourceApi.addTextSource({
+        type: selectedHistorySource.type,
+        name: selectedHistorySource.name,
+        content: selectedHistorySource.content,
+        taskId: currentTaskId ?? undefined,
+      })
       onAddSource(source)
       resetAndClose()
     } finally {
@@ -178,6 +321,7 @@ export function AddSourceModal({
         url: sourceUrl,
         type: sourceType,
         name: sourceName || undefined,
+        taskId: currentTaskId ?? undefined,
       })
       onAddSource(source)
       resetAndClose()
@@ -233,13 +377,6 @@ export function AddSourceModal({
     }
   }
 
-  const handleDropOrSelectFile = useCallback(
-    (file: File) => {
-      handleParseFile(file)
-    },
-    [handleParseFile],
-  )
-
   if (!isOpen) return null
 
   return (
@@ -279,6 +416,7 @@ export function AddSourceModal({
               { key: 'file', label: '上传文件', icon: Upload },
               { key: 'screenshot', label: '截图识别', icon: Image },
               { key: 'url', label: '网页链接', icon: Globe },
+              { key: 'history', label: '历史材料', icon: FolderOpen },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -298,28 +436,30 @@ export function AddSourceModal({
             ))}
           </div>
 
-          <div className="mb-4">
-            <span className="block text-xs text-ink-faint mb-2 font-medium font-mono tracking-wide uppercase">
-              材料类型
-            </span>
-            <div className="grid grid-cols-5 gap-2">
-              {(['chat', 'doc', 'web', 'contract', 'screenshot'] as SourceType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={`flex flex-col items-center gap-1.5 px-2 py-3 bg-paper-dark border rounded-lg text-xs cursor-pointer font-inherit transition-colors duration-200 hover:border-ink-faint hover:text-ink ${
-                    sourceType === t
-                      ? 'bg-accent-bg border-accent-faint text-accent'
-                      : 'border-rule text-ink-muted'
-                  }`}
-                  onClick={() => setSourceType(t)}
-                >
-                  <FileText size={18} strokeWidth={1.5} />
-                  <span>{TYPE_LABELS[t]}</span>
-                </button>
-              ))}
+          {activeTab !== 'history' && (
+            <div className="mb-4">
+              <span className="block text-xs text-ink-faint mb-2 font-medium font-mono tracking-wide uppercase">
+                材料类型
+              </span>
+              <div className="grid grid-cols-5 gap-2">
+                {(['chat', 'doc', 'web', 'contract', 'screenshot'] as SourceType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 px-2 py-3 bg-paper-dark border rounded-lg text-xs cursor-pointer font-inherit transition-colors duration-200 hover:border-ink-faint hover:text-ink ${
+                      sourceType === t
+                        ? 'bg-accent-bg border-accent-faint text-accent'
+                        : 'border-rule text-ink-muted'
+                    }`}
+                    onClick={() => setSourceType(t)}
+                  >
+                    <FileText size={18} strokeWidth={1.5} />
+                    <span>{TYPE_LABELS[t]}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {activeTab === 'text' && (
             <div role="tabpanel" id="panel-text" aria-labelledby="tab-text" className="space-y-4">
@@ -396,8 +536,8 @@ export function AddSourceModal({
                   onDrop={(e) => {
                     e.preventDefault()
                     setFileDragOver(false)
-                    const file = e.dataTransfer.files[0]
-                    if (file) handleDropOrSelectFile(file)
+                    const files = e.dataTransfer.files
+                    if (files && files.length > 0) handleParseMultipleFiles(files)
                   }}
                   role="group"
                   aria-label="文件上传区域"
@@ -405,18 +545,23 @@ export function AddSourceModal({
                   <input
                     type="file"
                     id="file-upload-modal"
+                    multiple
                     onChange={(e) =>
-                      e.target.files?.[0] && handleDropOrSelectFile(e.target.files[0])
+                      e.target.files &&
+                      e.target.files.length > 0 &&
+                      handleParseMultipleFiles(e.target.files)
                     }
                     accept=".txt,.md,.markdown,.html,.htm,.json,.pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.bmp,.webp"
                     style={{ display: 'none' }}
                   />
                   <label htmlFor="file-upload-modal" className="block cursor-pointer">
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-paper-dark flex items-center justify-center text-accent">
-                      <Upload size={22} strokeWidth={1.5} />
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 mb-3 rounded-full bg-paper-dark flex items-center justify-center text-accent">
+                        <Upload size={22} strokeWidth={1.5} />
+                      </div>
+                      <p className="text-sm text-ink mb-1 font-medium">点击选择文件或拖拽到此处</p>
+                      <p className="text-xs text-ink-faint">支持多种格式，最大 10MB</p>
                     </div>
-                    <p className="text-sm text-ink mb-1 font-medium">点击选择文件或拖拽到此处</p>
-                    <p className="text-xs text-ink-faint">支持多种格式，最大 10MB</p>
                   </label>
                 </div>
 
@@ -457,6 +602,109 @@ export function AddSourceModal({
                       disabled={uploading || !sourceName || !parsedResult.text}
                     >
                       {uploading ? '添加中…' : '确认添加'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {parsedFiles.length > 0 && (
+                <div className="mb-4 bg-paper-dark rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-medium text-ink-faint uppercase tracking-wide">
+                      已解析文件（{parsedFiles.length}）
+                    </h4>
+                    <button
+                      type="button"
+                      className="text-xs text-ink-faint hover:text-danger"
+                      onClick={() => setParsedFiles([])}
+                    >
+                      清空
+                    </button>
+                  </div>
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs text-ink-faint">批量设置类型</label>
+                      <span className="text-xs text-ink-faint/70">（也可逐个调整</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(Object.entries(TYPE_LABELS) as [SourceType, string][]).map(
+                        ([type, label]) => (
+                          <button
+                            key={type}
+                            type="button"
+                            className={cn(
+                              'px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 border',
+                              'bg-paper border-rule text-ink-muted hover:text-ink hover:border-ink-faint',
+                            )}
+                            onClick={() => {
+                              setParsedFiles((prev) => prev.map((e) => ({ ...e, type })))
+                            }}
+                          >
+                            全设为{label}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-[260px] overflow-y-auto">
+                    {parsedFiles.map((entry, i) => (
+                      <div key={i} className="p-2 bg-paper rounded border border-rule">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText
+                              size={14}
+                              className="text-accent shrink-0"
+                              strokeWidth={1.5}
+                            />
+                            <span className="text-sm text-ink truncate">{entry.file.name}</span>
+                            <span className="text-xs text-ink-faint shrink-0">
+                              {entry.parsed.meta.charCount} 字符
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-xs text-ink-faint hover:text-danger shrink-0 ml-2"
+                            onClick={() =>
+                              setParsedFiles((prev) => prev.filter((_, idx) => idx !== i))
+                            }
+                          >
+                            移除
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {(Object.entries(TYPE_LABELS) as [SourceType, string][]).map(
+                            ([type, label]) => (
+                              <button
+                                key={type}
+                                type="button"
+                                className={cn(
+                                  'px-2 py-0.5 rounded text-xs font-medium transition-all duration-150 border',
+                                  entry.type === type
+                                    ? 'bg-accent-bg border-accent/40 text-accent'
+                                    : 'bg-paper-dark border-rule text-ink-faint hover:text-ink hover:border-ink-faint',
+                                )}
+                                onClick={() => {
+                                  setParsedFiles((prev) =>
+                                    prev.map((e, idx) => (idx === i ? { ...e, type } : e)),
+                                  )
+                                }}
+                              >
+                                {label}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-ink text-paper hover:bg-accent transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleAddMultipleFiles}
+                      disabled={uploading}
+                    >
+                      {uploading ? '添加中…' : `批量添加（${parsedFiles.length} 个文件）`}
                     </button>
                   </div>
                 </div>
@@ -535,29 +783,31 @@ export function AddSourceModal({
                     role="group"
                     aria-label="截图识别区域，支持粘贴截图或拖拽图片"
                   >
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-paper-dark flex items-center justify-center text-accent">
-                      <Image size={22} strokeWidth={1.5} />
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 mb-3 rounded-full bg-paper-dark flex items-center justify-center text-accent">
+                        <Image size={22} strokeWidth={1.5} />
+                      </div>
+                      <p className="text-sm text-ink mb-1 font-medium">
+                        粘贴截图（Ctrl+V）或拖拽图片到这里
+                      </p>
+                      <p className="text-xs text-ink-faint">支持微信截图、网页截图、手机截图等</p>
+                      <input
+                        type="file"
+                        id="screenshot-upload-modal"
+                        accept="image/*"
+                        onChange={(e) =>
+                          e.target.files?.[0] && handleRecognizeScreenshot(e.target.files[0])
+                        }
+                        style={{ display: 'none' }}
+                      />
+                      <label
+                        htmlFor="screenshot-upload-modal"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border bg-paper text-ink border-rule hover:bg-paper-dark hover:border-ink-faint transition-colors duration-200"
+                        style={{ marginTop: '12px' }}
+                      >
+                        或点击选择图片
+                      </label>
                     </div>
-                    <p className="text-sm text-ink mb-1 font-medium">
-                      粘贴截图（Ctrl+V）或拖拽图片到这里
-                    </p>
-                    <p className="text-xs text-ink-faint">支持微信截图、网页截图、手机截图等</p>
-                    <input
-                      type="file"
-                      id="screenshot-upload-modal"
-                      accept="image/*"
-                      onChange={(e) =>
-                        e.target.files?.[0] && handleRecognizeScreenshot(e.target.files[0])
-                      }
-                      style={{ display: 'none' }}
-                    />
-                    <label
-                      htmlFor="screenshot-upload-modal"
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border bg-paper text-ink border-rule hover:bg-paper-dark hover:border-ink-faint transition-colors duration-200"
-                      style={{ marginTop: '12px' }}
-                    >
-                      或点击选择图片
-                    </label>
                   </div>
                 )}
               </div>
@@ -598,6 +848,155 @@ export function AddSourceModal({
                   onChange={(e) => setSourceUrl(e.target.value)}
                 />
               </div>
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div
+              role="tabpanel"
+              id="panel-history"
+              aria-labelledby="tab-history"
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-center">
+                <span className="text-xs text-ink-faint font-medium font-mono tracking-wide uppercase">
+                  历史材料（{historySources.length}）
+                </span>
+              </div>
+
+              {loadingHistory ? (
+                <div className="flex flex-col items-center justify-center text-center py-8">
+                  <div className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin mb-2" />
+                  <span className="text-xs text-ink-muted">加载中…</span>
+                </div>
+              ) : historySources.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-8">
+                  <FolderOpen size={32} className="text-ink-faint mb-3" strokeWidth={1.5} />
+                  <p className="text-sm text-ink-muted">暂无历史材料</p>
+                  <p className="text-xs text-ink-faint mt-1">添加材料后可在这里查看和复用</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {historySources.map((source) => (
+                    <div
+                      key={source.id}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                        selectedHistorySource?.id === source.id
+                          ? 'border-accent bg-accent-bg/30'
+                          : 'border-rule bg-paper-dark/30 hover:border-accent/50 hover:bg-paper-dark/50'
+                      }`}
+                      onClick={() => setSelectedHistorySource(source)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <FileText size={14} className="text-accent" strokeWidth={1.5} />
+                          <span className="text-sm font-medium text-ink">{source.name}</span>
+                          <span className="px-1.5 py-0.5 text-[10px] bg-paper text-ink-faint rounded border border-rule">
+                            {TYPE_LABELS[source.type] || source.type}
+                          </span>
+                        </div>
+                        {source.charCount && (
+                          <span className="text-xs text-ink-faint">{source.charCount} 字符</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-ink-muted line-clamp-2">
+                        {source.content.slice(0, 100)}...
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedHistorySource && (
+                <div className="p-4 bg-accent-bg/50 border border-accent-faint rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-medium text-accent uppercase tracking-wide">
+                      材料详情
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedHistorySource(null)}
+                      className="text-xs text-ink-faint hover:text-ink"
+                    >
+                      关闭
+                    </button>
+                  </div>
+                  <div className="space-y-2 mb-4">
+                    <div>
+                      <label className="block text-[11px] text-ink-faint mb-1">名称</label>
+                      <input
+                        type="text"
+                        className="w-full px-2 py-1.5 bg-paper border border-rule rounded text-sm text-ink"
+                        value={selectedHistorySource.name}
+                        onChange={(e) => {
+                          setSelectedHistorySource({
+                            ...selectedHistorySource,
+                            name: e.target.value,
+                          })
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-ink-faint mb-1">类型</label>
+                      <select
+                        className="w-full px-2 py-1.5 bg-paper border border-rule rounded text-sm text-ink"
+                        value={selectedHistorySource.type}
+                        onChange={(e) => {
+                          setSelectedHistorySource({
+                            ...selectedHistorySource,
+                            type: e.target.value as SourceType,
+                          })
+                        }}
+                      >
+                        {(['chat', 'doc', 'web', 'contract', 'screenshot'] as SourceType[]).map(
+                          (t) => (
+                            <option key={t} value={t}>
+                              {TYPE_LABELS[t]}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-[11px] text-ink-faint mb-1">内容预览</label>
+                    <textarea
+                      className="w-full px-2 py-1.5 bg-paper border border-rule rounded text-xs text-ink resize-none"
+                      rows={6}
+                      value={selectedHistorySource.content}
+                      onChange={(e) => {
+                        setSelectedHistorySource({
+                          ...selectedHistorySource,
+                          content: e.target.value,
+                        })
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded text-xs font-medium border border-rule text-ink-muted hover:bg-paper-dark"
+                      onClick={() => {
+                        setSourceName(selectedHistorySource.name)
+                        setSourceContent(selectedHistorySource.content)
+                        setSourceType(selectedHistorySource.type)
+                        setSelectedHistorySource(null)
+                        setActiveTab('text')
+                      }}
+                    >
+                      编辑后添加
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded text-xs font-medium border-none bg-accent text-paper hover:bg-accent/80 disabled:opacity-50"
+                      onClick={handleAddHistorySource}
+                      disabled={uploading}
+                    >
+                      {uploading ? '添加中…' : '直接添加到当前任务'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle, Copy, TrendingUp, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, formatDimensionName } from '@/lib/utils'
 import type { Risk } from '../../../types'
 import { useToast } from '../../common/Toast'
 
@@ -54,7 +54,7 @@ export function AnimatedRiskItem({
 
     let text = `【${levelText}】${risk.title}\n`
     text += `类型：${typeText}`
-    if (risk.dimension) text += ` · ${risk.dimension}`
+    if (risk.dimension) text += ` · ${formatDimensionName(risk.dimension)}`
     text += '\n'
     text += `说明：${risk.description}\n`
 
@@ -126,13 +126,13 @@ export function AnimatedRiskItem({
               {(risk.isNew || risk.levelChange) && (
                 <div className="absolute -top-1 -right-1 flex gap-1">
                   {risk.isNew && (
-                    <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-bold text-white bg-danger rounded-md shadow-sm animate-pulse">
+                    <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-bold text-danger-foreground bg-danger rounded-md shadow-sm animate-pulse">
                       NEW
                     </span>
                   )}
                   {risk.levelChange?.upgraded && (
                     <span
-                      className="inline-flex items-center justify-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-white bg-warning rounded-md shadow-sm"
+                      className="inline-flex items-center justify-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-warning-foreground bg-warning rounded-md shadow-sm"
                       title={`${risk.levelChange.from} → ${risk.levelChange.to}`}
                     >
                       <TrendingUp size={9} />
@@ -163,7 +163,7 @@ export function AnimatedRiskItem({
                 </span>
                 {risk.dimension && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-accent-bg/30 text-accent border border-accent/10">
-                    {risk.dimension}
+                    {formatDimensionName(risk.dimension)}
                   </span>
                 )}
                 <span
@@ -205,7 +205,9 @@ export function AnimatedRiskItem({
                   key={`${ev.sourceName}-${idx}`}
                   role="button"
                   tabIndex={0}
-                  onClick={() => onEvidenceClick?.(ev.sourceName, ev.quote)}
+                  onClick={() =>
+                    onEvidenceClick?.(ev.sourceId || '', ev.highlightedText || ev.quote)
+                  }
                   className="p-2 rounded bg-paper/50 hover:bg-accent-bg/20 border border-rule/30 hover:border-accent/20 cursor-pointer text-[11px] text-ink-muted transition-colors duration-200"
                 >
                   <div className="flex justify-between font-medium text-ink-faint mb-1">

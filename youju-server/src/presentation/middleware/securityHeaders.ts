@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express'
+import { isProd } from '../../infrastructure/env.js'
 
-const isDev = process.env.NODE_ENV !== 'production'
+const isDev = !isProd()
 
 export function securityHeaders(_req: Request, res: Response, next: NextFunction) {
   res.setHeader('X-Content-Type-Options', 'nosniff')

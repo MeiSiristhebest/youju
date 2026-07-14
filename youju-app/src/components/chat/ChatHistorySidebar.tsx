@@ -40,6 +40,7 @@ interface ContextMenuState {
 
 interface ChatHistorySidebarProps {
   className?: string
+  taskId?: string
 }
 
 // 右键上下文菜单（自定义实现，避免新建 UI 原语）
@@ -218,7 +219,7 @@ function ConversationItem({
   )
 }
 
-export function ChatHistorySidebar({ className }: ChatHistorySidebarProps) {
+export function ChatHistorySidebar({ className, taskId }: ChatHistorySidebarProps) {
   const {
     conversations,
     activeConversationId,
@@ -227,7 +228,7 @@ export function ChatHistorySidebar({ className }: ChatHistorySidebarProps) {
     deleteConversation,
     selectConversation,
     isCreating,
-  } = useChat()
+  } = useChat(taskId)
 
   // 直接访问 store 的 add/remove，用于删除撤销的乐观更新
   const removeConversation = useChatStore((s) => s.removeConversation)

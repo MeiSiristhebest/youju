@@ -1,5 +1,5 @@
 import { CheckSquare, Square } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatDimensionName } from '@/lib/utils'
 import { useAnalysisStore } from '../../../stores'
 
 export function CheckListArea() {
@@ -27,8 +27,8 @@ export function CheckListArea() {
       </div>
       <div className="divide-y divide-rule">
         {totalCount === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
+          <div className="flex flex-col items-center justify-center text-center py-16 px-4">
+            <div className="w-16 h-16 mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
               <CheckSquare size={28} strokeWidth={1.5} />
             </div>
             <p className="text-sm font-medium text-ink mb-1">暂无检查项</p>
@@ -66,24 +66,7 @@ export function CheckListArea() {
                 >
                   {item.text}
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {item.riskType && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-danger-bg/50 text-danger border border-danger/20 font-medium">
-                      {item.riskType === 'conflict'
-                        ? '直接矛盾'
-                        : item.riskType === 'promise'
-                          ? '承诺未落文字'
-                          : item.riskType === 'missing'
-                            ? '信息缺失'
-                            : '信息提示'}
-                    </span>
-                  )}
-                  {item.dimension && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-paper-dark text-ink-muted border border-rule/60">
-                      {item.dimension}
-                    </span>
-                  )}
-                </div>
+                {/* ChecklistItem 不再包含 riskType 和 dimension 字段 */}
               </div>
             </div>
           ))

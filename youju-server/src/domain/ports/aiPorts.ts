@@ -3,7 +3,6 @@ import type {
   AnalyzeResult,
   Evidence,
   ScenarioKnowledge,
-  SharedMainCallResult,
   Source,
   SourceChunk,
 } from '../types.js'
@@ -64,7 +63,6 @@ export interface AnalysisCheckpoint {
   stepOutputs: Record<string, unknown>
   lastCompletedStepId: string
   lastCompletedStepIndex: number
-  mainCallResult?: SharedMainCallResult
 }
 
 export interface Analyzer {
@@ -74,6 +72,7 @@ export interface Analyzer {
       scenarioType?: string
       scenarioKnowledge?: ScenarioKnowledge[]
       aiConfig?: AIConfig
+      isDemo?: boolean
     } & AnalysisCallbacks,
   ): Promise<AnalysisResultSummary>
 }
@@ -86,6 +85,7 @@ export interface CheckpointCapableAnalyzer extends Analyzer {
       scenarioType?: string
       scenarioKnowledge?: ScenarioKnowledge[]
       aiConfig?: AIConfig
+      isDemo?: boolean
     } & Omit<AnalysisCallbacks, 'onProgress'>,
   ): Promise<AnalysisResultSummary>
 }
@@ -259,4 +259,12 @@ export interface AIChatPort {
     firstUserContent: string,
     aiConfig?: AIConfig,
   ): Promise<{ content: string; tokenPrompt: number; tokenCompletion: number; model: string }>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Prompt Cache
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PromptCacheLike<T> {
+  get(key: string): T | undefined
+  set(key: string, value: T): void
 }

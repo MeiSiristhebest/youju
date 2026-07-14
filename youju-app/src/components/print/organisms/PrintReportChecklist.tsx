@@ -2,7 +2,7 @@ import { PrintSectionTitle } from '../atoms/PrintSectionTitle'
 import { PrintChecklistSection } from '../molecules/PrintChecklistSection'
 
 interface PrintReportChecklistProps {
-  items: { text: string; checked: boolean }[]
+  items: { text: string; checked?: boolean }[]
   title?: string
   number?: string
 }

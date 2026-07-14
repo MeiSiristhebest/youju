@@ -23,8 +23,8 @@ export function AlignedVersionArea() {
           </div>
         </div>
       ) : (
-        <div className="text-center py-16 px-4">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
+        <div className="flex flex-col items-center justify-center text-center py-16 px-4">
+          <div className="w-16 h-16 mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
             <FileCheck size={28} strokeWidth={1.5} />
           </div>
           <p className="text-sm font-medium text-ink mb-1">暂无统一版本</p>

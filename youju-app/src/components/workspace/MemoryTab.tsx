@@ -148,8 +148,8 @@ export function MemoryTab() {
 
       {/* 错误提示 */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-[11px] text-red-700">{error}</p>
+        <div className="bg-danger-bg border border-danger/20 rounded-lg p-3">
+          <p className="text-[11px] text-danger">{error}</p>
         </div>
       )}
 
@@ -195,7 +195,7 @@ export function MemoryTab() {
                     'shrink-0 w-7 h-7 grid place-items-center rounded-md transition-colors',
                     deletingId === memory.id
                       ? 'text-ink-faint cursor-not-allowed'
-                      : 'text-ink-faint hover:text-red-600 hover:bg-red-50 cursor-pointer',
+                      : 'text-ink-faint hover:text-danger hover:bg-danger-bg cursor-pointer',
                   )}
                 >
                   {deletingId === memory.id ? (

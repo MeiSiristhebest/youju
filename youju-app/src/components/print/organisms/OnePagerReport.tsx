@@ -20,6 +20,7 @@ export function OnePagerReport({
   const r = result
   const now = new Date()
   const topRisks = r.risks.slice(0, 5)
+  const scenarioType = r.scenario?.type
 
   const metaItems = [
     now.toLocaleDateString('zh-CN'),
@@ -75,7 +76,13 @@ export function OnePagerReport({
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8pt' }}>
               {topRisks.map((risk, i) => (
-                <PrintRiskCard key={risk.id} risk={risk} index={i} compact />
+                <PrintRiskCard
+                  key={risk.id}
+                  risk={risk}
+                  index={i}
+                  compact
+                  scenarioType={scenarioType}
+                />
               ))}
             </div>
           </div>

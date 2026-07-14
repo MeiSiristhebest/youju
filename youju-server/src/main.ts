@@ -1,6 +1,6 @@
 import { bootstrap, shutdown } from './app.js'
 import { driver } from './data/db.js'
-import { getEnv } from './infrastructure/env.js'
+import { getEnv, isMockMode } from './infrastructure/env.js'
 import { logger } from './infrastructure/logger.js'
 
 async function main() {
@@ -9,7 +9,10 @@ async function main() {
   const PORT = getEnv().PORT
   const server = app.listen(PORT, () => {
     logger.info(`有据 后端服务启动: http://localhost:${PORT}`)
-    logger.info(`AI API Key: ${getEnv().AI_API_KEY ? '已配置' : '未配置 (将使用 Mock 模式)'}`)
+    logger.info(
+      `AI 配置优先级: 前端请求体 aiConfig (localStorage) > 环境变量 (当前环境变量: ${isMockMode() ? '未配置或为 mock' : '已配置'})`,
+    )
+    logger.info('AI 模型配置保存在前端 localStorage (youju-model-configs)，分析时由前端实时传入')
     logger.info('数据库: SQLite (youju.db)')
     logger.info('架构: 分层架构 (Presentation → Domain → Data → AI)')
     logger.info('端口注入: AIAnalysisPort → AnalysisAdapter, AIDraftPort → DraftAdapter')

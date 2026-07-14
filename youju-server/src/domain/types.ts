@@ -6,6 +6,13 @@ export type ModelProvider =
   | 'zhipu'
   | 'moonshot'
   | 'qwen'
+  | 'volcengine'
+  | 'qianfan'
+  | 'yi'
+  | 'spark'
+  | 'openrouter'
+  | 'agnes'
+  | 'gemini'
   | 'custom'
 
 /**
@@ -33,6 +40,7 @@ export interface UserModelConfig {
   baseURL: string
   model: string
   modelMappings: ModelMapping[]
+  configType: string
   isDefault: boolean
   createdAt: string
   updatedAt: string
@@ -44,13 +52,18 @@ export interface Source {
   name: string
   content: string
   meta?: string
+  createdAt?: string
+  charCount?: number
+  taskId?: string
 }
 
 export interface Evidence {
   sourceName: string
   sourceType: string
+  sourceId?: string
   quote: string
   confidence: number
+  highlightedText?: string
 }
 
 export type RiskType = 'conflict' | 'promise' | 'missing' | 'info'
@@ -93,15 +106,40 @@ export interface RiskRelations {
   associations: RiskAssociation[]
   relatedRiskIds: { [riskId: string]: string[] }
   conflictPairs: { risk1Id: string; risk2Id: string; reason: string }[]
+  validationResults?: ValidationResult[]
+}
+
+export interface ValidationResult {
+  riskId: string
+  isValid: boolean
+  evidenceCount: number
+  missingSources: string[]
+  conflicts: { dimension: string; conflictingSources: string[] }[]
+  confidence: number
+}
+
+export interface AnalysisDimension {
+  id: string
+  name: string
+  description?: string
+  weight: number
+  enabled: boolean
+  riskCount: number
+  isCustom: boolean
+  order: number
 }
 
 export interface ReasoningStep {
   step: string | number
+  stepId?: string
   title?: string
+  name?: string
   description?: string
-  details?: string
+  detail?: string
   result: string
   timestamp?: string
+  durationMs?: number
+  status?: string
 }
 
 export interface AnalyzeResult {
@@ -128,6 +166,7 @@ export interface AnalyzeResult {
   riskRelations?: RiskRelations
   reasoningTrace?: ReasoningStep[]
   uncertainties?: string[]
+  dimensions?: AnalysisDimension[]
   meta?: {
     durationMs?: number
     isMock?: boolean
@@ -232,7 +271,8 @@ export interface Share {
 export interface AnalysisLog {
   id: string
   logGroupId: string
-  version?: number
+  version: number
+  eventType?: string
   taskId: string | null
   userId: number | null
   sessionId: string | null
@@ -248,14 +288,19 @@ export interface AnalysisLog {
   rawOutput?: string | null
   tokenPrompt: number
   tokenCompletion: number
+  checkpointData?: unknown | null
+  feedback?: unknown | null
   createdAt: string
 }
 
 export interface ScenarioKnowledge {
+  id: string
+  scenarioType: string
   dimension: string
   riskType: string
   frequency: number
   avgConfidence: number
+  lastSeen?: string
 }
 
 export interface RiskWeightPreferences {
@@ -319,6 +364,10 @@ export interface AnalysisStep extends Record<string, unknown> {
   error: string | null
   startedAt: string | null
   completedAt: string | null
+  parentStepId?: string | null
+  eventType?: string
+  stepOrder: number
+  createdAt?: string
 }
 
 export interface StepEvent extends Record<string, unknown> {
@@ -348,6 +397,12 @@ export interface CostStats {
   totalTokenCompletion: number
   totalCost: number
   totalRequests: number
+  tokens?: {
+    total: number
+    prompt: number
+    completion: number
+  }
+  estimatedCost?: number
   byModel: Record<
     string,
     { tokenPrompt: number; tokenCompletion: number; cost: number; count: number }
@@ -405,6 +460,7 @@ export interface Conversation {
   id: string
   userId: string | null
   sessionId: string | null
+  taskId: string | null
   title: string
   scenarioType: string | null
   sourceIds: string[]

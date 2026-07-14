@@ -1,3 +1,4 @@
+import type { ModeCheckerPort } from '../ports/infrastructurePorts.js'
 import type {
   AnalysisLogRepository,
   AnalysisStepRepository,
@@ -66,6 +67,7 @@ export interface CreateAnalysisLogInput {
   sessionId: string | null
   scenarioType: string
   sourceCount: number
+  isDemo?: boolean
 }
 
 export class AnalysisResultPersister {
@@ -74,6 +76,7 @@ export class AnalysisResultPersister {
     private readonly analysisStepRepo: AnalysisStepRepository,
     private readonly taskResultRepo: TaskResultRepository,
     private readonly scenarioKnowledgeRepo: ScenarioKnowledgeRepository,
+    private readonly modeChecker: ModeCheckerPort,
   ) {}
 
   async createAnalysisLog(
@@ -88,7 +91,7 @@ export class AnalysisResultPersister {
       riskCount: 0,
       durationMs: 0,
       model: null,
-      isMock: !process.env.AI_API_KEY,
+      isMock: this.modeChecker.isMockMode(undefined, input.isDemo),
       status: 'running',
       errorMessage: null,
       reasoningTrace: null,

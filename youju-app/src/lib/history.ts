@@ -1,19 +1,14 @@
 import type { AnalyzeResult } from '../types'
 import type { HistorySnapshot, RiskDiffItem, RiskDiffResult } from '../types/history'
+import { jsonStorage, storage } from './storage'
 
-const STORAGE_KEY = 'youju_history_snapshots'
+const STORAGE_KEY = 'history_snapshots'
 const MAX_SNAPSHOTS = 20
 
 export const historyStorage = {
   getSnapshots(): HistorySnapshot[] {
-    try {
-      const data = localStorage.getItem(STORAGE_KEY)
-      if (!data) return []
-      const parsed = JSON.parse(data)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
+    const parsed = jsonStorage.getItem<HistorySnapshot[]>(STORAGE_KEY)
+    return Array.isArray(parsed) ? parsed : []
   },
 
   saveSnapshot(
@@ -29,13 +24,13 @@ export const historyStorage = {
     if (snapshots.length > MAX_SNAPSHOTS) {
       snapshots.length = MAX_SNAPSHOTS
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots))
+    jsonStorage.setItem(STORAGE_KEY, snapshots)
     return newSnapshot
   },
 
   deleteSnapshot(id: string): void {
     const snapshots = this.getSnapshots().filter((s) => s.id !== id)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots))
+    jsonStorage.setItem(STORAGE_KEY, snapshots)
   },
 
   getSnapshot(id: string): HistorySnapshot | null {
@@ -44,7 +39,7 @@ export const historyStorage = {
   },
 
   clearSnapshots(): void {
-    localStorage.removeItem(STORAGE_KEY)
+    storage.removeItem(STORAGE_KEY)
   },
 }
 

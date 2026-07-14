@@ -34,6 +34,7 @@ export type SendMessageCallbacks = ChatStreamCallbacks & {
 export interface CreateConversationInput {
   userId: number | null
   sessionId: string | null
+  taskId?: string
   title?: string
   scenarioType?: string
   sourceIds?: string[]
@@ -97,6 +98,15 @@ export class ChatService {
       ? await this.memoryService.retrieveMemoryContext(content, userId, sessionId)
       : ''
 
+    // 获取对话关联的素材ID，当用户未指定上下文范围时，使用对话绑定的素材
+    const tenantCtx = buildTenantCtx(userId, sessionId)
+    const conversation = await this.conversationRepo.findById(conversationId, tenantCtx)
+    const effectiveSourceIds = options.contextSourceIds?.length
+      ? options.contextSourceIds
+      : conversation?.sourceIds?.length
+        ? conversation.sourceIds
+        : undefined
+
     const result = await this.chatPort.chatStream(
       [...recentMessages, { role: 'user', content }],
       {
@@ -105,7 +115,7 @@ export class ChatService {
         conversationId,
         messageId: userMessage.id,
         scenarioType: options.scenarioType,
-        contextSourceIds: options.contextSourceIds,
+        contextSourceIds: effectiveSourceIds,
         aiConfig: options.aiConfig,
         abortSignal: options.abortSignal,
         injectionWarning,
@@ -233,6 +243,7 @@ export class ChatService {
     return this.conversationRepo.create({
       userId: input.userId !== null ? String(input.userId) : null,
       sessionId: input.sessionId,
+      taskId: input.taskId ?? null,
       title: input.title,
       scenarioType: input.scenarioType ?? null,
       sourceIds: input.sourceIds,
@@ -244,11 +255,13 @@ export class ChatService {
     userId: number | null,
     sessionId: string | null,
     pagination?: { limit?: number; offset?: number },
+    filters?: { taskId?: string; scenarioType?: string },
   ): Promise<Conversation[]> {
     return this.conversationRepo.list(
       userId !== null ? String(userId) : null,
       sessionId,
       pagination,
+      filters,
     )
   }
 

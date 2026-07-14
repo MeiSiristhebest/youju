@@ -1,4 +1,5 @@
 import { AlertTriangle, Home, Keyboard, Loader2, Play, Share2 } from 'lucide-react'
+import { useEffect } from 'react'
 import { useTranslation } from '../../i18n'
 import type { AnalysisLogEntry, AnalysisTaskStatus } from '../../stores/useAnalysisStore'
 import type { AnalyzeResult, Scenario, Source } from '../../types'
@@ -58,10 +59,29 @@ export function WorkspaceTopBar({
   onPrintStyleChange,
 }: WorkspaceTopBarProps) {
   const { t } = useTranslation()
+
+  // 监听来自 WorkspaceTabs 的导出菜单打开事件
+  useEffect(() => {
+    const handleOpenExportMenu = () => {
+      if (onShowExportMenuChange) {
+        onShowExportMenuChange(true)
+      }
+    }
+    const handleReanalyze = () => {
+      onRetryAnalysis()
+    }
+    window.addEventListener('youju:open-export-menu', handleOpenExportMenu)
+    window.addEventListener('youju:reanalyze', handleReanalyze)
+    return () => {
+      window.removeEventListener('youju:open-export-menu', handleOpenExportMenu)
+      window.removeEventListener('youju:reanalyze', handleReanalyze)
+    }
+  }, [onShowExportMenuChange, onRetryAnalysis])
+
   return (
     <header className="h-14 bg-paper border-b border-rule flex items-center justify-between px-5 shrink-0">
       <div className="flex items-center gap-3 min-w-0">
-        <h1 className="text-lg font-medium text-ink truncate font-display tracking-tight">
+        <h1 className="text-base font-medium text-ink truncate font-display tracking-tight leading-tight">
           {scenario ? scenario.name : t('topbar.customAnalysis')}
         </h1>
         {scenario && (

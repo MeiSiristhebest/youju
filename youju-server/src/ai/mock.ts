@@ -74,17 +74,174 @@ function computeRiskRelations(risks: Risk[], sources: Source[]): RiskRelations {
     }
   }
 
-  return { associations, relatedRiskIds, conflictPairs }
+  const validationResults = risks.map((risk) => {
+    const evidenceCount = risk.evidence.length
+    const allSourceNames = sources.map((s) => s.name)
+    const evidenceSourceNames = risk.evidence.map((e) => e.sourceName)
+    const missingSources = allSourceNames.filter((s) => !evidenceSourceNames.includes(s))
+
+    const conflicts: { dimension: string; conflictingSources: string[] }[] = []
+    if (risk.type === 'conflict') {
+      const conflictSources = [...new Set(evidenceSourceNames)]
+      if (conflictSources.length > 1) {
+        conflicts.push({
+          dimension: risk.dimension,
+          conflictingSources: conflictSources,
+        })
+      }
+    }
+
+    const avgConfidence =
+      evidenceCount > 0
+        ? risk.evidence.reduce((sum, e) => sum + (e.confidence || 0), 0) / evidenceCount
+        : risk.confidence || 0
+
+    return {
+      riskId: risk.id,
+      isValid: evidenceCount > 0 && missingSources.length === 0,
+      evidenceCount,
+      missingSources,
+      conflicts,
+      confidence: Math.round(avgConfidence * 100) / 100,
+    }
+  })
+
+  return { associations, relatedRiskIds, conflictPairs, validationResults }
 }
 
-function categorizeEntities(_entities: ExtractedEntity[]) {
+function categorizeEntities(entities: ExtractedEntity[]) {
+  const DIMENSION_CATEGORIES: Record<string, 'dates' | 'amounts' | 'terms' | 'promises'> = {
+    salary: 'amounts',
+    compensation: 'amounts',
+    amount: 'amounts',
+    price: 'amounts',
+    deposit: 'amounts',
+    payment: 'amounts',
+    rent: 'amounts',
+    fee: 'amounts',
+    cost: 'amounts',
+    bonus: 'amounts',
+    date: 'dates',
+    deadline: 'dates',
+    duration: 'dates',
+    start_date: 'dates',
+    end_date: 'dates',
+    move_in: 'dates',
+    trial: 'terms',
+    probation: 'terms',
+    benefits: 'terms',
+    welfare: 'terms',
+    responsibilities: 'terms',
+    terms: 'terms',
+    conditions: 'terms',
+    location: 'terms',
+    liability: 'terms',
+    termination: 'terms',
+  }
+
   const result = {
     dates: [] as ExtractedEntity[],
     amounts: [] as ExtractedEntity[],
     terms: [] as ExtractedEntity[],
     promises: [] as ExtractedEntity[],
   }
+
+  for (const entity of entities) {
+    const dim = entity.dimension.toLowerCase()
+    let category: 'dates' | 'amounts' | 'terms' | 'promises' = 'terms'
+
+    for (const [key, cat] of Object.entries(DIMENSION_CATEGORIES)) {
+      if (dim.includes(key)) {
+        category = cat
+        break
+      }
+    }
+
+    result[category].push(entity)
+  }
+
   return result
+}
+
+function extractMockEntities(sources: Source[]): ExtractedEntity[] {
+  const entities: ExtractedEntity[] = []
+  const amountPatterns = [
+    { pattern: /(\d{2,3}[k千万万])/gi, dimension: 'amount', label: '金额' },
+    {
+      pattern: /(\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*元)/gi,
+      dimension: 'amount_cny',
+      label: '人民币金额',
+    },
+    { pattern: /(\d+)\s*个月/gi, dimension: 'duration_months', label: '月数' },
+  ]
+
+  for (const source of sources) {
+    for (const { pattern, dimension } of amountPatterns) {
+      const matches = source.content.match(pattern)
+      if (matches) {
+        for (const match of matches.slice(0, 2)) {
+          entities.push({
+            dimension,
+            value: match,
+            evidence: {
+              sourceName: source.name,
+              sourceType: source.type,
+              sourceId: source.id,
+              quote: source.content.substring(0, 80),
+              confidence: 0.85,
+            },
+          })
+        }
+      }
+    }
+  }
+
+  const promiseKeywords = ['调薪', '年终奖', '包水', '包电', '报销', '补贴', '养宠']
+  for (const keyword of promiseKeywords) {
+    const matchedSources = sources.filter((s) => s.content.includes(keyword))
+    for (const source of matchedSources.slice(0, 2)) {
+      entities.push({
+        dimension: `promise_${keyword}`,
+        value: keyword,
+        evidence: {
+          sourceName: source.name,
+          sourceType: source.type,
+          sourceId: source.id,
+          quote: source.content.substring(0, 80),
+          confidence: 0.8,
+        },
+      })
+    }
+  }
+
+  return entities
+}
+
+function buildMockSummary(risks: Risk[], sources: Source[]): string {
+  const critical = risks.filter((r) => r.level === 'critical').length
+  const warning = risks.filter((r) => r.level === 'warning').length
+  const info = risks.filter((r) => r.level === 'info').length
+
+  if (risks.length === 0) {
+    return `共分析 ${sources.length} 份材料，未发现明显风险或信息不一致。建议结合实际情况进一步确认关键条款。`
+  }
+
+  const riskTitles = risks
+    .slice(0, 3)
+    .map((r) => r.title)
+    .join('、')
+  let levelDesc = ''
+  if (critical > 0) {
+    levelDesc = `${critical} 处严重风险`
+  }
+  if (warning > 0) {
+    levelDesc += levelDesc ? `，${warning} 处警告` : `${warning} 处警告`
+  }
+  if (info > 0) {
+    levelDesc += levelDesc ? `，${info} 处提示` : `${info} 处提示`
+  }
+
+  return `发现 ${risks.length} 处潜在风险（${levelDesc}）。主要问题：${riskTitles}。建议逐项确认并争取书面补充约定。`
 }
 
 export function mockAnalyze(sources: Source[]): AnalyzeResult {
@@ -109,6 +266,7 @@ export function mockAnalyze(sources: Source[]): AnalyzeResult {
         evidence: matchedSources.slice(0, 2).map((s) => ({
           sourceName: s.name,
           sourceType: s.type,
+          sourceId: s.id,
           quote: s.content.substring(0, 80),
           confidence: 0.7,
         })),
@@ -139,6 +297,7 @@ export function mockAnalyze(sources: Source[]): AnalyzeResult {
         evidence: mentionedInformal.slice(0, 1).map((s) => ({
           sourceName: s.name,
           sourceType: s.type,
+          sourceId: s.id,
           quote: s.content.substring(0, 80),
           confidence: 0.8,
         })),
@@ -150,14 +309,21 @@ export function mockAnalyze(sources: Source[]): AnalyzeResult {
   const warning = risks.filter((r) => r.level === 'warning').length
   const info = risks.filter((r) => r.level === 'info').length
 
+  const extractedEntitiesRaw = extractMockEntities(sources)
+  const extractedEntities = categorizeEntities(extractedEntitiesRaw)
   const riskRelations = computeRiskRelations(risks, sources)
+  const summaryText = buildMockSummary(risks, sources)
+
+  const allDimensions = [
+    ...new Set([...extractedEntitiesRaw.map((e) => e.dimension), ...risks.map((r) => r.dimension)]),
+  ]
 
   return {
     summary: { critical, warning, info, total: risks.length },
     scenario: {
       type: 'mock_analysis',
       description: 'Mock 模式 - 基于规则匹配的简易分析',
-      keyDimensions: ['amount', 'promises'],
+      keyDimensions: allDimensions,
     },
     risks,
     checklist: risks
@@ -168,16 +334,72 @@ export function mockAnalyze(sources: Source[]): AnalyzeResult {
         hasDraft: true,
       })),
     alignedVersion: '【Mock 模式】请配置 AI_API_KEY 启用真实 AI 分析，获得更准确的结果。',
-    extractedEntities: categorizeEntities([]),
+    extractedEntities,
     riskRelations,
     reasoningTrace: [
-      { step: 'SCENARIO_DISCOVERY', result: 'Mock 模式，跳过场景识别' },
-      { step: 'DIMENSION_DISCOVERY', result: '基于关键词规则提取维度' },
-      { step: 'CROSS_SOURCE_EXTRACTION', result: `解析 ${sources.length} 份材料` },
-      { step: 'DISCREPANCY_DETECTION', result: `发现 ${risks.length} 个风险点` },
-      { step: 'EVIDENCE_VALIDATION', result: '规则匹配，置信度中等' },
-      { step: 'SELF_CHECK', result: '已通过基本校验' },
-      { step: 'FINAL_OUTPUT', result: '完成 Mock 分析' },
+      {
+        step: 'SCENARIO_DISCOVERY',
+        stepId: 'step-scenario-discovery',
+        title: '场景识别与理解',
+        description: '分析材料内容，识别场景类型和核心议题',
+        result: 'Mock 模式，基于材料类型推断场景',
+        detail: `输入 ${sources.length} 份材料，类型包括 ${[...new Set(sources.map((s) => s.type))].join('、')}。根据材料特征推断为通用信息对齐分析场景。`,
+        status: 'completed',
+      },
+      {
+        step: 'INPUT_PARSING',
+        stepId: 'step-input-parsing',
+        title: '多材料结构化解析',
+        description: '逐份解析材料内容，提取结构化信息',
+        result: `${sources.length} 份材料解析完成`,
+        detail: `共 ${sources.length} 份材料，总字符数 ${sources.reduce((acc, s) => acc + s.content.length, 0)}。正式文件 ${formalSources.length} 份，非正式材料 ${informalSources.length} 份。`,
+        status: 'completed',
+      },
+      {
+        step: 'DIMENSION_DISCOVERY',
+        stepId: 'step-dimension-discovery',
+        title: '分析维度发现与归纳',
+        description: '从材料中发现需要重点比对的分析维度',
+        result: `发现 ${allDimensions.length} 个关键维度`,
+        detail: `从金额、承诺、时间等维度提取了 ${allDimensions.length} 个关键维度：${allDimensions.slice(0, 5).join('、')}${allDimensions.length > 5 ? ' 等' : ''}。`,
+        status: 'completed',
+      },
+      {
+        step: 'CROSS_SOURCE_EXTRACTION',
+        stepId: 'step-cross-source-extraction',
+        title: '跨源要素提取',
+        description: '按维度从各材料中提取对应的要素值',
+        result: `提取 ${extractedEntitiesRaw.length} 条实体数据`,
+        detail: `跨来源对比提取了 ${extractedEntitiesRaw.length} 条实体，分布在 ${Object.keys(extractedEntities).filter((k) => extractedEntities[k as keyof typeof extractedEntities].length > 0).length} 个类别中。`,
+        status: 'completed',
+      },
+      {
+        step: 'DISCREPANCY_DETECTION',
+        stepId: 'step-discrepancy-detection',
+        title: '冲突与差异检测',
+        description: '交叉比对各材料，识别不一致、冲突和潜在风险',
+        result: `发现 ${risks.length} 个风险点`,
+        detail: `共检测到 ${risks.length} 处风险：conflict 类型 ${risks.filter((r) => r.type === 'conflict').length} 个，promise 类型 ${risks.filter((r) => r.type === 'promise').length} 个，missing 类型 ${risks.filter((r) => r.type === 'missing').length} 个。`,
+        status: 'completed',
+      },
+      {
+        step: 'SELF_CHECK',
+        stepId: 'step-self-check',
+        title: '证据链校验与自我验证',
+        description: '验证每项结论的证据支撑，生成检查清单和共识版本',
+        result: '已完成风险质量审查',
+        detail: `审查了 ${risks.length} 条候选风险：所有风险均有至少 1 条证据支撑，置信度均 ≥ 0.7，符合质量闸门要求。审查前后数量一致，无误报需移除。`,
+        status: 'completed',
+      },
+      {
+        step: 'FINAL_OUTPUT',
+        stepId: 'step-final-output',
+        title: '最终报告组装与输出',
+        description: '汇总前序步骤结果，生成结构化分析报告',
+        result: '完成 Mock 分析',
+        detail: `格式校验通过，schema 合规。最终输出 ${risks.length} 条风险、${allDimensions.length} 个维度、${extractedEntitiesRaw.length} 条提取实体。`,
+        status: 'completed',
+      },
     ],
     uncertainties: [
       '当前为 Mock 模式，分析结果基于关键词规则匹配，可能不准确。配置 AI_API_KEY 启用真实 AI 分析。',
@@ -187,14 +409,7 @@ export function mockAnalyze(sources: Source[]): AnalyzeResult {
       tokenPrompt: 0,
       tokenCompletion: 0,
       tokenTotal: 0,
-      rawOutput: JSON.stringify(
-        {
-          risks,
-          checklist: risks.filter((r) => r.level !== 'info').map((r) => ({ text: r.title })),
-        },
-        null,
-        2,
-      ),
+      rawOutput: summaryText,
       systemPromptPreview: 'Mock 模式：基于关键词规则的简易分析引擎，无系统提示词',
       userPromptPreview: `Mock 模式输入：${sources.length} 份材料，${sources.reduce((acc, s) => acc + s.content.length, 0)} 字符`,
       isMock: true,
@@ -339,13 +554,24 @@ export function generateMockStepData(sources: Source[]): MockStepData {
     reasoning: '基于关键词规则提取维度',
   }
 
-  const entities: ExtractedEntity[] = []
+  const allEntities = [
+    ...fullResult.extractedEntities.dates,
+    ...fullResult.extractedEntities.amounts,
+    ...fullResult.extractedEntities.terms,
+    ...fullResult.extractedEntities.promises,
+  ]
   const byDimension: Record<string, ExtractedEntity[]> = {}
+  for (const entity of allEntities) {
+    if (!byDimension[entity.dimension]) {
+      byDimension[entity.dimension] = []
+    }
+    byDimension[entity.dimension].push(entity)
+  }
 
   const extractionData = {
-    entities,
+    entities: allEntities,
     byDimension,
-    totalExtracted: entities.length,
+    totalExtracted: allEntities.length,
     reasoning: `解析 ${sources.length} 份材料`,
   }
 
@@ -392,6 +618,8 @@ export function generateMockStepData(sources: Source[]): MockStepData {
     risks,
     checks,
     allPassed: checks.hasEvidence === checks.totalRisks,
+    checklist: fullResult.checklist.map((c) => ({ text: c.text })),
+    aligned_version: fullResult.alignedVersion,
     uncertainties: fullResult.uncertainties || [],
     reasoning: '已通过基本校验',
   }
@@ -415,6 +643,12 @@ export function generateMockStepData(sources: Source[]): MockStepData {
 
 export function mockRawOutput(sources: Source[]): AIRawOutput {
   const result = mockAnalyze(sources)
+  const allEntities = [
+    ...result.extractedEntities.dates,
+    ...result.extractedEntities.amounts,
+    ...result.extractedEntities.terms,
+    ...result.extractedEntities.promises,
+  ]
   return {
     task_type: 'information_alignment_analysis',
     summary: result.debugInfo?.rawOutput || '',
@@ -425,7 +659,17 @@ export function mockRawOutput(sources: Source[]): AIRawOutput {
           key_dimensions: result.scenario.keyDimensions,
         }
       : undefined,
-    extracted_entities: [],
+    extracted_entities: allEntities.map((e) => ({
+      dimension: e.dimension,
+      value: e.value,
+      evidence: {
+        sourceName: e.evidence.sourceName,
+        sourceType: e.evidence.sourceType,
+        sourceId: e.evidence.sourceId,
+        quote: e.evidence.quote,
+        confidence: e.evidence.confidence,
+      },
+    })),
     risks: result.risks.map((r) => ({
       dimension: r.dimension,
       type: r.type,
@@ -435,13 +679,18 @@ export function mockRawOutput(sources: Source[]): AIRawOutput {
       evidence: r.evidence.map((e) => ({
         sourceName: e.sourceName,
         sourceType: e.sourceType,
+        sourceId: e.sourceId,
         quote: e.quote,
         confidence: e.confidence,
       })),
     })),
     checklist: result.checklist.map((c) => ({ text: c.text })),
     aligned_version: result.alignedVersion,
-    reasoning_trace: result.reasoningTrace || [],
+    reasoning_trace: (result.reasoningTrace || []).map((r) => ({
+      step: r.step,
+      result: r.result,
+      detail: r.detail,
+    })),
     uncertainties: result.uncertainties || [],
   }
 }

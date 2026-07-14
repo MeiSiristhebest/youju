@@ -1,16 +1,17 @@
 import { decodeJwt } from 'jose'
+import {
+  API_BASE_URL,
+  API_RETRIES,
+  API_RETRY_DELAY,
+  API_TIMEOUT,
+  TOKEN_REFRESH_THRESHOLD,
+} from '../config/runtime'
+import { jsonStorage, storage, storageKeys } from '../lib/storage'
 import { useApiLogsStore } from '../stores'
 import type { ApiResponse, User } from '../types'
 import { ApiError, ErrorCode, getErrorCodeFromStatus } from './errorHandler'
 
-const DEFAULT_TIMEOUT = 30000
-const DEFAULT_RETRIES = 2
-const RETRY_DELAY = 1000
-const REFRESH_THRESHOLD = 5 * 60 * 1000
-
 const isDev = import.meta.env.DEV
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 
 const buildUrl = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -23,25 +24,24 @@ const buildUrl = (path: string): string => {
 }
 
 const getSessionId = () => {
-  let sessionId = localStorage.getItem('youju_session_id')
+  let sessionId = storage.getItem(storageKeys.sessionId)
   if (!sessionId) {
     sessionId = `anon_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-    localStorage.setItem('youju_session_id', sessionId)
+    storage.setItem(storageKeys.sessionId, sessionId)
   }
   return sessionId
 }
 
 const getToken = () => {
-  return localStorage.getItem('youju_token')
+  return storage.getItem(storageKeys.token)
 }
 
 const getRefreshToken = () => {
-  return localStorage.getItem('youju_refresh_token')
+  return storage.getItem(storageKeys.refreshToken)
 }
 
 const getUser = (): User | null => {
-  const userStr = localStorage.getItem('youju_user')
-  return userStr ? JSON.parse(userStr) : null
+  return jsonStorage.getItem<User>(storageKeys.user)
 }
 
 const parseJwt = (token: string): Record<string, unknown> | null => {
@@ -63,7 +63,7 @@ const getTokenExpiration = (token: string): number | null => {
 const isTokenExpiring = (token: string): boolean => {
   const expiration = getTokenExpiration(token)
   if (!expiration) return false
-  return expiration - Date.now() < REFRESH_THRESHOLD
+  return expiration - Date.now() < TOKEN_REFRESH_THRESHOLD
 }
 
 let refreshPromise: Promise<string | null> | null = null
@@ -158,8 +158,8 @@ export const apiClient = {
     options: RequestInit & { retries?: number; timeout?: number; signal?: AbortSignal | null } = {},
   ): Promise<T> {
     const {
-      retries = DEFAULT_RETRIES,
-      timeout = DEFAULT_TIMEOUT,
+      retries = API_RETRIES,
+      timeout = API_TIMEOUT,
       signal: externalSignal,
       ...fetchOptions
     } = options
@@ -215,7 +215,7 @@ export const apiClient = {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       if (attempt > 0) {
-        await sleep(RETRY_DELAY * 2 ** (attempt - 1))
+        await sleep(API_RETRY_DELAY * 2 ** (attempt - 1))
       }
 
       try {
@@ -406,23 +406,23 @@ export const authStorage = {
   getUser,
   setToken(token: string | null) {
     if (token) {
-      localStorage.setItem('youju_token', token)
+      storage.setItem(storageKeys.token, token)
     } else {
-      localStorage.removeItem('youju_token')
+      storage.removeItem(storageKeys.token)
     }
   },
   setRefreshToken(refreshToken: string | null) {
     if (refreshToken) {
-      localStorage.setItem('youju_refresh_token', refreshToken)
+      storage.setItem(storageKeys.refreshToken, refreshToken)
     } else {
-      localStorage.removeItem('youju_refresh_token')
+      storage.removeItem(storageKeys.refreshToken)
     }
   },
   setUser(user: User | null) {
     if (user) {
-      localStorage.setItem('youju_user', JSON.stringify(user))
+      jsonStorage.setItem(storageKeys.user, user)
     } else {
-      localStorage.removeItem('youju_user')
+      storage.removeItem(storageKeys.user)
     }
   },
   getSessionId,

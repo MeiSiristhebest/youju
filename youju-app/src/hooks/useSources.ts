@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { fileParser } from '../algorithms/fileParser'
 import { useToast } from '../components/common/Toast'
 import { DEMO_SOURCES } from '../constants/demoData'
 import { isDemoScenario } from '../services/demoAnalysisStream'
+import { analyzeIntent } from '../services/intentAnalysis'
 import { sourceApi } from '../services/sourceApi'
 import { useAnalysisStore, useSourceStore } from '../stores'
 import type { ParsedSource, ScenarioType, Source, SourceType } from '../types'
@@ -35,6 +37,7 @@ export const useSources = () => {
   const currentScenario = useSourceStore((s) => s.currentScenario)
   const isDemo = useSourceStore((s) => s.isDemo)
   const editingSourceId = useSourceStore((s) => s.editingSourceId)
+  const currentTaskId = useSourceStore((s) => s.currentTaskId)
 
   // Actions（引用稳定，不会引发重渲染）
   const setSourcesStore = useSourceStore((s) => s.setSources)
@@ -60,30 +63,82 @@ export const useSources = () => {
 
   const resetAnalysis = useAnalysisStore((s) => s.resetAnalysis)
 
+  const intentAnalysis = useSourceStore((s) => s.intentAnalysis)
+  const setAnalyzingIntent = useSourceStore((s) => s.setAnalyzingIntent)
+  const setIntentAnalysis = useSourceStore((s) => s.setIntentAnalysis)
+  const setScenarioDescription = useSourceStore((s) => s.setScenarioDescription)
+  const currentTaskTitle = useSourceStore((s) => s.currentTaskTitle)
+  const setCurrentTaskTitle = useSourceStore((s) => s.setCurrentTaskTitle)
+
+  useEffect(() => {
+    if (isDemo) return
+    if (sources.length === 0) return
+
+    const hasNewContent = sources.some((s) => {
+      const createdAt = s.createdAt
+      if (typeof createdAt === 'number') {
+        return createdAt > Date.now() - 60000
+      }
+      if (typeof createdAt === 'string') {
+        const parsed = Date.parse(createdAt)
+        return !isNaN(parsed) && parsed > Date.now() - 60000
+      }
+      return false
+    })
+
+    if (!hasNewContent && intentAnalysis) return
+
+    const autoAnalyzeIntent = async () => {
+      if (sources.length === 0) return
+
+      setAnalyzingIntent(true)
+      setIntentAnalysis(null)
+
+      try {
+        const allContent = sources.map((s) => `${s.name}: ${s.content.slice(0, 500)}`).join('\n\n')
+        const result = await analyzeIntent(allContent)
+        setIntentAnalysis(result)
+        setScenarioDescription(allContent)
+
+        if (!currentTaskTitle || currentTaskTitle === '未命名分析') {
+          const newTitle = result.scenarioType || '未命名分析'
+          setCurrentTaskTitle(newTitle)
+        }
+      } catch (error) {
+        console.error('Auto intent analysis failed:', error)
+      } finally {
+        setAnalyzingIntent(false)
+      }
+    }
+
+    const debounceTimer = setTimeout(autoAnalyzeIntent, 500)
+    return () => clearTimeout(debounceTimer)
+  }, [sources.length, sources.map((s) => s.id).join(',')])
+
   const sourcesQuery = useQuery({
-    queryKey: ['sources'],
+    queryKey: ['sources', currentTaskId],
     queryFn: async () => {
       try {
-        const fetchedSources = await sourceApi.listSources()
+        const fetchedSources = await sourceApi.listSources(currentTaskId ?? undefined)
         setSourcesStore(fetchedSources)
         return fetchedSources
       } catch {
         return []
       }
     },
-    enabled: !isDemo,
+    enabled: !isDemo && !!currentTaskId,
     retry: false,
     refetchOnWindowFocus: false,
   })
 
   const addTextSourceMutation = useMutation({
     mutationFn: (params: { type: SourceType; name: string; content: string }) =>
-      sourceApi.addTextSource(params),
+      sourceApi.addTextSource({ ...params, taskId: currentTaskId ?? undefined }),
     onMutate: () => {
       setUploading(true)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['sources', currentTaskId] })
       setShowAddSource(false)
       resetNewSourceForm()
     },
@@ -94,12 +149,12 @@ export const useSources = () => {
 
   const uploadFileMutation = useMutation({
     mutationFn: (params: { file: File; type: SourceType; name?: string }) =>
-      sourceApi.uploadFile(params.file, params.type, params.name),
+      sourceApi.uploadFile(params.file, params.type, params.name, currentTaskId ?? undefined),
     onMutate: () => {
       setUploading(true)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['sources', currentTaskId] })
       setShowAddSource(false)
       resetNewSourceForm()
     },
@@ -110,12 +165,12 @@ export const useSources = () => {
 
   const addUrlSourceMutation = useMutation({
     mutationFn: (params: { url: string; type: SourceType; name?: string }) =>
-      sourceApi.addUrlSource(params),
+      sourceApi.addUrlSource({ ...params, taskId: currentTaskId ?? undefined }),
     onMutate: () => {
       setUploading(true)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['sources', currentTaskId] })
       setShowAddSource(false)
       resetNewSourceForm()
     },
@@ -130,7 +185,7 @@ export const useSources = () => {
       setDeletingId(id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['sources', currentTaskId] })
       resetAnalysis()
     },
     onSettled: () => {
@@ -149,7 +204,7 @@ export const useSources = () => {
     undo: (source) => {
       const addSource = useSourceStore.getState().addSource
       addSource(source)
-      queryClient.setQueryData<Source[]>(['sources'], (prev) => {
+      queryClient.setQueryData<Source[]>(['sources', currentTaskId], (prev) => {
         if (!prev) return [source]
         return [...prev, source]
       })
@@ -166,7 +221,7 @@ export const useSources = () => {
     const removeSource = useSourceStore.getState().removeSource
     removeSource(sourceId)
 
-    queryClient.setQueryData<Source[]>(['sources'], (prev) => {
+    queryClient.setQueryData<Source[]>(['sources', currentTaskId], (prev) => {
       if (!prev) return []
       return prev.filter((s) => s.id !== sourceId)
     })
@@ -201,7 +256,7 @@ export const useSources = () => {
   const initScenarioMutation = useMutation({
     mutationFn: (scenarioId: ScenarioType) => sourceApi.initScenario(scenarioId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['sources', currentTaskId] })
     },
     onError: () => {
       showToast('场景初始化失败，请重试', 'error')
@@ -214,8 +269,29 @@ export const useSources = () => {
 
     if (isDemoScenario(scenarioId)) {
       const demoSources = DEMO_SOURCES[scenarioId as keyof typeof DEMO_SOURCES] || []
-      setSourcesStore([...demoSources])
       useSourceStore.getState().setIsDemo(true)
+
+      const currentTaskId = useSourceStore.getState().currentTaskId
+      if (currentTaskId) {
+        const savedSources: Source[] = []
+        for (const demoSource of demoSources) {
+          try {
+            const saved = await sourceApi.addTextSource({
+              type: demoSource.type as SourceType,
+              name: demoSource.name,
+              content: demoSource.content,
+              taskId: currentTaskId,
+            })
+            savedSources.push(saved)
+          } catch (e) {
+            console.error('Failed to save demo source:', e)
+            savedSources.push(demoSource)
+          }
+        }
+        setSourcesStore(savedSources)
+      } else {
+        setSourcesStore([...demoSources])
+      }
       return
     }
 

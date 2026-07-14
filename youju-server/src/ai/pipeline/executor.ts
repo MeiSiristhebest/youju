@@ -1,5 +1,3 @@
-import type { ValidatingAICaller } from '../../domain/ports/aiCallPort.js'
-import { defaultAICaller } from '../adapters/aiCallAdapter.js'
 import { CURRENT_PROMPT_VERSION } from '../prompts/index.js'
 import type {
   PipelineCallbacks,
@@ -18,16 +16,10 @@ export class PipelineExecutor {
   private initialInput: Omit<StepInput, 'previousOutputs'> | null = null
   private initialPreviousOutputs: Record<string, unknown> = {}
   private pauseRequested = false
-  private aiCaller: ValidatingAICaller
 
-  constructor(
-    stepDefinitions: PipelineStepDefinition[],
-    callbacks: PipelineCallbacks = {},
-    aiCaller?: ValidatingAICaller,
-  ) {
+  constructor(stepDefinitions: PipelineStepDefinition[], callbacks: PipelineCallbacks = {}) {
     this.stepDefinitions = stepDefinitions
     this.callbacks = callbacks
-    this.aiCaller = aiCaller || defaultAICaller
     this.state = this.createInitialState()
   }
 
@@ -140,6 +132,7 @@ export class PipelineExecutor {
       this.state.completedAt = new Date().toISOString()
       this.state.error = (error as Error).message
       this.callbacks.onError?.(this.getState(), error as Error)
+      throw error
     }
 
     return this.getState()
@@ -171,8 +164,8 @@ export class PipelineExecutor {
         scenarioType: this.initialInput.scenarioType,
         scenarioKnowledge: this.initialInput.scenarioKnowledge,
         aiConfig: this.initialInput.aiConfig,
+        isDemo: this.initialInput.isDemo,
         previousOutputs: { ...this.initialPreviousOutputs, ...this.getCompletedStepOutputs() },
-        aiCaller: this.aiCaller,
       }
 
       stepState.input = stepInput

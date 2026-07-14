@@ -14,10 +14,10 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.5",
     "@ai-sdk/deepseek": "^3.0.3",
+    "@ai-sdk/google": "^4.0.12",
     "@ai-sdk/openai": "^4.0.5",
     "@neondatabase/serverless": "^1.1.0",
     "ai": "^7.0.11",
-    "better-sqlite3": "^12.11.1",
     "cheerio": "^1.0.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
@@ -30,6 +30,9 @@
     "supertest": "^7.2.2",
     "unpdf": "^1.6.2",
     "zod": "^4.4.3"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^12.11.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

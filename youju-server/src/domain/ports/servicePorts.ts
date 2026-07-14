@@ -1,9 +1,19 @@
-import type { AnalyzeResult, IncrementalChange, ScenarioKnowledge, Source } from '../types.js'
+import type {
+  AIConfig,
+  AnalyzeResult,
+  IncrementalChange,
+  Risk,
+  RiskWeightPreferences,
+  ScenarioKnowledge,
+  Source,
+} from '../types.js'
 
 export interface IncrementalAnalysisOptions {
   userId?: number | null
   sessionId?: string | null
   analysisLogId?: string | null
+  isDemo?: boolean
+  aiConfig?: AIConfig
 }
 
 export interface DiffAnalysisResult {
@@ -25,6 +35,14 @@ export interface IncrementalAnalysisPort {
     scenarioKnowledge: ScenarioKnowledge[],
     options?: IncrementalAnalysisOptions,
   ): Promise<DiffAnalysisResult>
+}
+
+export interface RiskPreferencePort {
+  getUserRiskWeights(
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<RiskWeightPreferences>
+  sortRisksByPreference<T extends Risk>(risks: T[], weights: RiskWeightPreferences): T[]
 }
 
 export interface AnalysisCheckpointPort {

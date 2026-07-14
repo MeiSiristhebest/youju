@@ -16,14 +16,26 @@ export class SourceService {
     name: string,
     content: string,
     meta?: string,
+    taskId?: string | null,
   ): Promise<Source> {
-    const result = await this.sourceRepo.createSource(userId, sessionId, type, name, content, meta)
+    const result = await this.sourceRepo.createSource(
+      userId,
+      sessionId,
+      type,
+      name,
+      content,
+      meta,
+      taskId,
+    )
     const source: Source = {
       id: result.id,
       type: result.type as SourceType,
       name: result.name,
       content: result.content,
       meta: result.meta || undefined,
+      createdAt: result.createdAt || new Date().toISOString(),
+      charCount: result.content?.length || 0,
+      taskId: (result as unknown as { taskId?: string | null }).taskId || undefined,
     }
 
     if (this.chunkService) {
@@ -40,14 +52,49 @@ export class SourceService {
     return source
   }
 
-  async listSources(userId: number | null, sessionId?: string | null): Promise<Source[]> {
-    const sources = await this.sourceRepo.getSourcesByUser(userId, sessionId)
+  async listSources(
+    userId: number | null,
+    sessionId?: string | null,
+    taskId?: string | null,
+  ): Promise<Source[]> {
+    const sources = await this.sourceRepo.getSourcesByUser(userId, sessionId, taskId)
     return sources.map((s) => ({
       id: s.id,
       type: s.type as SourceType,
       name: s.name,
       content: s.content,
       meta: s.meta || undefined,
+      createdAt: s.createdAt || undefined,
+      charCount: s.content?.length || 0,
+      taskId: (s as unknown as { taskId?: string | null }).taskId || undefined,
+    }))
+  }
+
+  async listSourcesByTask(taskId: string): Promise<Source[]> {
+    const sources = await this.sourceRepo.getSourcesByTask(taskId)
+    return sources.map((s) => ({
+      id: s.id,
+      type: s.type as SourceType,
+      name: s.name,
+      content: s.content,
+      meta: s.meta || undefined,
+      createdAt: s.createdAt || undefined,
+      charCount: s.content?.length || 0,
+      taskId: (s as unknown as { taskId?: string | null }).taskId || undefined,
+    }))
+  }
+
+  async listAllSources(userId: number | null): Promise<Source[]> {
+    const sources = await this.sourceRepo.getAllSources(userId)
+    return sources.map((s) => ({
+      id: s.id,
+      type: s.type as SourceType,
+      name: s.name,
+      content: s.content,
+      meta: s.meta || undefined,
+      createdAt: s.createdAt || undefined,
+      charCount: s.content?.length || 0,
+      taskId: (s as unknown as { taskId?: string | null }).taskId || undefined,
     }))
   }
 
@@ -64,6 +111,9 @@ export class SourceService {
       name: source.name,
       content: source.content,
       meta: source.meta || undefined,
+      createdAt: source.createdAt || undefined,
+      charCount: source.content?.length || 0,
+      taskId: (source as unknown as { taskId?: string | null }).taskId || undefined,
     }
   }
 

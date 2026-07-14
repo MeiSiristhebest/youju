@@ -57,8 +57,8 @@ export function RiskTree({ onEvidenceClick }: RiskTreeProps) {
   })()
 
   return (
-    <>
-      <div className="px-4 py-3 border-b border-rule bg-paper/[0.02]">
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="px-4 py-3 border-b border-rule bg-paper/[0.02] shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
           {[
             { key: 'all', label: '全部', color: 'text-ink' },
@@ -93,10 +93,10 @@ export function RiskTree({ onEvidenceClick }: RiskTreeProps) {
           ))}
         </div>
       </div>
-      <div role="list" className="divide-y divide-rule overflow-y-auto flex-1">
+      <div role="list" className="divide-y divide-rule overflow-y-auto flex-1 flex flex-col">
         {displayedRisks.length === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
+          <div className="flex-1 flex flex-col items-center justify-center px-4">
+            <div className="w-16 h-16 mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
               <CheckCircle size={28} strokeWidth={1.5} />
             </div>
             <p className="text-sm font-medium text-ink mb-1">一切正常</p>
@@ -115,6 +115,6 @@ export function RiskTree({ onEvidenceClick }: RiskTreeProps) {
           ))
         )}
       </div>
-    </>
+    </div>
   )
 }

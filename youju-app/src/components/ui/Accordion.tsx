@@ -1,6 +1,5 @@
-import { useGSAP } from '@gsap/react'
 import { ChevronDown } from 'lucide-react'
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useRef, useState } from 'react'
 import { gsap } from '../../lib/gsap'
 import { cn } from '../../lib/utils'
 
@@ -32,55 +31,61 @@ export function Accordion({
   const contentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const iconRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
+  const animateItem = useCallback((id: string, isOpen: boolean) => {
+    const content = contentRefs.current.get(id)
+    const icon = iconRefs.current.get(id)
+    if (!content) return
+
+    if (isOpen) {
+      gsap.to(content, {
+        height: 'auto',
+        opacity: 1,
+        duration: 0.4,
+        ease: 'power2.out',
+        overwrite: true,
+      })
+      if (icon) {
+        gsap.to(icon, { rotate: 180, duration: 0.3, ease: 'power2.out', overwrite: true })
+      }
+    } else {
+      gsap.to(content, {
+        height: 0,
+        opacity: 0,
+        duration: 0.3,
+        ease: 'power2.in',
+        overwrite: true,
+      })
+      if (icon) {
+        gsap.to(icon, { rotate: 0, duration: 0.3, ease: 'power2.out', overwrite: true })
+      }
+    }
+  }, [])
+
   const toggle = (id: string) => {
     setOpenIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) {
+      const wasOpen = next.has(id)
+
+      if (wasOpen) {
         next.delete(id)
+        // 在 state 更新后异步执行关闭动画
+        requestAnimationFrame(() => animateItem(id, false))
       } else {
-        if (!multiple) next.clear()
+        if (!multiple) {
+          // 单开模式下，先关闭其他项
+          prev.forEach((openId) => {
+            animateItem(openId, false)
+          })
+          next.clear()
+        }
         next.add(id)
+        // 在 state 更新后异步执行打开动画
+        requestAnimationFrame(() => animateItem(id, true))
       }
+
       return next
     })
   }
-
-  useGSAP(
-    () => {
-      // 为每个 item 同步动画状态
-      items.forEach((item) => {
-        const content = contentRefs.current.get(item.id)
-        const icon = iconRefs.current.get(item.id)
-        if (!content) return
-
-        const isOpen = openIds.has(item.id)
-        if (isOpen) {
-          gsap.to(content, {
-            height: 'auto',
-            opacity: 1,
-            duration: 0.4,
-            ease: 'power2.out',
-            overwrite: true,
-          })
-          if (icon) {
-            gsap.to(icon, { rotate: 180, duration: 0.3, ease: 'power2.out' })
-          }
-        } else {
-          gsap.to(content, {
-            height: 0,
-            opacity: 0,
-            duration: 0.3,
-            ease: 'power2.in',
-            overwrite: true,
-          })
-          if (icon) {
-            gsap.to(icon, { rotate: 0, duration: 0.3, ease: 'power2.out' })
-          }
-        }
-      })
-    },
-    { scope: contentRefs, dependencies: [openIds] },
-  )
 
   return (
     <div className={cn('divide-y divide-rule/60', className)}>
@@ -114,7 +119,7 @@ export function Accordion({
                 if (el) contentRefs.current.set(item.id, el)
               }}
               className="overflow-hidden"
-              style={{ height: 0, opacity: 0 }}
+              style={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}
             >
               <div className="pb-5 pt-1 pr-8 text-sm text-ink-muted leading-relaxed">
                 {renderItem ? renderItem(item, isOpen) : item.content}

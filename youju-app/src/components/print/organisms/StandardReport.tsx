@@ -64,6 +64,7 @@ export function StandardReport({
 }: StandardReportProps) {
   const r = result
   const now = new Date()
+  const scenarioType = r.scenario?.type
 
   const metaItems = [
     `生成时间 ${now.toLocaleDateString('zh-CN')} ${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`,
@@ -99,7 +100,13 @@ export function StandardReport({
           <PrintReportSummary items={summaryItems} variant="standard" />
         </div>
 
-        <PrintReportRisks risks={r.risks} title="风险点详情" number="三" variant="standard" />
+        <PrintReportRisks
+          risks={r.risks}
+          title="风险点详情"
+          number="三"
+          variant="standard"
+          scenarioType={scenarioType}
+        />
 
         {r.alignedVersion && (
           <div style={{ marginBottom: '28pt' }}>

@@ -1,12 +1,14 @@
 import type { RiskLevel } from './common'
 
+export type RiskType = 'conflict' | 'promise' | 'missing' | 'info'
+
 export interface Evidence {
   sourceName: string
   sourceType: string
-  sourceId: string
+  sourceId?: string
   quote: string
   highlightedText?: string
-  confidence?: number
+  confidence: number
 }
 
 export type RiskStatus = 'pending' | 'processing' | 'resolved' | 'ignored'
@@ -14,12 +16,12 @@ export type RiskStatus = 'pending' | 'processing' | 'resolved' | 'ignored'
 export interface Risk {
   id: string
   level: RiskLevel
-  type: string
+  type: RiskType
   title: string
   description: string
-  dimension?: string
+  dimension: string
   sources: string[]
-  evidence?: Evidence[]
+  evidence: Evidence[]
   confidence?: number
   isNew?: boolean
   levelChange?: {
@@ -36,22 +38,19 @@ export interface ChecklistItem {
   id: string
   text: string
   hasDraft: boolean
-  checked: boolean
-  riskType?: string
-  dimension?: string
+  checked?: boolean
 }
 
 export interface ReasoningStep {
-  step?: string | number
-  name?: string
-  result?: string
+  step: string | number
+  stepId?: string
   title?: string
+  name?: string
   description?: string
-  details?: string
-  content?: string
-  status?: 'completed' | 'current' | 'pending'
+  detail?: string
+  result: string
   durationMs?: number
-  tokenUsage?: number
+  status?: string
 }
 
 export interface ExtractedEntities {

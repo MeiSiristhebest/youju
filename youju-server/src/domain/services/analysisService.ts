@@ -1,59 +1,76 @@
+import type { AIDraftPort } from '../ports/aiPorts.js'
+import type { ModeCheckerPort } from '../ports/infrastructurePorts.js'
 import type {
   AnalysisLogRepository,
   AnalysisStepRepository,
   ScenarioKnowledgeRepository,
   TaskResultRepository,
 } from '../ports/repositories.js'
-import type { AnalysisCheckpointPort, IncrementalAnalysisPort } from '../ports/servicePorts.js'
-import {
-  computeSourceDiff,
-  determineAffectedSteps,
-  filterOutAffectedRisks,
-  mergeAnalyzeResults,
-  mergeSourceLists,
-} from '../rules/analysisRules.js'
+import type {
+  AnalysisCheckpointPort,
+  IncrementalAnalysisPort,
+  RiskPreferencePort,
+} from '../ports/servicePorts.js'
 import type {
   AIAnalysisPort,
   AIConfig,
-  AIDraftPort,
   AIStepOutput,
   AnalyzeResult,
   ScenarioKnowledge,
   Source,
 } from '../types.js'
-import type { AnalysisCache } from './analysisCache.js'
+import { AnalysisCache } from './analysisCache.js'
+import { AnalysisCoreService } from './analysisCoreService.js'
 import { AnalysisResultPersister } from './analysisResultPersister.js'
 import { AnalysisStreamOrchestrator } from './analysisStreamOrchestrator.js'
 
 export interface StreamAnalysisCallbacks {
   onStepStart?: (step: { id: string; name: string; index: number }) => void
   onStepComplete?: (step: { id: string; name: string; index: number; output: AIStepOutput }) => void
+  onStepError?: (step: { id: string; name: string; index: number; error: string }) => void
   onComplete?: (result: AnalyzeResult) => void
   onError?: (error: Error) => void
 }
 
 export class AnalysisService {
+  private readonly coreService: AnalysisCoreService
   private readonly persister: AnalysisResultPersister
-  private readonly orchestrator: AnalysisStreamOrchestrator
+  private readonly cacheService: AnalysisCache
 
   constructor(
-    readonly analysisPort: AIAnalysisPort,
+    private readonly analysisPort: AIAnalysisPort,
     private readonly draftPort: AIDraftPort,
-    readonly analysisLogRepo: AnalysisLogRepository,
-    readonly analysisStepRepo: AnalysisStepRepository,
-    readonly taskResultRepo: TaskResultRepository,
-    readonly scenarioKnowledgeRepo: ScenarioKnowledgeRepository,
     private readonly incrementalPort: IncrementalAnalysisPort,
     private readonly checkpointPort: AnalysisCheckpointPort,
-    private readonly analysisCache: AnalysisCache,
+    private readonly riskPreferencePort: RiskPreferencePort,
+    analysisLogRepo: AnalysisLogRepository,
+    analysisStepRepo: AnalysisStepRepository,
+    taskResultRepo: TaskResultRepository,
+    scenarioKnowledgeRepo: ScenarioKnowledgeRepository,
+    modeChecker: ModeCheckerPort,
   ) {
     this.persister = new AnalysisResultPersister(
       analysisLogRepo,
       analysisStepRepo,
       taskResultRepo,
       scenarioKnowledgeRepo,
+      modeChecker,
     )
-    this.orchestrator = new AnalysisStreamOrchestrator(analysisPort, this.persister)
+    this.coreService = new AnalysisCoreService(
+      analysisPort,
+      new AnalysisStreamOrchestrator(analysisPort, this.persister),
+    )
+    this.cacheService = new AnalysisCache(modeChecker)
+  }
+
+  private async sortRisksByPreference(
+    result: AnalyzeResult,
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<AnalyzeResult> {
+    const weights = await this.riskPreferencePort.getUserRiskWeights(userId, sessionId)
+    const sortedRisks = this.riskPreferencePort.sortRisksByPreference(result.risks, weights)
+    return { ...result, risks: sortedRisks }
   }
 
   async createAnalysisLogEntry(input: {
@@ -78,15 +95,41 @@ export class AnalysisService {
     scenarioKnowledge?: ScenarioKnowledge[],
     callbacks: StreamAnalysisCallbacks = {},
     aiConfig?: AIConfig,
+    isDemo?: boolean,
+    userId?: number | null,
+    sessionId?: string | null,
   ): Promise<AnalyzeResult> {
-    return this.orchestrator.analyzeWithStreaming(
+    const useCache = this.cacheService.shouldUseCache({ isDemo })
+    const cacheKey = useCache
+      ? this.cacheService.computeAnalysisFingerprint(sources, scenarioType, scenarioKnowledge)
+      : null
+
+    let cachedResult: AnalyzeResult | null = null
+    if (cacheKey) {
+      cachedResult = this.cacheService.getCachedAnalysis(cacheKey)
+      if (cachedResult) {
+        console.log(
+          `[Analyze Stream] 缓存命中 (key=${cacheKey.substring(0, 12)}…, hitCount=${cachedResult.meta?.cacheHitCount ?? 0})，快速回放步骤`,
+        )
+      }
+    }
+
+    const result = await this.coreService.analyzeWithStreaming(
       analysisLogId,
       sources,
       scenarioType,
       scenarioKnowledge,
       callbacks,
       aiConfig,
+      isDemo,
+      cachedResult ?? undefined,
     )
+
+    if (cacheKey && !cachedResult) {
+      this.cacheService.setCachedAnalysis(cacheKey, result)
+    }
+
+    return this.sortRisksByPreference(result, userId ?? null, sessionId ?? null)
   }
 
   async analyzeSources(
@@ -99,19 +142,25 @@ export class AnalysisService {
       taskId?: string | null
       persist?: boolean
       aiConfig?: AIConfig
+      isDemo?: boolean
     },
   ): Promise<AnalyzeResult> {
-    const useCache = this.analysisCache.shouldUseCache(options)
+    const useCache = this.cacheService.shouldUseCache(options)
     const cacheKey = useCache
-      ? this.analysisCache.computeAnalysisFingerprint(sources, scenarioType, scenarioKnowledge)
+      ? this.cacheService.computeAnalysisFingerprint(sources, scenarioType, scenarioKnowledge)
       : null
+
     if (cacheKey) {
-      const cached = this.analysisCache.getCachedAnalysis(cacheKey)
+      const cached = this.cacheService.getCachedAnalysis(cacheKey)
       if (cached) {
         console.log(
           `[Analyze] 缓存命中 (key=${cacheKey.substring(0, 12)}…, hitCount=${cached.meta?.cacheHitCount ?? 0})，跳过 AI 调用`,
         )
-        return cached
+        return this.sortRisksByPreference(
+          cached,
+          options?.userId ?? null,
+          options?.sessionId ?? null,
+        )
       }
     }
 
@@ -124,10 +173,10 @@ export class AnalysisService {
     )
 
     if (cacheKey) {
-      this.analysisCache.setCachedAnalysis(cacheKey, result)
+      this.cacheService.setCachedAnalysis(cacheKey, result)
     }
 
-    return result
+    return this.sortRisksByPreference(result, options?.userId ?? null, options?.sessionId ?? null)
   }
 
   async preheatScenarioPresets(): Promise<{
@@ -135,13 +184,8 @@ export class AnalysisService {
     skipped: string[]
     failed: Array<{ id: string; error: string }>
   }> {
-    if (!process.env.AI_API_KEY) {
-      console.log('[Preheat] 未配置 AI_API_KEY，跳过预热')
-      return { preheated: [], skipped: [], failed: [] }
-    }
-
     const { SCENARIO_PRESETS } = await import('../scenarioPresets.js')
-    return this.analysisCache.preheatScenarios(SCENARIO_PRESETS, (sources, scenarioType) =>
+    return this.cacheService.preheatScenarios(SCENARIO_PRESETS, (sources, scenarioType) =>
       this.analyzeSources(sources, scenarioType, undefined, { persist: false }),
     )
   }
@@ -157,9 +201,10 @@ export class AnalysisService {
       taskId?: string | null
       persist?: boolean
       aiConfig?: AIConfig
+      isDemo?: boolean
     },
   ): Promise<AnalyzeResult> {
-    return this.orchestrator.analyzeSourcesStream(
+    return this.coreService.analyzeSourcesStream(
       sources,
       scenarioType,
       scenarioKnowledge,
@@ -198,53 +243,15 @@ export class AnalysisService {
       persist?: boolean
     },
   ): Promise<AnalyzeResult> {
-    const allSources = mergeSourceLists(existingSources, newSources)
-    const diff = computeSourceDiff(existingSources, newSources)
-    const affectedSteps = determineAffectedSteps(diff)
-
-    console.log(
-      `[增量分析] 新增 ${diff.addedSources.length} 份，修改 ${diff.modifiedSources.length} 份，删除 ${diff.removedSources.length} 份，影响 ${affectedSteps.length} 个步骤`,
-    )
-
-    if (affectedSteps.length === 0) {
-      return {
-        ...existingResult,
-        meta: { ...existingResult.meta, sourceCount: allSources.length },
-      }
-    }
-
-    const modifiedIds = new Set(diff.modifiedSources.map((s) => s.name))
-    const removedIds = new Set(diff.removedSources.map((s) => s.name))
-    const hasModifications = diff.modifiedSources.length > 0 || diff.removedSources.length > 0
-
-    let baseResult = existingResult
-
-    if (hasModifications) {
-      console.log(`[增量分析] 存在修改/删除，先清理受影响的风险`)
-      baseResult = filterOutAffectedRisks(existingResult, modifiedIds, removedIds)
-    }
-
-    const sourcesToAnalyze = [...diff.addedSources, ...diff.modifiedSources]
-
-    if (sourcesToAnalyze.length === 0) {
-      console.log(`[增量分析] 无材料需要重新分析，直接返回清理后的结果`)
-      return {
-        ...baseResult,
-        meta: { ...baseResult.meta, sourceCount: allSources.length },
-      }
-    }
-
-    console.log(`[增量分析] 对 ${sourcesToAnalyze.length} 份材料执行局部分析`)
-    const partialResult = await this.analyzeSources(
-      sourcesToAnalyze,
+    return this.coreService.analyzeIncremental(
+      existingSources,
+      newSources,
+      existingResult,
+      (sources, type, knowledge, opts) =>
+        this.analyzeSources(sources, type, knowledge, { ...options, ...opts }),
       scenarioType,
       scenarioKnowledge,
-      {
-        ...options,
-        persist: false,
-      },
     )
-    return mergeAnalyzeResults(baseResult, partialResult, allSources)
   }
 
   async resumeAnalysisFromCheckpoint(
@@ -256,7 +263,12 @@ export class AnalysisService {
       taskId?: string | null
     },
   ): Promise<AnalyzeResult> {
-    return this.checkpointPort.resumeAnalysisFromCheckpoint(analysisLogId, sources, options)
+    const result = await this.checkpointPort.resumeAnalysisFromCheckpoint(
+      analysisLogId,
+      sources,
+      options,
+    )
+    return this.sortRisksByPreference(result, options?.userId ?? null, options?.sessionId ?? null)
   }
 
   async retryAnalysisStep(
@@ -306,5 +318,13 @@ export class AnalysisService {
       scenarioKnowledge,
       options,
     )
+  }
+
+  getAnalysisCacheStats() {
+    return this.cacheService.getAnalysisCacheStats()
+  }
+
+  clearAnalysisCache() {
+    return this.cacheService.clearAnalysisCache()
   }
 }

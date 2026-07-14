@@ -3,7 +3,6 @@ import { ScrollTrigger } from '../../lib/gsap'
 import { Marquee } from '../ui/Marquee'
 import { ComparisonSection } from './ComparisonSection'
 import { CtaSection } from './CtaSection'
-import { CustomCursor } from './CustomCursor'
 import { FaqSection } from './FaqSection'
 import { FeaturesSection } from './FeaturesSection'
 import { FormatsSection } from './FormatsSection'
@@ -63,7 +62,6 @@ export function LandingPage({ onStart }: LandingPageProps) {
   return (
     <div className="relative min-h-dvh bg-paper text-ink overflow-x-hidden">
       <div className="paper-texture" />
-      <CustomCursor />
       <ScrollProgress />
 
       <a

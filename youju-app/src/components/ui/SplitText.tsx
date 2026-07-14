@@ -12,13 +12,11 @@ interface SplitTextProps {
   delay?: number
   stagger?: number
   variant?: SplitVariant
-  trigger?: boolean // 是否需要 ScrollTrigger 触发，默认 true
+  trigger?: boolean
 }
 
-// 判断是否支持 Intl.Segmenter
 const supportsSegmenter = typeof Intl !== 'undefined' && 'Segmenter' in Intl
 
-// 拆分文本为段（中文按字、英文按词）
 function segmentText(text: string): string[] {
   if (supportsSegmenter) {
     try {
@@ -28,7 +26,6 @@ function segmentText(text: string): string[] {
       // fallback
     }
   }
-  // fallback：按字符拆分
   return Array.from(text)
 }
 
@@ -67,6 +64,7 @@ export function SplitText({
       if (chars.length === 0) return
 
       const props = variantProps[variant]
+
       gsap.set(chars, props.from)
 
       const tween = gsap.to(chars, {
@@ -75,6 +73,7 @@ export function SplitText({
         stagger,
         ease: 'power3.out',
         duration: 0.8,
+        paused: true,
       })
 
       if (trigger && containerRef.current) {
@@ -82,8 +81,10 @@ export function SplitText({
           trigger: containerRef.current,
           start: 'top 85%',
           once: true,
-          animation: tween,
+          onEnter: () => tween.play(),
         })
+      } else {
+        tween.play()
       }
     },
     { scope: containerRef },
@@ -100,6 +101,7 @@ export function SplitText({
             display: 'inline-block',
             willChange: 'transform, opacity, filter',
             whiteSpace: seg === ' ' ? 'pre' : 'normal',
+            opacity: 0,
           }}
         >
           {seg}

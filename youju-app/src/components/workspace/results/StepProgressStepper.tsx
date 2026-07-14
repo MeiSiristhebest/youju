@@ -35,7 +35,8 @@ export function StepProgressStepper({ onCancel }: StepProgressStepperProps) {
   const analysisStep = useAnalysisStore((state) => state.analysisStep)
   const streamError = useAnalysisStore((state) => state.streamError)
 
-  const progressPercent = streamProgress || (analysisStep + 1) * 14
+  const progressPercent =
+    streamProgress || Math.min(100, Math.round((analysisStep + 1) * (100 / 7)))
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto h-full my-auto">

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ModeCheckerPort } from '../src/domain/ports/infrastructurePorts.js'
 import { AnalysisCache } from '../src/domain/services/analysisCache.js'
 import type { AnalyzeResult, Source } from '../src/domain/types.js'
 
@@ -19,9 +20,13 @@ function makeResult(risks: number = 3): AnalyzeResult {
 
 describe('分析结果缓存', () => {
   let cache: AnalysisCache
+  let mockModeChecker: ModeCheckerPort & { isMockMode: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
-    cache = new AnalysisCache()
+    mockModeChecker = {
+      isMockMode: vi.fn().mockReturnValue(false),
+    }
+    cache = new AnalysisCache(mockModeChecker)
   })
 
   describe('computeAnalysisFingerprint', () => {
@@ -136,27 +141,23 @@ describe('分析结果缓存', () => {
   })
 
   describe('shouldUseCache', () => {
-    beforeEach(() => {
-      vi.stubEnv('AI_API_KEY', 'test-key')
-    })
-    afterEach(() => {
-      vi.unstubAllEnvs()
-    })
-
     it('persist=true 时使用缓存', () => {
+      mockModeChecker.isMockMode.mockReturnValue(false)
       expect(cache.shouldUseCache({ persist: true })).toBe(true)
     })
 
     it('persist=false 时不使用缓存', () => {
+      mockModeChecker.isMockMode.mockReturnValue(false)
       expect(cache.shouldUseCache({ persist: false })).toBe(false)
     })
 
     it('无 options 时使用缓存', () => {
+      mockModeChecker.isMockMode.mockReturnValue(false)
       expect(cache.shouldUseCache()).toBe(true)
     })
 
-    it('mock 模式（无 AI_API_KEY）时不使用缓存', () => {
-      vi.stubEnv('AI_API_KEY', '')
+    it('mock 模式时不使用缓存', () => {
+      mockModeChecker.isMockMode.mockReturnValue(true)
       expect(cache.shouldUseCache({ persist: true })).toBe(false)
     })
   })

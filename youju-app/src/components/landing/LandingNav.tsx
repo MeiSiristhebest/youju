@@ -1,6 +1,6 @@
 import { ArrowRight, Moon, Sparkles, Sun } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useUIPreferenceStore } from '../../stores'
-import { Button } from '../custom/Button'
 
 interface LandingNavProps {
   scrolled: boolean

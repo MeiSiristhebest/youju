@@ -33,9 +33,9 @@ export function TestimonialsSection() {
       const cards = gsap.utils.toArray<HTMLElement>('[data-testimonial-card]')
       if (cards.length === 0) return
 
-      gsap.from(cards, {
-        y: 40,
-        opacity: 0,
+      gsap.to(cards, {
+        y: 0,
+        opacity: 1,
         stagger: 0.15,
         duration: 0.9,
         ease: 'power3.out',
@@ -64,7 +64,7 @@ export function TestimonialsSection() {
             <div
               key={i}
               data-testimonial-card
-              className="relative rounded-lg border border-rule/50 bg-paper/40 backdrop-blur-md p-6 lg:p-8 flex flex-col"
+              className="gsap-reveal relative rounded-lg border border-rule/50 bg-paper/40 backdrop-blur-md p-6 lg:p-8 flex flex-col"
             >
               <Quote className="absolute top-4 right-4 w-10 h-10 text-accent/15" />
 

@@ -1,9 +1,49 @@
 import { ChevronRight, Lock, Shield, Trash2 } from 'lucide-react'
+import { useEffect } from 'react'
+import { preferenceApi } from '../../../services/preferenceApi'
 import { useUIPreferenceStore } from '../../../stores/useUIPreferenceStore'
+import { useToast } from '../../common/Toast'
 import { SectionTitle, SelectRow, SettingRow, Toggle } from './shared'
 
 export function PrivacyTab() {
   const { privacySecuritySettings, updatePrivacySecuritySettings } = useUIPreferenceStore()
+  const { showToast } = useToast()
+
+  // 组件挂载时从后端加载设置
+  useEffect(() => {
+    preferenceApi
+      .getPrivacySettings()
+      .then((settings) => {
+        updatePrivacySecuritySettings({
+          autoDeleteEnabled: settings.autoDeleteHistory,
+          autoDeleteDays: settings.retentionDays,
+          analyticsOptOut: !settings.allowAnalytics,
+          shareUsageData: settings.shareUsageData,
+        })
+      })
+      .catch(() => {
+        // 加载失败时使用本地默认值
+      })
+  }, [])
+
+  // 更新设置时同步到后端
+  const handlePrivacyUpdate = async (updates: Partial<typeof privacySecuritySettings>) => {
+    updatePrivacySecuritySettings(updates)
+
+    // 映射到后端字段名
+    const backendUpdates: Record<string, boolean | number> = {}
+    if ('autoDeleteEnabled' in updates)
+      backendUpdates.autoDeleteHistory = updates.autoDeleteEnabled!
+    if ('autoDeleteDays' in updates) backendUpdates.retentionDays = updates.autoDeleteDays!
+    if ('analyticsOptOut' in updates) backendUpdates.allowAnalytics = !updates.analyticsOptOut!
+    if ('shareUsageData' in updates) backendUpdates.shareUsageData = updates.shareUsageData!
+
+    try {
+      await preferenceApi.setPrivacySettings(backendUpdates)
+    } catch {
+      showToast('保存设置失败，请重试', 'error')
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -40,7 +80,7 @@ export function PrivacyTab() {
           action={
             <Toggle
               checked={privacySecuritySettings.autoDeleteEnabled}
-              onChange={(v) => updatePrivacySecuritySettings({ autoDeleteEnabled: v })}
+              onChange={(v) => handlePrivacyUpdate({ autoDeleteEnabled: v })}
             />
           }
         />
@@ -55,9 +95,7 @@ export function PrivacyTab() {
               max={365}
               step={30}
               value={privacySecuritySettings.autoDeleteDays}
-              onChange={(e) =>
-                updatePrivacySecuritySettings({ autoDeleteDays: Number(e.target.value) })
-              }
+              onChange={(e) => handlePrivacyUpdate({ autoDeleteDays: Number(e.target.value) })}
               className="w-full h-1.5 bg-paper-dark rounded-full appearance-none cursor-pointer accent-accent"
             />
           </div>
@@ -86,7 +124,7 @@ export function PrivacyTab() {
           action={
             <Toggle
               checked={privacySecuritySettings.analyticsOptOut}
-              onChange={(v) => updatePrivacySecuritySettings({ analyticsOptOut: v })}
+              onChange={(v) => handlePrivacyUpdate({ analyticsOptOut: v })}
             />
           }
         />

@@ -1,12 +1,24 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TourStep } from '../components/common/ProductTour'
+import { TeamPanelContent } from '../components/common/TeamPanelContent'
+import { TemplateMarketContent } from '../components/common/TemplateMarketContent'
 import type { PrintStyle } from '../components/print/PrintReport'
+import { ApiLogContent } from '../components/workspace/ApiLogContent'
+import { ApiSettingsContent } from '../components/workspace/ApiSettingsContent'
+import { BillingContent } from '../components/workspace/BillingContent'
+import { ModelSettingsContent } from '../components/workspace/ModelSettingsContent'
+import { MonitorContent } from '../components/workspace/MonitorContent'
+import type { OverlayPanelType } from '../components/workspace/OverlayPanel'
+import { OverlayPanel } from '../components/workspace/OverlayPanel'
+import { PreferenceContent } from '../components/workspace/PreferenceContent'
 import { WorkspaceLayout } from '../components/workspace/WorkspaceLayout'
 import { WorkspaceModals } from '../components/workspace/WorkspaceModals'
 import { useChat } from '../hooks/useChat'
 import { useWorkspaceHandlers } from '../hooks/useWorkspaceHandlers'
+import { storage, storageKeys } from '../lib/storage'
+import { sourceApi } from '../services/sourceApi'
+import { taskApi } from '../services/taskApi'
 import {
-  CHAT_TAB_ID,
   useAnalysisStore,
   useChatStore,
   useSourceStore,
@@ -39,62 +51,137 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
   const [sourcePanelCollapsed, setSourcePanelCollapsed] = useState(false)
   const [contextPanelCollapsed, setContextPanelCollapsed] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [showModelSettings, setShowModelSettings] = useState(false)
+  const [activeOverlayPanel, setActiveOverlayPanel] = useState<OverlayPanelType>(null)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showGlobalSearch, setShowGlobalSearch] = useState(false)
-  const [showBilling, setShowBilling] = useState(false)
-  const [showTeamPanel, setShowTeamPanel] = useState(false)
-  const [showTemplateMarket, setShowTemplateMarket] = useState(false)
-  const [showApiSettings, setShowApiSettings] = useState(false)
-  const [showApiLogs, setShowApiLogs] = useState(false)
   const [showTaskSwitcher, setShowTaskSwitcher] = useState(false)
 
   const tourSteps: TourStep[] = [
     {
-      id: 'scenario-selection',
-      target: '#tour-new-analysis-btn',
-      title: '选择你的分析场景',
-      description: '有据支持多种场景，选择一个开始你的第一次分析',
+      id: 'sidebar-intro',
+      target: '#tour-sidebar',
+      title: '左侧导航栏',
+      description: '这里是你的工作台入口，可以新建分析、查看历史记录、选择不同的分析场景',
       placement: 'right',
+      highlightPadding: 12,
     },
     {
-      id: 'upload-materials',
+      id: 'new-analysis',
+      target: '#tour-new-analysis-btn',
+      title: '新建分析',
+      description: '点击这里选择你的分析场景，有据支持合同审查、尽职调查、文献综述等多种场景',
+      placement: 'right',
+      highlightPadding: 8,
+    },
+    {
+      id: 'source-panel',
+      target: '#tour-source-panel',
+      title: '材料面板',
+      description: '左侧面板用于管理你上传的所有材料，支持文本、文件、URL 多种格式',
+      placement: 'right',
+      highlightPadding: 8,
+    },
+    {
+      id: 'add-source',
       target: '#tour-add-source-btn',
-      title: '上传你的材料',
-      description: '支持文本粘贴、文件上传、URL 抓取，多种方式快速导入材料',
+      title: '添加材料',
+      description: '点击 + 号添加材料，支持粘贴文本、上传文件、抓取网页 URL 三种方式',
       placement: 'bottom',
+      highlightPadding: 8,
     },
     {
-      id: 'view-risks',
-      target: '#tour-risks-tab',
-      title: 'AI 自动发现风险',
-      description: 'AI 会交叉验证多源信息，自动识别矛盾、缺失和承诺',
+      id: 'start-analysis',
+      target: '#tour-analyze-btn',
+      title: '开始分析',
+      description: '添加好材料后，点击右上角的"开始分析"，AI 会自动交叉验证多源信息',
       placement: 'bottom',
+      highlightPadding: 8,
     },
     {
-      id: 'export-report',
-      target: '#tour-export-btn',
-      title: '导出和分享',
-      description: '一键导出分析报告，或生成分享链接发送给团队成员',
+      id: 'keyboard-shortcuts',
+      target: 'button[title="快捷键 (?)"]',
+      title: '快捷键支持',
+      description: '按 ? 键随时查看所有快捷键，熟练使用可以大幅提升效率',
       placement: 'bottom',
+      highlightPadding: 8,
     },
   ]
 
   const sources = useSourceStore((s) => s.sources)
+  const currentTaskId = useSourceStore((s) => s.currentTaskId)
+  const isDemo = useSourceStore((s) => s.isDemo)
   const showProductTour = useUIPreferenceStore((s) => s.showProductTour)
   const setShowProductTour = useUIPreferenceStore((s) => s.setShowProductTour)
 
-  // 接入 chat store：读取活跃会话 ID 与上下文范围（页面级订阅）
-  const activeConversationId = useChatStore((s) => s.activeConversationId)
-  const contextScope = useChatStore((s) => s.contextScope)
+  // 接入 chat store：读取活跃会话 ID 与上下文范围（页面级订阅，确保状态更新时重渲染）
+  const _activeConversationId = useChatStore((s) => s.activeConversationId)
+  const _contextScope = useChatStore((s) => s.contextScope)
   // 接入 useChat hook：在页面顶层初始化 React Query（会话列表/消息预加载）
-  useChat()
-  // 接入 workspace tabs store：判断当前是否为对话 tab
-  const activeTabId = useWorkspaceTabsStore((s) => s.activeTabId)
-  const isChatActive = activeTabId === CHAT_TAB_ID
+  useChat(currentTaskId ?? undefined)
+
+  // 进入工作台时的统一初始化：恢复标签任务，或创建默认任务
+  // 合并为单个 useEffect 避免竞态和重复判断
+  const initRef = useRef(false)
+  useEffect(() => {
+    if (isDemo) return
+    if (currentTaskId) return
+    if (initRef.current) return
+
+    const tabsState = useWorkspaceTabsStore.getState()
+    const activeTab = tabsState.tabs.find((t) => t.id === tabsState.activeTabId)
+
+    // 情况1：活跃标签有 taskId，从标签恢复任务
+    if (activeTab?.taskId) {
+      initRef.current = true
+      const restoreFromTab = async () => {
+        try {
+          const task = await taskApi.getTask(activeTab.taskId!)
+          const srcList = await sourceApi.listSources(activeTab.taskId!)
+
+          useSourceStore.getState().setCurrentTask({ id: task.id, title: task.title })
+          useSourceStore.getState().setCurrentScenario(task.scenarioType as ScenarioType)
+          useSourceStore.getState().setSources(srcList)
+
+          if (task.result) {
+            useAnalysisStore.getState().setResult(task.result as any)
+            useAnalysisStore.getState().setChecklist(task.result.checklist || [])
+          }
+        } catch (error) {
+          console.error('Failed to restore task from tab:', error)
+        } finally {
+          initRef.current = false
+        }
+      }
+      restoreFromTab()
+      return
+    }
+
+    // 情况2：没有任务且没有材料，创建默认任务
+    const hasTabWithTask = tabsState.tabs.some((t) => t.taskId)
+    if (!hasTabWithTask && sources.length === 0) {
+      initRef.current = true
+      const initDefaultTask = async () => {
+        try {
+          const task = await taskApi.createTask({
+            title: '未命名分析',
+            scenarioType: 'custom',
+            sourceIds: [],
+          })
+          useSourceStore.getState().setCurrentTask({ id: task.id, title: task.title })
+          useSourceStore.getState().setCurrentScenario('custom')
+          useWorkspaceTabsStore.getState().openTab('custom', '未命名分析')
+        } catch (error) {
+          console.error('Failed to create default task:', error)
+        } finally {
+          initRef.current = false
+        }
+      }
+      initDefaultTask()
+    }
+  }, [currentTaskId, isDemo, sources.length])
 
   useEffect(() => {
-    const hasCompletedTour = localStorage.getItem('youju_tour_completed')
+    const hasCompletedTour = storage.getItem(storageKeys.tourCompleted)
     if (!hasCompletedTour && sources.length === 0) {
       setShowTour(true)
     }
@@ -106,14 +193,6 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
       setShowProductTour(false)
     }
   }, [showProductTour, setShowProductTour])
-
-  // 切换到对话 tab：供 sidebar "AI 对话" 入口调用
-  const handleShowChat = useCallback(() => {
-    // 订阅读取 activeConversationId / contextScope，确保页面感知 chat 状态变化
-    void activeConversationId
-    void contextScope
-    useWorkspaceTabsStore.getState().setActiveTab(CHAT_TAB_ID)
-  }, [activeConversationId, contextScope])
 
   const { handlers, state } = useWorkspaceHandlers({
     mobileSidebarOpen,
@@ -135,13 +214,13 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
     sourcePanelCollapsed,
     contextPanelCollapsed,
     sidebarCollapsed,
-    showModelSettings,
+    showModelSettings: activeOverlayPanel === 'model-settings',
     showNotifications,
     showGlobalSearch,
-    showBilling,
-    showTeamPanel,
-    showTemplateMarket,
-    showApiSettings,
+    showBilling: activeOverlayPanel === 'billing',
+    showTeamPanel: activeOverlayPanel === 'team',
+    showTemplateMarket: activeOverlayPanel === 'templates',
+    showApiSettings: activeOverlayPanel === 'api-settings',
     showTaskSwitcher,
     setMobileSidebarOpen,
     setMobileContextOpen,
@@ -162,13 +241,13 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
     setSourcePanelCollapsed,
     setContextPanelCollapsed,
     setSidebarCollapsed,
-    setShowModelSettings,
+    setShowModelSettings: (v: boolean) => setActiveOverlayPanel(v ? 'model-settings' : null),
     setShowNotifications,
     setShowGlobalSearch,
-    setShowBilling,
-    setShowTeamPanel,
-    setShowTemplateMarket,
-    setShowApiSettings,
+    setShowBilling: (v: boolean) => setActiveOverlayPanel(v ? 'billing' : null),
+    setShowTeamPanel: (v: boolean) => setActiveOverlayPanel(v ? 'team' : null),
+    setShowTemplateMarket: (v: boolean) => setActiveOverlayPanel(v ? 'templates' : null),
+    setShowApiSettings: (v: boolean) => setActiveOverlayPanel(v ? 'api-settings' : null),
     setShowTaskSwitcher,
   })
 
@@ -233,14 +312,14 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
       onShowHistory={handlers.handleShowHistory}
       onShowLogin={() => state.setShowLoginModal(true)}
       onLogout={state.logout}
-      onShowPreference={() => state.setShowPreferencePanel(true)}
-      onShowModelSettings={() => setShowModelSettings(true)}
-      onShowMonitor={() => state.setShowMonitorPanel(true)}
-      onShowTeam={() => setShowTeamPanel(true)}
-      onShowTemplates={() => setShowTemplateMarket(true)}
-      onShowApiSettings={() => setShowApiSettings(true)}
-      onShowApiLogs={() => setShowApiLogs(true)}
-      onShowBilling={() => setShowBilling(true)}
+      onShowPreference={() => setActiveOverlayPanel('preferences')}
+      onShowModelSettings={() => setActiveOverlayPanel('model-settings')}
+      onShowMonitor={() => setActiveOverlayPanel('monitor')}
+      onShowTeam={() => setActiveOverlayPanel('team')}
+      onShowTemplates={() => setActiveOverlayPanel('templates')}
+      onShowApiSettings={() => setActiveOverlayPanel('api-settings')}
+      onShowApiLogs={() => setActiveOverlayPanel('api-logs')}
+      onShowBilling={() => setActiveOverlayPanel('billing')}
       onShowShare={handlers.handleShare}
       onAnalyze={handlers.handleAnalyze}
       onRetryAnalysis={handlers.handleAnalyze}
@@ -275,25 +354,17 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
       onGlobalDragLeave={() => state.setGlobalDragOver(false)}
       onGlobalDrop={handlers.handleGlobalDrop}
       onTourClose={() => setShowTour(false)}
-      isChatActive={isChatActive}
       scenarioType={state.currentScenario || undefined}
-      onShowChat={handleShowChat}
+      activeOverlayPanel={activeOverlayPanel}
+      onGoDesk={() => setActiveOverlayPanel(null)}
     >
       <WorkspaceModals
         showAddSource={state.showAddSource}
         showLoginModal={state.showLoginModal}
         showShareModal={state.showShareModal}
-        showPreferencePanel={state.showPreferencePanel}
-        showMonitorPanel={state.showMonitorPanel}
         showKeyboardShortcuts={state.showKeyboardShortcuts}
-        showModelSettings={showModelSettings}
         showNotifications={showNotifications}
         showGlobalSearch={showGlobalSearch}
-        showBilling={showBilling}
-        showTeamPanel={showTeamPanel}
-        showTemplateMarket={showTemplateMarket}
-        showApiSettings={showApiSettings}
-        showApiLogs={showApiLogs}
         showTaskSwitcher={showTaskSwitcher}
         showHistory={state._showHistory}
         showHistoryDetail={showHistoryDetail}
@@ -314,7 +385,6 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
         isDemoMode={state.isDemoMode}
         sources={state.sources}
         result={state.result}
-        riskFeedback={state.riskFeedback}
         draftText={state._draftText}
         generatingDraft={state._generatingDraft}
         shareLink={state.shareLink}
@@ -323,7 +393,6 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
         shareViewCount={state.shareViewCount}
         shareExpiryDays={state.shareExpiryDays}
         sharePermission={state.sharePermission}
-        user={state.user}
         loggingIn={state.loggingIn}
         qrCodeUrl={state.qrCodeUrl}
         pollingStatus={state.pollingStatus}
@@ -371,17 +440,8 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
         onRestoreFromDetail={handlers.handleRestoreSnapshot}
         onCompareWithCurrent={handlers.handleCompareWithCurrent}
         onCloseDiff={() => setShowDiff(false)}
-        onViewSnapshotFromDiff={handlers.handleSelectSnapshot}
-        onClosePreference={() => state.setShowPreferencePanel(false)}
-        onCloseModelSettings={() => setShowModelSettings(false)}
-        onCloseMonitor={() => state.setShowMonitorPanel(false)}
         onCloseKeyboardShortcuts={() => state.setShowKeyboardShortcuts(false)}
         onCloseDraft={() => useAnalysisStore.getState().setShowDraft(false)}
-        onRegenerateDraft={() => {
-          if (state.selectedRisk) {
-            state.generateDraft(state.selectedRisk)
-          }
-        }}
         onAdoptDraft={(text) => {
           navigator.clipboard
             ?.writeText(text)
@@ -398,12 +458,6 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
         onGlobalSearchNavigate={(dest) => {
           handlers.handleLoadScenario(dest as ScenarioType)
         }}
-        onBillingChange={setShowBilling}
-        onTeamPanelChange={setShowTeamPanel}
-        onTemplateMarketChange={setShowTemplateMarket}
-        onApplyTemplate={(id) => handlers.handleLoadScenario(id as ScenarioType)}
-        onApiSettingsChange={setShowApiSettings}
-        onApiLogsChange={setShowApiLogs}
         onTaskSwitcherChange={setShowTaskSwitcher}
         onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
         onToggleSourcePanel={() => setSourcePanelCollapsed((prev) => !prev)}
@@ -414,6 +468,47 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
           // 导出报告功能占位
         }}
       />
+
+      {/* 全屏覆盖面板 */}
+      <OverlayPanel type={activeOverlayPanel} sidebarCollapsed={sidebarCollapsed}>
+        {activeOverlayPanel === 'team' && (
+          <TeamPanelContent onClose={() => setActiveOverlayPanel(null)} />
+        )}
+        {activeOverlayPanel === 'templates' && (
+          <TemplateMarketContent
+            onApplyTemplate={(id) => {
+              handlers.handleLoadScenario(id)
+              setActiveOverlayPanel(null)
+            }}
+            onClose={() => setActiveOverlayPanel(null)}
+          />
+        )}
+        {activeOverlayPanel === 'preferences' && (
+          <PreferenceContent
+            prefs={
+              state.sources.some((s) => s.id.startsWith('demo_'))
+                ? state.result?.preferences
+                : undefined
+            }
+            onClose={() => setActiveOverlayPanel(null)}
+          />
+        )}
+        {activeOverlayPanel === 'model-settings' && (
+          <ModelSettingsContent onClose={() => setActiveOverlayPanel(null)} />
+        )}
+        {activeOverlayPanel === 'monitor' && (
+          <MonitorContent onClose={() => setActiveOverlayPanel(null)} />
+        )}
+        {activeOverlayPanel === 'api-settings' && (
+          <ApiSettingsContent onClose={() => setActiveOverlayPanel(null)} />
+        )}
+        {activeOverlayPanel === 'api-logs' && (
+          <ApiLogContent onClose={() => setActiveOverlayPanel(null)} />
+        )}
+        {activeOverlayPanel === 'billing' && (
+          <BillingContent onClose={() => setActiveOverlayPanel(null)} />
+        )}
+      </OverlayPanel>
     </WorkspaceLayout>
   )
 }

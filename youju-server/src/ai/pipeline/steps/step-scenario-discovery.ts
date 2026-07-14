@@ -1,17 +1,11 @@
-import type {
-  AIRawOutput,
-  ReasoningStep,
-  ScenarioKnowledge,
-  SharedMainCallResult,
-} from '../../../domain/types.js'
+import type { ReasoningStep } from '../../../domain/types.js'
+import { isMockMode } from '../../../infrastructure/env.js'
 import { callAI } from '../../llm.js'
-import { mockAnalyze } from '../../mock.js'
-import {
-  buildAnalysisUserPrompt,
-  CURRENT_PROMPT_VERSION,
-  getAnalysisSystemPrompt,
-} from '../../prompts/index.js'
-import { extractAndValidateJSON } from '../../validator.js'
+import { generateMockStepData } from '../../mock.js'
+import { analysisCache } from '../../promptCache.js'
+import { CURRENT_PROMPT_VERSION, getStepSystemPrompt } from '../../prompts/index.js'
+import { buildStep1UserPrompt } from '../../prompts/stepUserPrompts.js'
+import { extractJSON } from '../../validator.js'
 import type { StepExecutor, StepInput, StepOutput } from '../types.js'
 
 interface ScenarioData {
@@ -46,162 +40,77 @@ export const outputSchema = {
   },
 }
 
-let sharedMainCallResult: SharedMainCallResult | null = null
-
-let sharedMainCallPromise: Promise<void> | null = null
-
-async function ensureMainCallExecuted(input: StepInput): Promise<void> {
-  if (sharedMainCallResult) return
-  if (sharedMainCallPromise) return sharedMainCallPromise
-
-  sharedMainCallPromise = (async () => {
-    const isMock = !process.env.AI_API_KEY && !input.aiConfig?.apiKey
-
-    if (isMock) {
-      const mockResult = mockAnalyze(input.sources)
-      let parsed: AIRawOutput | null = null
-      try {
-        parsed = JSON.parse(mockResult.debugInfo?.rawOutput || '{}') as AIRawOutput
-      } catch {
-        parsed = null
-      }
-      sharedMainCallResult = {
-        parsed,
-        model: mockResult.debugInfo?.model || 'mock-rule-engine',
-        tokenPrompt: mockResult.debugInfo?.tokenPrompt || 0,
-        tokenCompletion: mockResult.debugInfo?.tokenCompletion || 0,
-        rawOutput: mockResult.debugInfo?.rawOutput || '',
-        isMock: true,
-      }
-      return
-    }
-
-    const systemPrompt = getAnalysisSystemPrompt(CURRENT_PROMPT_VERSION)
-    const userPrompt = buildAnalysisUserPrompt(
-      input.sources,
-      input.scenarioType,
-      input.scenarioKnowledge as ScenarioKnowledge[] | undefined,
-      CURRENT_PROMPT_VERSION,
-    )
-    const aiResponse = await callAI(userPrompt, systemPrompt, 2, input.aiConfig)
-    const parsed = extractAndValidateJSON(aiResponse.content)
-
-    if (!parsed) {
-      console.log('[AI] Output schema validation failed, falling back to mock')
-      const mockResult = mockAnalyze(input.sources)
-      let mockParsed: AIRawOutput | null = null
-      try {
-        mockParsed = JSON.parse(mockResult.debugInfo?.rawOutput || '{}') as AIRawOutput
-      } catch {
-        mockParsed = null
-      }
-      sharedMainCallResult = {
-        parsed: mockParsed,
-        model: mockResult.debugInfo?.model || 'mock-rule-engine',
-        tokenPrompt: mockResult.debugInfo?.tokenPrompt || 0,
-        tokenCompletion: mockResult.debugInfo?.tokenCompletion || 0,
-        rawOutput: mockResult.debugInfo?.rawOutput || '',
-        isMock: true,
-      }
-      return
-    }
-
-    const parsedWithError = parsed as AIRawOutput & { error?: string; details?: string }
-    if (parsedWithError.error) {
-      console.log('[AI] Analysis error:', parsedWithError.error, parsedWithError.details)
-      const mockResult = mockAnalyze(input.sources)
-      let mockParsed: AIRawOutput | null = null
-      try {
-        mockParsed = JSON.parse(mockResult.debugInfo?.rawOutput || '{}') as AIRawOutput
-      } catch {
-        mockParsed = null
-      }
-      sharedMainCallResult = {
-        parsed: mockParsed,
-        model: mockResult.debugInfo?.model || 'mock-rule-engine',
-        tokenPrompt: mockResult.debugInfo?.tokenPrompt || 0,
-        tokenCompletion: mockResult.debugInfo?.tokenCompletion || 0,
-        rawOutput: mockResult.debugInfo?.rawOutput || '',
-        isMock: true,
-      }
-      return
-    }
-
-    sharedMainCallResult = {
-      parsed,
-      model: aiResponse.model,
-      tokenPrompt: aiResponse.tokenPrompt,
-      tokenCompletion: aiResponse.tokenCompletion,
-      rawOutput: aiResponse.content,
-      isMock: false,
-    }
-  })()
-
-  return sharedMainCallPromise
-}
-
-export function getSharedMainCallResult() {
-  return sharedMainCallResult
-}
-
-export function setSharedMainCallResult(result: SharedMainCallResult | null) {
-  sharedMainCallResult = result
-  sharedMainCallPromise = null
-}
-
-export function resetSharedMainCallResult() {
-  sharedMainCallResult = null
-  sharedMainCallPromise = null
-}
-
-const MAIN_CALL_STEP_COUNT = 5
-
 export const stepScenarioDiscovery: StepExecutor = async (
   input: StepInput,
 ): Promise<StepOutput> => {
   const startTime = Date.now()
+  const isMock = isMockMode(input.aiConfig?.apiKey, input.isDemo)
 
-  await ensureMainCallExecuted(input)
-  const result = sharedMainCallResult!
-
-  const parsed = result.parsed
-  let scenarioData: ScenarioData
-
-  if (parsed?.scenario) {
-    scenarioData = {
-      type: parsed.scenario.type,
-      description: parsed.scenario.description,
-      keyDimensions: parsed.scenario.key_dimensions || [],
-    }
-  } else {
-    scenarioData = {
-      type: input.scenarioType || 'custom',
-      description: '自动识别场景',
-      keyDimensions: [],
+  // Mock 模式：从 generateMockStepData 获取独立步骤数据
+  if (isMock) {
+    const mockData = generateMockStepData(input.sources)
+    return {
+      data: {
+        scenario: mockData.scenarioDiscovery.scenario,
+        reasoning: mockData.scenarioDiscovery.reasoning,
+      },
+      modelVersion: 'mock-rule-engine',
+      promptVersion: CURRENT_PROMPT_VERSION,
+      tokenPrompt: 0,
+      tokenCompletion: 0,
+      latencyMs: Date.now() - startTime,
     }
   }
 
-  const reasoningStep = parsed?.reasoning_trace?.find((r: ReasoningStep) =>
+  // 真实模式：独立 AI 调用（带 prompt cache）
+  const systemPrompt = getStepSystemPrompt('step-1-scenario', CURRENT_PROMPT_VERSION)
+  const userPrompt = buildStep1UserPrompt(
+    input.sources,
+    input.scenarioType,
+    input.scenarioKnowledge,
+  )
+  const aiResponse = await callAI(userPrompt, systemPrompt, 2, input.aiConfig, {
+    enabled: true,
+    cacheInstance: analysisCache,
+  })
+
+  console.log('[Step1] AI response length:', aiResponse.content.length)
+  console.log('[Step1] AI response preview:', aiResponse.content.slice(0, 500))
+
+  const parsed = extractJSON(aiResponse.content)
+
+  const scenarioRaw = parsed?.scenario as
+    | { type?: string; description?: string; key_dimensions?: string[] }
+    | undefined
+  const reasoningTrace = parsed?.reasoning_trace as ReasoningStep[] | undefined
+
+  const scenarioData: ScenarioData = scenarioRaw
+    ? {
+        type: scenarioRaw.type || input.scenarioType || 'custom',
+        description: scenarioRaw.description || '自动识别场景',
+        keyDimensions: scenarioRaw.key_dimensions || [],
+      }
+    : {
+        type: input.scenarioType || 'custom',
+        description: '自动识别场景',
+        keyDimensions: [],
+      }
+
+  const reasoningStep = reasoningTrace?.find((r) =>
     String(r.step).toUpperCase().includes('SCENARIO'),
   )
-
-  const tokenPrompt = Math.ceil(result.tokenPrompt / MAIN_CALL_STEP_COUNT)
-  const tokenCompletion = Math.ceil(result.tokenCompletion / MAIN_CALL_STEP_COUNT)
 
   return {
     data: {
       scenario: scenarioData,
       reasoning: reasoningStep?.result || '场景识别完成',
-      _rawParsed: parsed,
-      _isMock: result.isMock,
-      _rawOutput: result.rawOutput,
-      mainCallResult: result,
+      reasoning_trace: reasoningTrace || [],
     },
-    modelVersion: result.model,
+    modelVersion: aiResponse.model,
     promptVersion: CURRENT_PROMPT_VERSION,
-    tokenPrompt,
-    tokenCompletion,
+    tokenPrompt: aiResponse.tokenPrompt,
+    tokenCompletion: aiResponse.tokenCompletion,
     latencyMs: Date.now() - startTime,
-    rawOutput: result.rawOutput,
+    rawOutput: aiResponse.content,
   }
 }

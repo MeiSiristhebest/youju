@@ -23,5 +23,9 @@ export function PageTransition({ children }: PageTransitionProps) {
     { scope: containerRef },
   )
 
-  return <div ref={containerRef}>{children}</div>
+  return (
+    <div ref={containerRef} style={{ opacity: 0 }}>
+      {children}
+    </div>
+  )
 }

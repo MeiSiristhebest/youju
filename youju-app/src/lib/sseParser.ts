@@ -10,7 +10,6 @@ export interface SSEResult {
 
 /**
  * 从缓冲区解析完整的 SSE 事件块。
- * 实现逻辑同 useAnalysis.ts 中的 parseSSEEvents。
  */
 export function parseSSEEvents(buffer: string): SSEResult {
   const events: SSEEvent[] = []
@@ -35,11 +34,32 @@ export function parseSSEEvents(buffer: string): SSEResult {
     }
 
     if (dataLines.length > 0) {
-      events.push({ event: eventName, data: dataLines.join('\n') })
+      const data = dataLines.join('\n')
+      if (eventName === 'complete') {
+        console.log('[SSE Parser] Complete event received, data length:', data.length)
+      }
+      events.push({ event: eventName, data })
     }
   }
 
   return { events, remaining: current }
+}
+
+/** @deprecated Use parseSSEEvents instead */
+export const parseSseBuffer = parseSSEEvents
+
+/** @deprecated Use SSEEvent instead */
+export type SseEvent = SSEEvent
+
+/**
+ * 安全解析 JSON，失败时返回 null。
+ */
+export function safeParseJson<T = unknown>(data: string): T | null {
+  try {
+    return JSON.parse(data) as T
+  } catch {
+    return null
+  }
 }
 
 /**

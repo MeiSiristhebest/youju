@@ -21,6 +21,7 @@ interface ListReportProps {
 export function ListReport({ result, sources, title = '信息对齐分析报告' }: ListReportProps) {
   const r = result
   const now = new Date()
+  const scenarioType = r.scenario?.type
 
   const metaItems = [
     now.toLocaleDateString('zh-CN'),
@@ -187,7 +188,7 @@ export function ListReport({ result, sources, title = '信息对齐分析报告'
                       verticalAlign: 'top',
                     }}
                   >
-                    {typeLabel(risk.type)}
+                    {typeLabel(risk.type, scenarioType)}
                     {risk.dimension && (
                       <div style={{ color: KAMI.stone, fontSize: '7.5pt', marginTop: '2pt' }}>
                         {risk.dimension}

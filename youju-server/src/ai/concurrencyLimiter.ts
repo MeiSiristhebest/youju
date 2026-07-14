@@ -7,6 +7,8 @@
  * 配置：通过环境变量 AI_MAX_CONCURRENCY 设置（默认 3）。
  */
 
+import { getEnv } from '../infrastructure/env.js'
+
 type Resolver = () => void
 
 export class ConcurrencyLimiter {
@@ -40,5 +42,5 @@ export class ConcurrencyLimiter {
   }
 }
 
-const maxConcurrency = Number(process.env.AI_MAX_CONCURRENCY) || 3
+const maxConcurrency = getEnv().AI_MAX_CONCURRENCY
 export const aiRequestQueue = new ConcurrencyLimiter(maxConcurrency)

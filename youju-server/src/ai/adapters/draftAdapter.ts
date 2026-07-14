@@ -1,6 +1,8 @@
 import type { AIDraftPort, Evidence } from '../../domain/types.js'
+import { getEnv } from '../../infrastructure/env.js'
 import { callAI } from '../llm.js'
 import { mockGenerateDraft } from '../mock.js'
+import { draftCache } from '../promptCache.js'
 import {
   buildDraftUserPrompt,
   CURRENT_PROMPT_VERSION,
@@ -22,7 +24,7 @@ export class DraftAdapter implements AIDraftPort {
       preferredTone?: string
     },
   ): Promise<string> {
-    const apiKey = process.env.AI_API_KEY
+    const apiKey = getEnv().AI_API_KEY
 
     if (!apiKey) {
       return mockGenerateDraft(risk)
@@ -40,7 +42,13 @@ export class DraftAdapter implements AIDraftPort {
     )
 
     try {
-      const aiResponse = await callAI(userPrompt, getDraftSystemPrompt(CURRENT_PROMPT_VERSION), 1)
+      const aiResponse = await callAI(
+        userPrompt,
+        getDraftSystemPrompt(CURRENT_PROMPT_VERSION),
+        1,
+        undefined,
+        { enabled: true, cacheInstance: draftCache },
+      )
       return aiResponse.content
     } catch (e) {
       console.log('[AI] Draft generation failed:', (e as Error).message)

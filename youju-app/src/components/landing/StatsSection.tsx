@@ -40,9 +40,9 @@ export function StatsSection() {
       const cards = gsap.utils.toArray<HTMLElement>('[data-stat-card]')
       if (cards.length === 0) return
 
-      gsap.from(cards, {
-        y: 40,
-        opacity: 0,
+      gsap.to(cards, {
+        y: 0,
+        opacity: 1,
         stagger: 0.12,
         duration: 0.9,
         ease: 'power3.out',
@@ -71,7 +71,7 @@ export function StatsSection() {
             <div
               key={stat.label}
               data-stat-card
-              className="group relative rounded-lg border border-rule/50 bg-paper/40 backdrop-blur-md p-6 lg:p-8 transition-colors hover:border-accent/40"
+              className="gsap-reveal group relative rounded-lg border border-rule/50 bg-paper/40 backdrop-blur-md p-6 lg:p-8 transition-colors hover:border-accent/40"
             >
               <div className="font-display text-5xl lg:text-6xl font-light text-ink tracking-tight">
                 <AnimatedCounter

@@ -1,12 +1,20 @@
 import { apiClient } from './apiClient'
+import { handleApiError } from './errorHandler'
 
 export type ModelProvider =
   | 'openai'
   | 'anthropic'
+  | 'gemini'
   | 'deepseek'
   | 'zhipu'
   | 'moonshot'
   | 'qwen'
+  | 'volcengine'
+  | 'qianfan'
+  | 'yi'
+  | 'spark'
+  | 'openrouter'
+  | 'agnes'
   | 'custom'
 
 export interface ModelMapping {
@@ -14,38 +22,34 @@ export interface ModelMapping {
   model: string
 }
 
-export interface UserModelConfig {
-  id: string
-  userId: string | null
-  sessionId: string | null
-  name: string
+export interface ProviderPreset {
   provider: ModelProvider
+  label: string
+  name: string
   baseURL: string
-  model: string
-  modelMappings: ModelMapping[]
-  isDefault: boolean
-  createdAt: string
-  updatedAt: string
+  defaultModel: string
 }
 
-export interface CreateModelConfigRequest {
-  name: string
-  provider: ModelProvider
-  apiKey: string
-  baseURL: string
-  model: string
-  modelMappings?: ModelMapping[]
-  isDefault?: boolean
-}
-
-export interface UpdateModelConfigRequest {
-  name?: string
+export interface ModelOption {
+  value: string
+  label: string
   provider?: ModelProvider
-  apiKey?: string
-  baseURL?: string
-  model?: string
-  modelMappings?: ModelMapping[]
-  isDefault?: boolean
+}
+
+export async function fetchProviderPresets(): Promise<ProviderPreset[]> {
+  try {
+    return await apiClient.get<ProviderPreset[]>('/api/models/presets')
+  } catch (error) {
+    throw handleApiError(error)
+  }
+}
+
+export async function fetchAnalysisModelOptions(): Promise<ModelOption[]> {
+  try {
+    return await apiClient.get<ModelOption[]>('/api/models/options')
+  } catch (error) {
+    throw handleApiError(error)
+  }
 }
 
 export interface TestModelConnectionRequest {
@@ -62,57 +66,31 @@ export interface TestModelConnectionResult {
   error?: string
 }
 
-export async function listModelConfigs(): Promise<UserModelConfig[]> {
-  const res = await apiClient.get<{ code: number; data: UserModelConfig[] }>('/api/model-configs')
-  return res.data
+export interface FetchModelListRequest {
+  provider: ModelProvider
+  apiKey: string
+  baseURL: string
 }
 
-export async function getDefaultModelConfig(): Promise<UserModelConfig | null> {
-  const res = await apiClient.get<{ code: number; data: UserModelConfig | null }>(
-    '/api/model-configs/default',
-  )
-  return res.data
-}
-
-export async function createModelConfig(data: CreateModelConfigRequest): Promise<UserModelConfig> {
-  const res = await apiClient.post<{ code: number; data: UserModelConfig }>(
-    '/api/model-configs',
-    data,
-  )
-  return res.data
-}
-
-export async function updateModelConfig(
-  id: string,
-  data: UpdateModelConfigRequest,
-): Promise<UserModelConfig> {
-  const res = await apiClient.put<{ code: number; data: UserModelConfig }>(
-    `/api/model-configs/${id}`,
-    data,
-  )
-  return res.data
-}
-
-export async function deleteModelConfig(id: string): Promise<boolean> {
-  const res = await apiClient.delete<{ code: number; data: { success: boolean } }>(
-    `/api/model-configs/${id}`,
-  )
-  return res.data.success
-}
-
-export async function setDefaultModelConfig(id: string): Promise<boolean> {
-  const res = await apiClient.post<{ code: number; data: { success: boolean } }>(
-    `/api/model-configs/${id}/set-default`,
-  )
-  return res.data.success
+export interface ModelItem {
+  id: string
+  name?: string
 }
 
 export async function testModelConnection(
   data: TestModelConnectionRequest,
 ): Promise<TestModelConnectionResult> {
-  const res = await apiClient.post<{ code: number; data: TestModelConnectionResult }>(
-    '/api/model-configs/test',
-    data,
-  )
-  return res.data
+  try {
+    return await apiClient.post<TestModelConnectionResult>('/api/model-configs/test', data)
+  } catch (error) {
+    throw handleApiError(error)
+  }
+}
+
+export async function fetchModelList(data: FetchModelListRequest): Promise<ModelItem[]> {
+  try {
+    return await apiClient.post<ModelItem[]>('/api/model-configs/list-models', data)
+  } catch (error) {
+    throw handleApiError(error)
+  }
 }

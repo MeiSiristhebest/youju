@@ -50,16 +50,73 @@ export function SourceDetailModal({
     }
   }, [source?.id])
 
-  useEffect(() => {
-    if (highlightText && contentRef.current) {
-      const markElement = contentRef.current.querySelector('mark')
-      if (markElement) {
-        markElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        markElement.classList.add('animate-pulse')
-        setTimeout(() => markElement.classList.remove('animate-pulse'), 2000)
+  const findMatchText = (content: string, query: string): string | null => {
+    if (!query || !content) return null
+    if (content.includes(query)) return query
+
+    const findFuzzyMatch = (text: string, pattern: string): [number, number] | null => {
+      const isSpaceLike = (ch: string) => /\s/.test(ch)
+      const n = text.length
+      const m = pattern.length
+      if (m === 0 || n < m) return null
+
+      for (let i = 0; i <= n - m; i++) {
+        let ti = i
+        let pi = 0
+        while (pi < m && ti < n) {
+          const tChar = text[ti]
+          const pChar = pattern[pi]
+          if (tChar === pChar) {
+            ti++
+            pi++
+          } else if (isSpaceLike(tChar) && isSpaceLike(pChar)) {
+            ti++
+            pi++
+          } else if (isSpaceLike(tChar)) {
+            ti++
+          } else if (isSpaceLike(pChar)) {
+            pi++
+          } else {
+            break
+          }
+        }
+        if (pi === m) {
+          return [i, ti]
+        }
+      }
+      return null
+    }
+
+    const fullMatch = findFuzzyMatch(content, query)
+    if (fullMatch) {
+      return content.substring(fullMatch[0], fullMatch[1])
+    }
+
+    const shortQuery = query.trim().substring(0, Math.min(30, query.trim().length))
+    if (shortQuery) {
+      const shortMatch = findFuzzyMatch(content, shortQuery)
+      if (shortMatch) {
+        return content.substring(shortMatch[0], shortMatch[1])
       }
     }
-  }, [highlightText, source?.id])
+
+    return null
+  }
+
+  const matchText = highlightText && source ? findMatchText(source.content, highlightText) : null
+
+  useEffect(() => {
+    if (matchText && contentRef.current) {
+      const markElement = contentRef.current.querySelector('mark')
+      if (markElement) {
+        setTimeout(() => {
+          markElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          markElement.classList.add('animate-pulse')
+          setTimeout(() => markElement.classList.remove('animate-pulse'), 2000)
+        }, 100)
+      }
+    }
+  }, [matchText, source?.id])
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -272,15 +329,15 @@ export function SourceDetailModal({
                 ref={contentRef}
                 className="max-w-none text-base text-ink-muted leading-relaxed whitespace-pre-wrap font-body"
               >
-                {highlightText && source.content.includes(highlightText)
+                {matchText
                   ? source.content
-                      .split(highlightText)
+                      .split(matchText)
                       .map((part: string, i: number, arr: string[]) => (
                         <span key={i}>
                           {part}
                           {i < arr.length - 1 && (
                             <mark className="bg-accent/30 text-accent px-0.5 rounded font-medium">
-                              {highlightText}
+                              {matchText}
                             </mark>
                           )}
                         </span>

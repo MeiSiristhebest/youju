@@ -1,8 +1,6 @@
 import { useRef } from 'react'
 import type { IncrementalPrediction } from '../algorithms/incrementalEngine'
-import { useAnalysisResultStore } from '../stores/useAnalysisResultStore'
-import type { AnalysisTaskStatus } from '../stores/useAnalysisStepStore'
-import { useAnalysisStepStore } from '../stores/useAnalysisStepStore'
+import { type AnalysisTaskStatus, useAnalysisStore } from '../stores'
 import type { AnalyzeResult } from '../types'
 import { useUndoableAction } from './useUndoableAction'
 
@@ -24,9 +22,6 @@ interface CanceledStateSnapshot {
 export function useAnalysisCancellation(analyzing: boolean, resetMutation: () => void) {
   const canceledStateRef = useRef<CanceledStateSnapshot | null>(null)
 
-  const resultStore = useAnalysisResultStore()
-  const stepStore = useAnalysisStepStore()
-
   const {
     result,
     incrementalPrediction,
@@ -35,6 +30,11 @@ export function useAnalysisCancellation(analyzing: boolean, resetMutation: () =>
     previousResult,
     taskStatus,
     cancelled,
+    analysisStep,
+    streaming,
+    streamProgress,
+    streamError,
+    lastErrorTimestamp,
     setResult,
     setAnalyzing,
     setIncrementalPrediction,
@@ -43,21 +43,13 @@ export function useAnalysisCancellation(analyzing: boolean, resetMutation: () =>
     setPreviousResult,
     setTaskStatus,
     setCancelled,
-  } = resultStore
-
-  const {
-    analysisStep,
-    streaming,
-    streamProgress,
-    streamError,
-    lastErrorTimestamp,
     setAnalysisStep,
     setStreaming,
     setStreamProgress,
     setStreamError,
     setLastErrorTimestamp,
     addAnalysisLog,
-  } = stepStore
+  } = useAnalysisStore()
 
   const saveStateSnapshot = () => {
     canceledStateRef.current = {

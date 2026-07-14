@@ -40,7 +40,7 @@ export async function getRiskWeights(
   const stored = await getUserPreference(userId, sessionId, 'risk_weights')
   if (!stored) return { ...DEFAULT_RISK_WEIGHTS }
   try {
-    return { ...DEFAULT_RISK_WEIGHTS, ...JSON.parse(stored) }
+    return { ...DEFAULT_RISK_WEIGHTS, ...JSON.parse(stored as string) }
   } catch {
     return { ...DEFAULT_RISK_WEIGHTS }
   }
@@ -75,7 +75,7 @@ export async function getDraftStyle(
   const stored = await getUserPreference(userId, sessionId, 'draft_style')
   if (!stored) return { ...DEFAULT_DRAFT_STYLE }
   try {
-    return { ...DEFAULT_DRAFT_STYLE, ...JSON.parse(stored) }
+    return { ...DEFAULT_DRAFT_STYLE, ...JSON.parse(stored as string) }
   } catch {
     return { ...DEFAULT_DRAFT_STYLE }
   }
@@ -158,7 +158,7 @@ export async function getFeedbackStats(
   const stored = await getUserPreference(userId, sessionId, 'feedback_stats')
   if (!stored) return { ...DEFAULT_FEEDBACK }
   try {
-    return { ...DEFAULT_FEEDBACK, ...JSON.parse(stored) }
+    return { ...DEFAULT_FEEDBACK, ...JSON.parse(stored as string) }
   } catch {
     return { ...DEFAULT_FEEDBACK }
   }

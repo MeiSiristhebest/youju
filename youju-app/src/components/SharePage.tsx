@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { jsonStorage } from '../lib/storage'
 import type { AnalyzeResult, SharedReport } from '../types'
 
 interface SharePageProps {
@@ -33,24 +34,16 @@ interface RiskComment {
   createdAt: string
 }
 
-const COMMENT_STORAGE_KEY = 'youju_share_comments'
+const COMMENT_STORAGE_KEY = 'share_comments'
 
 function loadComments(shareId: string): Record<string, RiskComment[]> {
-  try {
-    const raw = localStorage.getItem(`${COMMENT_STORAGE_KEY}_${shareId}`)
-    if (!raw) return {}
-    return JSON.parse(raw)
-  } catch {
-    return {}
-  }
+  return (
+    jsonStorage.getItem<Record<string, RiskComment[]>>(`${COMMENT_STORAGE_KEY}_${shareId}`) || {}
+  )
 }
 
 function saveComments(shareId: string, comments: Record<string, RiskComment[]>) {
-  try {
-    localStorage.setItem(`${COMMENT_STORAGE_KEY}_${shareId}`, JSON.stringify(comments))
-  } catch {
-    // ignore quota errors
-  }
+  jsonStorage.setItem(`${COMMENT_STORAGE_KEY}_${shareId}`, comments)
 }
 
 export function SharePage({ sharedReport, result, error, loading }: SharePageProps) {

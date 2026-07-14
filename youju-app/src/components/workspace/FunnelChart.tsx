@@ -184,10 +184,10 @@ export function FunnelChart({ steps, totalDurationMs, onStepClick, className }: 
                     </p>
                   </div>
                 )}
-                {(step.details.details || step.details.content) && (
+                {(step.details.detail || step.details.result) && (
                   <div className="px-3 py-2.5 max-h-40 overflow-y-auto">
                     <pre className="text-[10px] font-mono text-ink-muted leading-relaxed whitespace-pre-wrap break-all">
-                      {step.details.details || step.details.content}
+                      {step.details.detail || step.details.result}
                     </pre>
                   </div>
                 )}
@@ -197,14 +197,6 @@ export function FunnelChart({ steps, totalDurationMs, onStepClick, className }: 
                       <Clock size={10} className="text-ink-faint" />
                       <span className="text-[9px] font-mono text-ink-faint">
                         耗时: {formatDuration(step.details.durationMs)}
-                      </span>
-                    </div>
-                  )}
-                  {step.details.tokenUsage !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <Zap size={10} className="text-accent-tertiary" />
-                      <span className="text-[9px] font-mono text-ink-faint">
-                        Tokens: {step.details.tokenUsage.toLocaleString()}
                       </span>
                     </div>
                   )}

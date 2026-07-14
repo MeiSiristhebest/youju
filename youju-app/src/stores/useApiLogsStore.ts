@@ -41,7 +41,7 @@ export const useApiLogsStore = create<ApiLogsState>((set, get) => ({
   statusFilter: 'all',
   searchQuery: '',
   selectedLogId: null,
-  maxLogs: 50,
+  maxLogs: 200,
 
   addLog: (entry) => {
     const { maxLogs } = get()

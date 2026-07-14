@@ -128,8 +128,6 @@ export const useChatStore = create<ChatState>()(
       name: 'youju-chat-store',
       version: 1,
       partialize: (state) => ({
-        conversations: state.conversations,
-        activeConversationId: state.activeConversationId,
         contextScope: state.contextScope,
         selectedSourceIds: state.selectedSourceIds,
       }),

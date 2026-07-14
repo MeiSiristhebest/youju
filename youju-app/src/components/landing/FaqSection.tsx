@@ -51,9 +51,9 @@ export function FaqSection() {
       const items = gsap.utils.toArray<HTMLElement>('[data-faq-item]')
       if (items.length === 0) return
 
-      gsap.from(items, {
-        y: 20,
-        opacity: 0,
+      gsap.to(items, {
+        y: 0,
+        opacity: 1,
         stagger: 0.06,
         duration: 0.6,
         ease: 'power3.out',
@@ -77,7 +77,7 @@ export function FaqSection() {
           description="还有其他问题？欢迎随时联系我们。"
         />
 
-        <div data-faq-item className="mt-16">
+        <div data-faq-item className="gsap-reveal mt-16">
           <Accordion
             items={faqs.map((faq, i) => ({
               ...faq,

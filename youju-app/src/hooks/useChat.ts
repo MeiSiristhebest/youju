@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import {
   type ChatSSECompleteResult,
   type CreateConversationParams,
   chatApi,
 } from '../services/chatApi'
 import { useChatStore } from '../stores/useChatStore'
+import { useSourceStore } from '../stores/useSourceStore'
 import type { ChatMessage, ContextScope } from '../types'
 
 const RETRY_COUNT = 2
@@ -31,7 +32,7 @@ function computeContextSourceIds(scope: ContextScope, selectedIds: string[]): st
   return undefined
 }
 
-export const useChat = () => {
+export const useChat = (taskId?: string) => {
   const queryClient = useQueryClient()
 
   const {
@@ -64,19 +65,37 @@ export const useChat = () => {
     setSelectedSourceIds,
   } = useChatStore()
 
+  // 获取当前任务的素材列表，用于自动绑定到新对话
+  const taskSources = useSourceStore((s) => s.sources)
+
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  // 列出会话
+  // 列出会话（按 taskId 过滤）
+  // 仅在 taskId 存在时查询，避免初始空查询
   const conversationsQuery = useQuery({
-    queryKey: ['chat', 'conversations'],
+    queryKey: ['chat', 'conversations', taskId],
     queryFn: async () => {
-      const list = await chatApi.listConversations()
+      const list = await chatApi.listConversations(taskId ? { taskId } : undefined)
       setConversations(list)
       return list
     },
+    enabled: !!taskId,
     refetchOnWindowFocus: false,
     retry: retryOnlyNetwork,
+    staleTime: 30 * 1000,
   })
+
+  // taskId 变化时，如果当前活跃会话不属于该任务，则重置
+  useEffect(() => {
+    if (!activeConversationId) return
+    const activeConv = conversations.find((c) => c.id === activeConversationId)
+    if (!activeConv) return
+    const belongs = taskId ? activeConv.taskId === taskId : !activeConv.taskId
+    if (!belongs) {
+      setActiveConversationId(null)
+      setMessages([])
+    }
+  }, [taskId, conversations, activeConversationId, setActiveConversationId, setMessages])
 
   // 加载消息
   const messagesQuery = useQuery({
@@ -90,6 +109,7 @@ export const useChat = () => {
     enabled: !!activeConversationId,
     refetchOnWindowFocus: false,
     retry: retryOnlyNetwork,
+    staleTime: 10 * 1000,
   })
 
   // 创建会话
@@ -98,7 +118,10 @@ export const useChat = () => {
     onSuccess: (conv) => {
       addConversation(conv)
       setActiveConversationId(conv.id)
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+      queryClient.setQueryData(['chat', 'conversations', taskId], (prev: unknown) => {
+        const list = Array.isArray(prev) ? prev : []
+        return [conv, ...list]
+      })
     },
     retry: retryOnlyNetwork,
   })
@@ -109,19 +132,49 @@ export const useChat = () => {
       content: string
       scenarioType?: string
     }): Promise<ChatSSECompleteResult> => {
-      if (!activeConversationId) throw new Error('No active conversation')
+      console.log('[useChat] sendMessage 开始:', {
+        content: params.content,
+        scenarioType: params.scenarioType,
+        activeConversationId,
+        contextScope,
+        selectedSourceIds,
+      })
+
+      let conversationId = activeConversationId
+
+      // 首次发送：自动创建会话
+      if (!conversationId) {
+        console.log('[useChat] 首次发送，创建新会话')
+        const sourceIds = taskSources.map((s) => s.id)
+        const newConv = await chatApi.createConversation({
+          taskId,
+          title: params.content.slice(0, 30) || '新对话',
+          scenarioType: params.scenarioType,
+          sourceIds: sourceIds.length > 0 ? sourceIds : undefined,
+        })
+        addConversation(newConv)
+        setActiveConversationId(newConv.id)
+        conversationId = newConv.id
+        queryClient.setQueryData(['chat', 'conversations', taskId], (prev: unknown) => {
+          const list = Array.isArray(prev) ? prev : []
+          return [newConv, ...list]
+        })
+        console.log('[useChat] 新会话创建成功:', conversationId)
+      }
 
       const contextSourceIds = computeContextSourceIds(contextScope, selectedSourceIds)
+      console.log('[useChat] 计算上下文范围:', { contextScope, contextSourceIds })
 
       // 重置流式状态
       resetStream()
       setStreaming(true)
       setStreamingMessage('')
+      console.log('[useChat] 流式状态已重置，开始发送消息')
 
       // 乐观添加 user 消息
       const tempUserMessage: ChatMessage = {
         id: `temp-${Date.now()}`,
-        conversationId: activeConversationId,
+        conversationId,
         role: 'user',
         content: params.content,
         toolCalls: null,
@@ -138,7 +191,7 @@ export const useChat = () => {
       abortControllerRef.current = new AbortController()
 
       try {
-        const result = await chatApi.streamMessage(activeConversationId, {
+        const result = await chatApi.streamMessage(conversationId, {
           content: params.content,
           contextSourceIds,
           scenarioType: params.scenarioType,
@@ -154,7 +207,7 @@ export const useChat = () => {
           onComplete: (completeResult) => {
             const assistantMessage: ChatMessage = {
               id: `msg-${Date.now()}`,
-              conversationId: activeConversationId,
+              conversationId,
               role: 'assistant',
               content: completeResult.content,
               toolCalls: completeResult.toolCalls,
@@ -203,7 +256,10 @@ export const useChat = () => {
       chatApi.renameConversation(id, title),
     onSuccess: (conv) => {
       updateConversation(conv.id, conv)
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+      queryClient.setQueryData(['chat', 'conversations', taskId], (prev: unknown) => {
+        const list = Array.isArray(prev) ? prev : []
+        return list.map((c: any) => (c.id === conv.id ? { ...c, ...conv } : c))
+      })
     },
     retry: retryOnlyNetwork,
   })
@@ -214,7 +270,10 @@ export const useChat = () => {
     onSuccess: (_, id) => {
       removeConversation(id)
       if (activeConversationId === id) setActiveConversationId(null)
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+      queryClient.setQueryData(['chat', 'conversations', taskId], (prev: unknown) => {
+        const list = Array.isArray(prev) ? prev : []
+        return list.filter((c: any) => c.id !== id)
+      })
     },
     retry: retryOnlyNetwork,
   })
@@ -253,6 +312,7 @@ export const useChat = () => {
     createConversation: createConversationMutation.mutate,
     sendMessage: sendMessageMutation.mutate,
     abortStream,
+    resetStream,
     renameConversation: renameConversationMutation.mutate,
     deleteConversation: deleteConversationMutation.mutate,
     sendFeedback: sendFeedbackMutation.mutate,

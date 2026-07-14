@@ -34,9 +34,9 @@ export function SecuritySection() {
       const cards = gsap.utils.toArray<HTMLElement>('[data-security-card]')
       if (cards.length === 0) return
 
-      gsap.from(cards, {
-        y: 40,
-        opacity: 0,
+      gsap.to(cards, {
+        y: 0,
+        opacity: 1,
         stagger: { each: 0.1, from: 'end' },
         duration: 0.8,
         ease: 'power3.out',
@@ -85,7 +85,7 @@ export function SecuritySection() {
               <div
                 key={f.title}
                 data-security-card
-                className="rounded-lg border border-paper/15 bg-paper/5 backdrop-blur-sm p-6 lg:p-8"
+                className="gsap-reveal rounded-lg border border-paper/15 bg-paper/5 backdrop-blur-sm p-6 lg:p-8"
               >
                 <div className="flex items-start gap-4">
                   <div className="shrink-0 w-11 h-11 rounded-md bg-accent/15 flex items-center justify-center text-accent">

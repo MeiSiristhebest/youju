@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { storage, storageKeys } from '../lib/storage'
 import type { SharedReport, SharePermission, User } from '../types'
 
 type PageType = 'home' | 'workspace' | 'share'
 type Theme = 'light' | 'dark'
 type DefaultScenario = 'jobOffer' | 'rentContract' | 'homework' | 'custom'
 type ExportFormat = 'pdf' | 'docx' | 'markdown' | 'html'
-type ReportStyle = 'standard' | 'detailed' | 'executive' | 'technical'
+type ReportStyle = 'standard' | 'equity' | 'one-pager' | 'brief' | 'letter' | 'list'
 type DataRetention = '30days' | '90days' | '180days' | '1year' | 'forever'
 export type RiskViewType = 'tree' | 'list' | 'kanban' | 'grouped'
 
@@ -39,6 +40,7 @@ interface NotificationSettings {
   analysisCompleteReminder: boolean
   weeklyDigest: boolean
   soundEnabled: boolean
+  productUpdates: boolean
 }
 
 interface ExportSettings {
@@ -56,6 +58,7 @@ interface PrivacySecuritySettings {
   autoDeleteDays: number
   localEncryption: boolean
   analyticsOptOut: boolean
+  shareUsageData: boolean
 }
 
 interface CustomShortcutOverride {
@@ -149,7 +152,7 @@ export type PreferenceTab =
 
 const getInitialTheme = (): Theme => {
   if (typeof window === 'undefined') return 'light'
-  const saved = localStorage.getItem('theme') as Theme | null
+  const saved = storage.getItem(storageKeys.theme) as Theme | null
   if (saved) return saved
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
@@ -172,7 +175,7 @@ const DEFAULT_GENERAL: GeneralSettings = {
 }
 
 const DEFAULT_ANALYSIS: AnalysisSettings = {
-  defaultModel: 'gpt-4o',
+  defaultModel: 'gpt-5.5', // 同步约定：须与后端 env.ts 的 AI_MODEL 默认值保持同步
   autoSave: true,
   confidenceThreshold: 70,
   incrementalAnalysis: true,
@@ -185,6 +188,7 @@ const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   analysisCompleteReminder: true,
   weeklyDigest: false,
   soundEnabled: true,
+  productUpdates: true,
 }
 
 const DEFAULT_EXPORT: ExportSettings = {
@@ -202,6 +206,7 @@ const DEFAULT_PRIVACY_SECURITY: PrivacySecuritySettings = {
   autoDeleteDays: 180,
   localEncryption: false,
   analyticsOptOut: false,
+  shareUsageData: false,
 }
 
 const DEFAULT_CUSTOM_SHORTCUTS: Record<string, CustomShortcutOverride> = {}
@@ -282,7 +287,7 @@ export const useUIPreferenceStore = create<UIPreferenceState>()(
       setShowKeyboardShortcuts: (showKeyboardShortcuts) => set({ showKeyboardShortcuts }),
       setShowProductTour: (showProductTour) => set({ showProductTour }),
       restartProductTour: () => {
-        localStorage.removeItem('youju_tour_completed')
+        storage.removeItem(storageKeys.tourCompleted)
         set({ showProductTour: true })
       },
       setActivePreferenceTab: (activePreferenceTab) => set({ activePreferenceTab }),

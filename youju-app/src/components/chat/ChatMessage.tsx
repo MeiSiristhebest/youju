@@ -23,6 +23,7 @@ import { useState } from 'react'
 import { useToast } from '@/components/common/Toast'
 import { cn } from '@/lib/utils'
 import type { ChatCitation, ChatMessage as ChatMessageType, MessageFeedback } from '@/types'
+import { MarkdownContent } from './MarkdownContent'
 
 export interface ChatMessageProps {
   message: ChatMessageType
@@ -201,7 +202,11 @@ export function ChatMessage({
               : 'rounded-tl-sm border border-rule/60 bg-paper-dark text-ink',
           )}
         >
-          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          {isUser ? (
+            <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          ) : (
+            <MarkdownContent content={message.content} />
+          )}
 
           {/* Citations - assistant 消息下方 */}
           {hasCitations && (

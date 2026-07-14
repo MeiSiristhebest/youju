@@ -1,0 +1,358 @@
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  Copy,
+  Eye,
+  EyeOff,
+  Globe,
+  Key,
+  Plus,
+  Sparkles,
+  Trash2,
+  Webhook,
+} from 'lucide-react'
+import { useState } from 'react'
+import {
+  type ApiKey,
+  AVAILABLE_EVENTS,
+  MOCK_API_KEYS,
+  MOCK_WEBHOOKS,
+  type WebhookEndpoint,
+} from '../../constants/apiSettings'
+import { cn } from '../../lib/utils'
+
+interface ApiSettingsContentProps {
+  onClose?: () => void
+}
+
+export function ApiSettingsContent({ onClose }: ApiSettingsContentProps) {
+  const [activeTab, setActiveTab] = useState<'api-keys' | 'webhooks'>('api-keys')
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>(MOCK_API_KEYS)
+  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>(MOCK_WEBHOOKS)
+  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set())
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [showNewKeyModal, setShowNewKeyModal] = useState(false)
+  const [newKeyName, setNewKeyName] = useState('')
+
+  const toggleKeyVisibility = (id: string) => {
+    setVisibleKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const copyKey = async (key: string, id: string) => {
+    await navigator.clipboard?.writeText(key)
+    setCopiedKey(id)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
+
+  const deleteKey = (id: string) => {
+    setApiKeys((prev) => prev.filter((k) => k.id !== id))
+  }
+
+  const toggleWebhook = (id: string) => {
+    setWebhooks((prev) => prev.map((w) => (w.id === id ? { ...w, active: !w.active } : w)))
+  }
+
+  const deleteWebhook = (id: string) => {
+    setWebhooks((prev) => prev.filter((w) => w.id !== id))
+  }
+
+  const createNewKey = () => {
+    if (!newKeyName.trim()) return
+    const newKey: ApiKey = {
+      id: `ak_${Date.now()}`,
+      name: newKeyName,
+      key: `sk-youju-${Math.random().toString(36).slice(2, 26)}`,
+      createdAt: new Date().toISOString().split('T')[0],
+      lastUsed: '从未使用',
+      scopes: ['read', 'analyze'],
+    }
+    setApiKeys((prev) => [...prev, newKey])
+    setNewKeyName('')
+    setShowNewKeyModal(false)
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-paper">
+      {/* 即将上线提示 */}
+      <div className="px-3 py-2 bg-accent-bg/30 border-b border-accent-faint/40">
+        <p className="text-[10px] text-accent flex items-center gap-1.5">
+          <Sparkles size={10} />
+          即将上线 · API Key 管理功能正在开发中，当前为预览界面
+        </p>
+      </div>
+      {onClose && (
+        <div className="px-5 py-3 border-b border-rule flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium text-ink-muted hover:text-ink hover:bg-paper-dark/50 transition-colors shrink-0"
+          >
+            <ArrowLeft size={12} strokeWidth={1.5} />
+            返回
+          </button>
+          <h2 className="text-sm font-medium text-ink">API / Webhook</h2>
+        </div>
+      )}
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-rule/60">
+        <button
+          type="button"
+          onClick={() => setActiveTab('api-keys')}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors',
+            activeTab === 'api-keys'
+              ? 'bg-paper-dark text-ink border border-rule/60'
+              : 'text-ink-faint hover:text-ink-muted hover:bg-paper-dark/60',
+          )}
+        >
+          <Key size={11} strokeWidth={1.5} />
+          API Key
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('webhooks')}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors',
+            activeTab === 'webhooks'
+              ? 'bg-paper-dark text-ink border border-rule/60'
+              : 'text-ink-faint hover:text-ink-muted hover:bg-paper-dark/60',
+          )}
+        >
+          <Webhook size={11} strokeWidth={1.5} />
+          Webhook
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'api-keys' && (
+          <div className="p-3">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-[11px] text-ink-muted">管理你的 API 密钥，用于调用分析服务</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewKeyModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-accent text-paper hover:bg-accent-tertiary transition-colors"
+              >
+                <Plus size={11} strokeWidth={1.5} />
+                新建密钥
+              </button>
+            </div>
+
+            {showNewKeyModal && (
+              <div className="p-3 bg-accent-bg/30 border border-accent-faint/50 rounded-lg mb-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <p className="text-[11px] font-medium text-ink mb-2">创建新的 API 密钥</p>
+                <input
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="输入密钥名称"
+                  className="w-full px-3 py-2 bg-paper border border-rule/60 rounded-md text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 mb-2"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={createNewKey}
+                    className="flex-1 py-1.5 bg-accent text-paper rounded-md text-[11px] font-medium hover:bg-accent-tertiary transition-colors"
+                  >
+                    创建
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewKeyModal(false)}
+                    className="px-3 py-1.5 bg-paper-dark text-ink-muted rounded-md text-[11px] font-medium hover:text-ink transition-colors"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {apiKeys.map((apiKey) => (
+                <div
+                  key={apiKey.id}
+                  className="p-3 bg-paper-dark/40 border border-rule/50 rounded-lg group hover:border-rule/80 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-medium text-ink truncate">{apiKey.name}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="flex-1 px-2 py-1 bg-paper border border-rule/60 rounded text-[10px] text-ink-muted font-mono truncate">
+                          {visibleKeys.has(apiKey.id) ? apiKey.key : '••••••••••••••••••••'}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => toggleKeyVisibility(apiKey.id)}
+                          className="p-1 rounded text-ink-faint hover:text-ink hover:bg-paper transition-colors"
+                          title={visibleKeys.has(apiKey.id) ? '隐藏' : '显示'}
+                        >
+                          {visibleKeys.has(apiKey.id) ? (
+                            <EyeOff size={12} strokeWidth={1.5} />
+                          ) : (
+                            <Eye size={12} strokeWidth={1.5} />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => copyKey(apiKey.key, apiKey.id)}
+                          className="p-1 rounded text-ink-faint hover:text-accent hover:bg-accent-bg transition-colors"
+                          title="复制"
+                        >
+                          {copiedKey === apiKey.id ? (
+                            <Check size={12} strokeWidth={1.5} className="text-success" />
+                          ) : (
+                            <Copy size={12} strokeWidth={1.5} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteKey(apiKey.id)}
+                      className="p-1 rounded text-ink-faint opacity-0 group-hover:opacity-100 hover:text-danger hover:bg-danger-bg transition-all"
+                    >
+                      <Trash2 size={12} strokeWidth={1.5} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-ink-faint">
+                    <span className="flex items-center gap-1">
+                      <Clock size={9} strokeWidth={1.5} />
+                      最后使用：{apiKey.lastUsed}
+                    </span>
+                    <span>·</span>
+                    <span>创建于 {apiKey.createdAt}</span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-2">
+                    {apiKey.scopes.map((scope) => (
+                      <span
+                        key={scope}
+                        className="px-1.5 py-0.5 bg-paper border border-rule/60 rounded text-[9px] text-ink-muted font-mono"
+                      >
+                        {scope}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 p-3 bg-paper-dark/30 border border-rule/40 rounded-lg">
+              <p className="text-[11px] font-medium text-ink mb-1.5">API 文档</p>
+              <p className="text-[10px] text-ink-faint leading-relaxed mb-2">
+                查看完整的 API 文档，了解如何集成分析服务到你的工作流中。
+              </p>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-accent hover:text-accent-tertiary transition-colors"
+              >
+                <Globe size={10} strokeWidth={1.5} />
+                查看 API 文档
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'webhooks' && (
+          <div className="p-3">
+            <div className="mb-3">
+              <p className="text-[11px] text-ink-muted">配置 Webhook 端点，实时接收事件通知</p>
+            </div>
+
+            <div className="space-y-2">
+              {webhooks.map((webhook) => (
+                <div
+                  key={webhook.id}
+                  className="p-3 bg-paper-dark/40 border border-rule/50 rounded-lg group hover:border-rule/80 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          'w-2 h-2 rounded-full',
+                          webhook.active ? 'bg-success' : 'bg-ink-faint',
+                        )}
+                      />
+                      <h4 className="text-xs font-medium text-ink">{webhook.name}</h4>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleWebhook(webhook.id)}
+                        className={cn(
+                          'w-8 h-4 rounded-full relative transition-colors',
+                          webhook.active ? 'bg-accent' : 'bg-paper-dark border border-rule/60',
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'absolute top-0.5 w-3 h-3 bg-paper rounded-full shadow transition-all',
+                            webhook.active ? 'left-4' : 'left-0.5',
+                          )}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteWebhook(webhook.id)}
+                        className="p-1 rounded text-ink-faint opacity-0 group-hover:opacity-100 hover:text-danger hover:bg-danger-bg transition-all"
+                      >
+                        <Trash2 size={12} strokeWidth={1.5} />
+                      </button>
+                    </div>
+                  </div>
+                  <code className="block px-2 py-1.5 bg-paper border border-rule/60 rounded text-[10px] text-ink-muted font-mono truncate mb-2">
+                    {webhook.url}
+                  </code>
+                  <div className="flex flex-wrap gap-1">
+                    {webhook.events.map((event) => (
+                      <span
+                        key={event}
+                        className="px-1.5 py-0.5 bg-accent-bg/50 border border-accent-faint/40 rounded text-[9px] text-accent font-mono"
+                      >
+                        {event}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                className="w-full p-3 border border-dashed border-rule/60 rounded-lg text-[11px] text-ink-faint hover:text-ink hover:border-rule hover:bg-paper-dark/30 transition-all flex items-center justify-center gap-1.5"
+              >
+                <Plus size={12} strokeWidth={1.5} />
+                添加 Webhook 端点
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-[10px] font-medium text-ink-faint uppercase tracking-[0.15em] font-mono mb-2">
+                可用事件
+              </p>
+              <div className="space-y-1.5">
+                {AVAILABLE_EVENTS.map((event) => (
+                  <div
+                    key={event.id}
+                    className="p-2 bg-paper-dark/30 rounded-md border border-rule/40"
+                  >
+                    <code className="text-[10px] text-accent font-mono">{event.id}</code>
+                    <p className="text-[10px] text-ink-faint mt-0.5">{event.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

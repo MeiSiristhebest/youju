@@ -1,11 +1,11 @@
 import { jwtVerify, SignJWT } from 'jose'
-import type { JwtPort } from '../domain/ports/jwtPort.js'
+import type { JwtPort } from '../domain/ports/infrastructurePorts.js'
 import { getEnv } from './env.js'
 
 const JWT_SECRET = new TextEncoder().encode(getEnv().JWT_SECRET)
-const JWT_EXPIRES_IN = '7d'
-const JWT_ALG = 'HS256'
-const JWT_ISSUER = 'youju'
+const JWT_EXPIRES_IN = getEnv().JWT_EXPIRES_IN
+const JWT_ALG = getEnv().JWT_ALG
+const JWT_ISSUER = getEnv().JWT_ISSUER
 
 export async function generateToken(userId: number): Promise<string> {
   return new SignJWT({ userId })

@@ -2,7 +2,7 @@ import { PrintChecklistItem } from '../atoms/PrintChecklistItem'
 import { KAMI } from '../constants'
 
 interface PrintChecklistSectionProps {
-  items: { text: string; checked: boolean }[]
+  items: { text: string; checked?: boolean }[]
 }
 
 export function PrintChecklistSection({ items }: PrintChecklistSectionProps) {
@@ -18,7 +18,7 @@ export function PrintChecklistSection({ items }: PrintChecklistSectionProps) {
       }}
     >
       {items.map((item, i) => (
-        <PrintChecklistItem key={i} text={item.text} checked={item.checked} />
+        <PrintChecklistItem key={i} text={item.text} checked={item.checked ?? false} />
       ))}
     </div>
   )

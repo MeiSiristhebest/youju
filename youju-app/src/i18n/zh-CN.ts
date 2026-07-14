@@ -164,6 +164,7 @@ export const zhCN = {
     save: '保存',
     closePreview: '关闭预览',
     editPlaceholder: '编辑材料内容...',
+    addMaterialsToAnalyze: '添加材料后自动分析场景意图',
   },
   preference: {
     title: '偏好设置',

@@ -1,7 +1,9 @@
+import type { AIConfig } from '../stores/useModelConfigStore'
 import type {
   AnalyzeResult,
   AsyncTaskStatusResponse,
   Risk,
+  RiskType,
   ScenarioType,
   SubmitAsyncAnalysisResponse,
 } from '../types'
@@ -11,12 +13,16 @@ import { handleApiError } from './errorHandler'
 export interface AnalyzeParams {
   sourceIds: string[]
   scenarioType: ScenarioType | null
+  taskId?: string
+  aiConfig: AIConfig
 }
 
 export interface IncrementalAnalyzeParams {
   existingResult: AnalyzeResult
   newSourceIds: string[]
   scenarioType: ScenarioType | null
+  taskId?: string
+  aiConfig: AIConfig
 }
 
 export interface DraftResult {
@@ -26,7 +32,9 @@ export interface DraftResult {
 export const analysisApi = {
   async analyze(params: AnalyzeParams): Promise<AnalyzeResult> {
     try {
-      return await apiClient.post<AnalyzeResult>('/api/analyze', params)
+      const { taskId, aiConfig, ...rest } = params
+      const body = taskId ? { ...rest, aiConfig, task_id: taskId } : { ...rest, aiConfig }
+      return await apiClient.post<AnalyzeResult>('/api/analyze', body)
     } catch (error) {
       throw handleApiError(error)
     }
@@ -34,7 +42,9 @@ export const analysisApi = {
 
   async analyzeIncremental(params: IncrementalAnalyzeParams): Promise<AnalyzeResult> {
     try {
-      return await apiClient.post<AnalyzeResult>('/api/analyze/incremental', params)
+      const { taskId, aiConfig, ...rest } = params
+      const body = taskId ? { ...rest, aiConfig, task_id: taskId } : { ...rest, aiConfig }
+      return await apiClient.post<AnalyzeResult>('/api/analyze/incremental', body)
     } catch (error) {
       throw handleApiError(error)
     }
@@ -48,90 +58,9 @@ export const analysisApi = {
     }
   },
 
-  async generateDraftStream(params: {
-    riskId: string
-    riskTitle: string
-    riskDescription: string
-    sourceNames: string[]
-    style?: 'polite' | 'direct' | 'neutral'
-    onDelta?: (text: string) => void
-    signal?: AbortSignal
-  }): Promise<string> {
-    const response = await fetch('/api/draft/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params, stream: true }),
-      signal: params.signal,
-    })
-
-    if (!response.ok) {
-      throw new Error(`Draft generation failed: ${response.status}`)
-    }
-
-    const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
-    let fullText = ''
-    let buffer = ''
-
-    if (!reader) {
-      throw new Error('No response body')
-    }
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        if (line.startsWith('event: delta')) {
-          const dataMatch = line.match(/data: (.+)/)
-          if (dataMatch) {
-            try {
-              const data = JSON.parse(dataMatch[1])
-              if (data.text) {
-                fullText += data.text
-                params.onDelta?.(data.text)
-              }
-            } catch {
-              // ignore parse errors
-            }
-          }
-        } else if (line.startsWith('event: complete')) {
-          const dataMatch = line.match(/data: (.+)/)
-          if (dataMatch) {
-            try {
-              const data = JSON.parse(dataMatch[1])
-              if (data.text) {
-                fullText = data.text
-              }
-            } catch {
-              // ignore
-            }
-          }
-        }
-      }
-    }
-
-    return fullText
-  },
-
   async submitRiskFeedback(params: {
     riskId: string
-    feedback: 'accurate' | 'inaccurate'
-  }): Promise<void> {
-    try {
-      return await apiClient.post<void>('/api/feedback/risk', params)
-    } catch (error) {
-      throw handleApiError(error)
-    }
-  },
-
-  async submitRiskPreferenceFeedback(params: {
-    riskId: string
-    riskType: string
+    riskType: RiskType
     isAccurate: boolean
   }): Promise<void> {
     try {
@@ -142,7 +71,7 @@ export const analysisApi = {
   },
 
   async submitChecklistAction(params: {
-    riskType: string
+    riskType: RiskType
     dimension?: string
     checked: boolean
   }): Promise<void> {
@@ -153,17 +82,11 @@ export const analysisApi = {
     }
   },
 
-  async getSysStats(): Promise<any> {
-    try {
-      return await apiClient.post<any>('/api/admin/stats')
-    } catch (error) {
-      throw handleApiError(error)
-    }
-  },
-
   async submitAsyncAnalysis(params: AnalyzeParams): Promise<SubmitAsyncAnalysisResponse> {
     try {
-      return await apiClient.post<SubmitAsyncAnalysisResponse>('/api/analyze/async', params)
+      const { taskId, aiConfig, ...rest } = params
+      const body = taskId ? { ...rest, aiConfig, task_id: taskId } : { ...rest, aiConfig }
+      return await apiClient.post<SubmitAsyncAnalysisResponse>('/api/analyze/async', body)
     } catch (error) {
       throw handleApiError(error)
     }

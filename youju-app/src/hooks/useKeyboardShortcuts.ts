@@ -73,7 +73,7 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
         chordShortcuts.forEach((shortcut) => {
           if (
             shortcut.chordPrefix === chordPrefixRef.current &&
-            e.key.toLowerCase() === shortcut.key.toLowerCase() &&
+            (e.key ?? '').toLowerCase() === shortcut.key.toLowerCase() &&
             matchesModifiers(e, shortcut.modifiers) &&
             shortcut.enabled !== false
           ) {
@@ -93,7 +93,9 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
       for (const shortcut of normalShortcuts) {
         if (shortcut.enabled === false) continue
 
-        if (e.key.toLowerCase() !== shortcut.key.toLowerCase()) continue
+        const eventKey = e.key ?? ''
+        const shortcutKey = shortcut.key ?? ''
+        if (eventKey.toLowerCase() !== shortcutKey.toLowerCase()) continue
 
         if (!matchesModifiers(e, shortcut.modifiers)) continue
 
@@ -113,11 +115,11 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
       }
 
       const matchingPrefix = chordShortcuts.find(
-        (s) => s.chordPrefix === e.key.toLowerCase() && !s.modifiers?.length,
+        (s) => s.chordPrefix === (e.key ?? '').toLowerCase() && !s.modifiers?.length,
       )
       if (matchingPrefix && !isInputFocused()) {
         e.preventDefault()
-        chordPrefixRef.current = e.key.toLowerCase()
+        chordPrefixRef.current = (e.key ?? '').toLowerCase()
         if (chordTimeoutRef.current) {
           clearTimeout(chordTimeoutRef.current)
         }

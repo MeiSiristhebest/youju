@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { compareRisks, formatDuration, getLevelOrder } from '../../lib/history'
-import { cn } from '../../lib/utils'
+import { cn, formatDimensionName } from '../../lib/utils'
 import type { RiskLevel } from '../../types'
 import type { HistorySnapshot, RiskDiffItem, RiskDiffResult } from '../../types/history'
 
@@ -167,7 +167,7 @@ function DiffRiskItem({ diffItem, index }: { diffItem: RiskDiffItem; index: numb
                   : risk.type === 'missing'
                     ? '信息缺失'
                     : '信息提示'}
-              {risk.dimension && ` · ${risk.dimension}`}
+              {risk.dimension && ` · ${formatDimensionName(risk.dimension)}`}
             </div>
             <div className="text-xs text-ink-muted leading-relaxed line-clamp-2">
               {risk.description}
@@ -465,13 +465,11 @@ export function HistoryDiffPanel({
         )}
 
         {!diffResult && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-paper-dark flex items-center justify-center mx-auto mb-3 text-ink-faint border border-rule">
-                <AlertTriangle size={20} strokeWidth={1.5} />
-              </div>
-              <p className="text-sm text-ink-muted">请选择两个版本进行对比</p>
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-paper-dark flex items-center justify-center mb-3 text-ink-faint border border-rule">
+              <AlertTriangle size={20} strokeWidth={1.5} />
             </div>
+            <p className="text-sm text-ink-muted">请选择两个版本进行对比</p>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import * as net from 'node:net'
 import * as cheerio from 'cheerio'
 import type { ErrorCode } from '../domain/errors.js'
 import { AppError } from '../domain/errors.js'
+import { getEnv } from './env.js'
 
 const PRIVATE_IP_RANGES: Array<{ start: string; end: string }> = [
   { start: '0.0.0.0', end: '0.255.255.255' },
@@ -23,16 +24,9 @@ const PRIVATE_IP_RANGES: Array<{ start: string; end: string }> = [
 const DEFAULT_TIMEOUT_MS = 10_000
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
-function parseCsvList(value: string | undefined): string[] {
-  if (!value) return []
-  return value
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean)
-}
-
-const URL_ALLOWLIST = parseCsvList(process.env.URL_FETCH_ALLOWLIST)
-const URL_DENYLIST = parseCsvList(process.env.URL_FETCH_DENYLIST)
+// 从 env 读取（env.ts 已做 CSV→数组转换），统一转小写以匹配 hostname
+const URL_ALLOWLIST = getEnv().URL_FETCH_ALLOWLIST.map((s) => s.toLowerCase())
+const URL_DENYLIST = getEnv().URL_FETCH_DENYLIST.map((s) => s.toLowerCase())
 const USE_ALLOWLIST = URL_ALLOWLIST.length > 0
 
 function ipToLong(ip: string): number {

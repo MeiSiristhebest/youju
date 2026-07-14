@@ -16,9 +16,17 @@ function getSourceService(): SourceService {
 const router = express.Router()
 
 router.post('/sources/text', validateBody(sourceTextSchema), async (req, res) => {
-  const { type, name, content } = req.body
+  const { type, name, content, task_id } = req.body
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const source = await getSourceService().createSource(userId, sessionId, type, name, content)
+  const source = await getSourceService().createSource(
+    userId,
+    sessionId,
+    type,
+    name,
+    content,
+    undefined,
+    task_id || null,
+  )
   res.json({ code: 200, data: { sourceId: source.id, ...source } })
 })
 
@@ -68,7 +76,7 @@ router.post('/sources/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ code: 400, msg: '未上传文件' })
   }
-  const { type, name } = req.body
+  const { type, name, task_id } = req.body
 
   try {
     const result = await parseFile({
@@ -86,6 +94,7 @@ router.post('/sources/upload', upload.single('file'), async (req, res) => {
       name || req.file.originalname,
       result.text,
       `${req.file.size} bytes`,
+      task_id || null,
     )
     res.json({ code: 200, data: { sourceId: source.id, ...source } })
   } catch (error) {
@@ -99,7 +108,7 @@ router.post(
   urlFetchRateLimiter,
   validateBody(sourceUrlSchema),
   async (req, res) => {
-    const { url, type = 'web', name } = req.body
+    const { url, type = 'web', name, task_id } = req.body
     try {
       const content = await fetchUrl(url)
       const { userId, sessionId } = await getUserIdAndSessionId(req)
@@ -110,6 +119,7 @@ router.post(
         name || url,
         content,
         url,
+        task_id || null,
       )
       res.json({ code: 200, data: { sourceId: source.id, ...source } })
     } catch (_e) {
@@ -120,7 +130,17 @@ router.post(
 
 router.get('/sources', async (req, res) => {
   const { userId, sessionId } = await getUserIdAndSessionId(req)
-  const sources = await getSourceService().listSources(userId, sessionId)
+  const taskId = req.query.task_id as string | undefined
+  const all = req.query.all as string | undefined
+
+  if (all === 'true') {
+    // 历史材料：已登录用户返回自己的全部材料，匿名用户返回全部匿名材料
+    const sources = await getSourceService().listAllSources(userId)
+    res.json({ code: 200, data: sources })
+    return
+  }
+
+  const sources = await getSourceService().listSources(userId, sessionId, taskId || null)
   res.json({ code: 200, data: sources })
 })
 

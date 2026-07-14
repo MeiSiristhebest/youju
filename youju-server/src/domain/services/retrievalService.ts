@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { embeddingAdapter } from '../../ai/adapters/embeddingAdapter.js'
+import { getEnv } from '../../infrastructure/env.js'
 import { createTenantContext } from '../context/tenantContext.js'
 import type {
   EmbeddingPort,
@@ -7,31 +9,53 @@ import type {
   RetrievalResult,
   RetrievalResultItem,
 } from '../ports/aiPorts.js'
-import type { AnalysisLogRepository, ChunkRepository } from '../ports/repositories.js'
+import type {
+  AnalysisLogRepository,
+  ChunkRepository,
+  ModelConfigRepository,
+} from '../ports/repositories.js'
 import type { RetrievedChunk, SourceChunk } from '../types.js'
 
-/**
- * RetrievalService（构造注入模式）
- *
- * 历史反模式：let _chunkRepo + let _embeddingPort + let _rerankerPort + let _analysisLogRepo 四 setter
- * 当前：通过构造函数接收四个依赖
- *   - ChunkRepository（必填）
- *   - RerankerPort（必填）
- *   - EmbeddingPort（必填）
- *   - AnalysisLogRepository（可选，null 时跳过日志）
- */
+const RRF_K = 60
+const RRF_TOP_K = 20
+
 export class RetrievalService {
   constructor(
     private readonly chunkRepo: ChunkRepository,
     private readonly rerankerPort: RerankerPort,
     private readonly embeddingPort: EmbeddingPort,
     private readonly analysisLogRepo: AnalysisLogRepository | null,
+    private readonly modelConfigRepo: ModelConfigRepository | null = null,
   ) {}
 
-  /**
-   * 检索编排：embedQuery → denseSearch → sparseSearch → RRF 融合 → rerank → 阈值过滤 → parent 映射
-   * 全过程通过 analysis_logs 记录（自定义 logGroupId = `retrieve-{ts}-{randomId}`）。
-   */
+  private async getEmbeddingPort(
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<EmbeddingPort> {
+    if (!this.modelConfigRepo) return this.embeddingPort
+    try {
+      const config = (await this.modelConfigRepo.getDefaultConfig(
+        userId,
+        sessionId,
+        'embedding',
+      )) as {
+        api_key?: string
+        base_url?: string
+        model?: string
+      } | null
+      if (config && config.api_key) {
+        return embeddingAdapter.withConfig({
+          baseURL: config.base_url,
+          apiKey: config.api_key,
+          model: config.model,
+        })
+      }
+    } catch {
+      // ignore
+    }
+    return this.embeddingPort
+  }
+
   async retrieve(query: RetrievalQuery): Promise<RetrievalResult> {
     const startTotal = Date.now()
     const tenantCtx = createTenantContext(query.userId, query.sessionId)
@@ -41,8 +65,6 @@ export class RetrievalService {
     const recorder = createStageRecorder()
     const logGroupId = `retrieve-${Date.now()}-${randomUUID().slice(0, 8)}`
 
-    // 检索过程使用自定义 logGroupId，通过 appendAnalysisLog 写入；
-    // 每条 patch 都带上 userId/sessionId 以保证租户隔离。
     const logPatch = (extra: Record<string, unknown>): Record<string, unknown> => ({
       userId: query.userId,
       sessionId: query.sessionId,
@@ -52,13 +74,14 @@ export class RetrievalService {
 
     await this.appendLog(logGroupId, 'embed_start', logPatch({ query: query.text.slice(0, 200) }))
 
-    // 1. embedQuery
+    const embedPort = await this.getEmbeddingPort(query.userId, query.sessionId)
+
     let queryVector: number[]
     try {
       const embedResults = await timeStage(
         recorder,
         'embedQuery',
-        () => this.embeddingPort.embed([query.text]),
+        () => embedPort.embed([query.text]),
         (r) => r.length,
       )
       queryVector = embedResults[0]?.dense ?? []
@@ -82,7 +105,6 @@ export class RetrievalService {
       logPatch({ reasoningTrace: { stage: 'embedQuery', stages: recorder.stages } }),
     )
 
-    // 2. denseSearch
     const dense = await timeStage(
       recorder,
       'denseSearch',
@@ -98,7 +120,6 @@ export class RetrievalService {
       }),
     )
 
-    // 3. sparseSearch
     const sparse = await timeStage(
       recorder,
       'sparseSearch',
@@ -114,7 +135,6 @@ export class RetrievalService {
       }),
     )
 
-    // 4. RRF 融合
     const fused = await timeStage(
       recorder,
       'rrf',
@@ -128,7 +148,6 @@ export class RetrievalService {
       logPatch({ reasoningTrace: { stage: 'rrf', count: fused.length, stages: recorder.stages } }),
     )
 
-    // 5. rerank
     const chunksForRerank = fused.map((item) => item.chunk)
     const rerankResults = await timeStage(
       recorder,
@@ -137,7 +156,6 @@ export class RetrievalService {
       (r) => r.length,
     )
 
-    // 合并 rerank 分数到 fused items
     const fusedMap = new Map(fused.map((item) => [item.chunk.id, item]))
     const rerankedItems: RetrievalResultItem[] = rerankResults.map((rr) => {
       const base = fusedMap.get(rr.chunk.id)
@@ -158,10 +176,8 @@ export class RetrievalService {
       }),
     )
 
-    // 6. 阈值过滤
     const filtered = rerankedItems.filter((item) => (item.rerankScore ?? item.score) >= threshold)
 
-    // 7. parent chunk 映射
     await timeStage(
       recorder,
       'parent',
@@ -200,28 +216,16 @@ export class RetrievalService {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 纯函数
-// ─────────────────────────────────────────────────────────────────────────────
 function getThreshold(query: RetrievalQuery): number {
   if (query.threshold !== undefined) return query.threshold
-  const envValue = Number(process.env.VECTOR_SIMILARITY_THRESHOLD)
-  return Number.isFinite(envValue) ? envValue : 0.65
+  return getEnv().VECTOR_SIMILARITY_THRESHOLD
 }
 
-/**
- * RRF (Reciprocal Rank Fusion) 融合：
- *   score = Σ 1 / (k + rank_i)，rank 从 1 开始
- * 同一 chunk 在 dense 和 sparse 都出现时分数累加，并标记 source='both'
- *
- * 注：dense 来自 vectorSearch 返回 RetrievedChunk[]（含 score），
- * sparse 来自 fullTextSearch 返回 SourceChunk[]（不含 score，按 rank 计贡献）。
- */
 export function rrfFusion(
   dense: RetrievedChunk[],
   sparse: SourceChunk[],
-  k = 60,
-  topK = 20,
+  k = RRF_K,
+  topK = RRF_TOP_K,
 ): RetrievalResultItem[] {
   const scoreMap = new Map<
     string,

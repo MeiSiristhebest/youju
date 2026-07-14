@@ -26,7 +26,7 @@ export function ReasoningStepCard({ step, index }: ReasoningStepCardProps) {
 
   const stepTitle = step.title ?? step.name ?? `步骤 ${index + 1}`
   const stepDescription = step.description ?? ''
-  const stepDetails = (step as { thought?: string }).thought ?? step.details ?? step.content
+  const stepDetails = (step as { thought?: string }).thought ?? step.detail ?? step.result
   const stepLatency = (step as { latencyMs?: number }).latencyMs ?? step.durationMs
 
   return (

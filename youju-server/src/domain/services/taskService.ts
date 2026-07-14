@@ -23,8 +23,14 @@ interface SourceService {
     name: string,
     content: string,
     meta?: string,
+    taskId?: string | null,
   ): Promise<Source>
-  listSources(userId: number | null, sessionId: string | null): Promise<Source[]>
+  listSources(
+    userId: number | null,
+    sessionId: string | null,
+    taskId?: string | null,
+  ): Promise<Source[]>
+  listSourcesByTask(taskId: string): Promise<Source[]>
 }
 
 /**
@@ -48,8 +54,30 @@ export class TaskService {
     sessionId: string | null,
     title: string,
     scenarioType?: string,
+    initialSources?: Array<{ type: string; name: string; content: string; meta?: string }>,
   ): Promise<Task> {
     const result = await this.taskRepo.createTask(userId, sessionId, title, scenarioType)
+    let sources: Source[] = []
+
+    if (initialSources && initialSources.length > 0) {
+      const createdSources = []
+      for (const src of initialSources) {
+        const created = await this.sourceService.createSource(
+          userId,
+          sessionId,
+          src.type,
+          src.name,
+          src.content,
+          src.meta,
+          result.id,
+        )
+        createdSources.push(created)
+      }
+      sources = createdSources
+      const sourceIds = createdSources.map((s) => s.id)
+      await this.taskRepo.updateTask(userId, sessionId, result.id, { sourceIds })
+    }
+
     return {
       id: result.id,
       userId: result.userId,
@@ -62,14 +90,14 @@ export class TaskService {
       result: result.result,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      sources: [],
+      sources,
     }
   }
 
   async getTask(userId: number | null, sessionId: string | null, id: string): Promise<Task | null> {
     const task = await this.taskRepo.getTaskById(userId, sessionId, id)
     if (!task) return null
-    const sources = await this.sourceService.listSources(userId, sessionId)
+    const sources = await this.sourceService.listSources(userId, sessionId, id)
     return {
       id: task.id,
       userId: task.userId,
@@ -151,20 +179,20 @@ export class TaskService {
   async addSourceToTask(
     userId: number | null,
     sessionId: string | null,
-    _taskId: string,
+    taskId: string,
     type: string,
     name: string,
     content: string,
     meta?: string,
   ): Promise<Source> {
-    return this.sourceService.createSource(userId, sessionId, type, name, content, meta)
+    return this.sourceService.createSource(userId, sessionId, type, name, content, meta, taskId)
   }
 
   async runAnalysis(userId: number | null, sessionId: string | null, taskId: string) {
     const task = await this.taskRepo.getTaskById(userId, sessionId, taskId)
     if (!task) throw new Error('Task not found')
 
-    const sources = await this.sourceService.listSources(userId, sessionId)
+    const sources = await this.sourceService.listSources(userId, sessionId, taskId)
 
     await this.taskRepo.updateTask(userId, sessionId, taskId, { status: 'analyzing' })
 

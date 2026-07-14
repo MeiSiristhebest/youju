@@ -1,5 +1,4 @@
-import type { ValidatingAICaller } from '../../domain/ports/aiCallPort.js'
-import type { ScenarioKnowledge, SharedMainCallResult, Source } from '../../domain/types.js'
+import type { ScenarioKnowledge, Source } from '../../domain/types.js'
 import type { AIConfig } from '../llm.js'
 
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'retrying'
@@ -18,9 +17,8 @@ export interface StepInput {
   scenarioType?: string
   scenarioKnowledge?: ScenarioKnowledge[]
   aiConfig?: AIConfig
+  isDemo?: boolean
   previousOutputs: Record<string, unknown>
-  mainCallResult?: SharedMainCallResult | null
-  aiCaller?: ValidatingAICaller
 }
 
 export interface StepOutput {
@@ -90,6 +88,4 @@ export interface PipelineCheckpoint {
   initialInput: Omit<StepInput, 'previousOutputs'> | null
   initialPreviousOutputs: Record<string, unknown>
   createdAt: string
-  /** 主调用结果，用于恢复时还原 sharedMainCallResult（伪流水线下游步骤依赖） */
-  mainCallResult?: SharedMainCallResult
 }

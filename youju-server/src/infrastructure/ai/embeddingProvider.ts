@@ -1,14 +1,12 @@
 import type { EmbeddingPort, EmbeddingResult } from '../../domain/ports/aiPorts.js'
 import type { ProviderHealth, ProviderWithHealth } from '../../domain/ports/providerRegistry.js'
+import { getEnv } from '../env.js'
 
 export interface EmbeddingProvider extends EmbeddingPort, ProviderWithHealth {
   readonly id: string
 }
 
-const DEFAULT_BATCH_SIZE = 64
 const BGE_M3_DIMENSION = 1024
-const DEFAULT_BASE_URL = 'https://api.siliconflow.cn/v1'
-const DEFAULT_MODEL = 'bge-m3'
 
 const MODEL_DIMENSIONS: Record<string, number> = {
   'bge-m3': 1024,
@@ -51,15 +49,15 @@ export class DefaultEmbeddingProvider implements EmbeddingProvider {
   }
 
   private get baseURL(): string {
-    return this.config.baseURL || process.env.EMBEDDING_BASE_URL || DEFAULT_BASE_URL
+    return this.config.baseURL || getEnv().EMBEDDING_BASE_URL
   }
 
   private get apiKey(): string {
-    return this.config.apiKey ?? process.env.EMBEDDING_API_KEY ?? ''
+    return this.config.apiKey ?? getEnv().EMBEDDING_API_KEY ?? ''
   }
 
   private get model(): string {
-    return this.config.model || process.env.EMBEDDING_MODEL || DEFAULT_MODEL
+    return this.config.model || getEnv().EMBEDDING_MODEL
   }
 
   getDimension(): number {
@@ -79,9 +77,10 @@ export class DefaultEmbeddingProvider implements EmbeddingProvider {
       return texts.map(() => ({ dense: generateMockVector(dim) }))
     }
 
+    const batchSize = getEnv().EMBEDDING_BATCH_SIZE
     const results: EmbeddingResult[] = []
-    for (let i = 0; i < texts.length; i += DEFAULT_BATCH_SIZE) {
-      const batch = texts.slice(i, i + DEFAULT_BATCH_SIZE)
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize)
       const batchResults = await this.embedBatch(batch)
       results.push(...batchResults)
     }
@@ -138,15 +137,16 @@ export class DefaultEmbeddingProvider implements EmbeddingProvider {
 }
 
 export function createEmbeddingProviderFromEnv(): EmbeddingProvider | null {
-  const apiKey = process.env.EMBEDDING_API_KEY || ''
+  const env = getEnv()
+  const apiKey = env.EMBEDDING_API_KEY ?? ''
   if (!apiKey) {
     return null
   }
 
   const config: EmbeddingProviderConfig = {
-    baseURL: process.env.EMBEDDING_BASE_URL,
+    baseURL: env.EMBEDDING_BASE_URL,
     apiKey,
-    model: process.env.EMBEDDING_MODEL,
+    model: env.EMBEDDING_MODEL,
   }
 
   return new DefaultEmbeddingProvider('default', config)

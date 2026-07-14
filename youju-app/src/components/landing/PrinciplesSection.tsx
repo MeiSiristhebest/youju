@@ -38,9 +38,9 @@ export function PrinciplesSection() {
       })
 
       // 原则逐条揭示
-      gsap.from('[data-principle]', {
-        y: 40,
-        opacity: 0,
+      gsap.to('[data-principle]', {
+        y: 0,
+        opacity: 1,
         stagger: 0.15,
         duration: 0.8,
         ease: 'power3.out',
@@ -93,7 +93,7 @@ export function PrinciplesSection() {
               <div
                 key={i}
                 data-principle
-                className="flex gap-6 pb-10 border-b border-rule last:border-b-0 last:pb-0"
+                className="gsap-reveal flex gap-6 pb-10 border-b border-rule last:border-b-0 last:pb-0"
               >
                 <span className="font-display text-3xl text-accent font-light leading-none mt-1">
                   {principle.num}

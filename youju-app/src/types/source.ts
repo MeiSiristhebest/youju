@@ -32,13 +32,16 @@ export interface Source {
   type: SourceType
   name: string
   content: string
-  meta?: string | Record<string, any>
-  metadata?: Record<string, any>
-  status?: SourceStatus
-  progress?: number
-  parsedSummary?: ParsedSummary
-  createdAt?: string | number
-  updatedAt?: string | number
-  processingStatus?: ProcessingStatus
+  meta?: string
+  createdAt?: string
   charCount?: number
+  taskId?: string
+  /** 前端本地状态：上传进度 */
+  status?: SourceStatus
+  /** 前端本地状态：上传进度百分比 */
+  progress?: number
+  /** 前端本地状态：解析摘要 */
+  parsedSummary?: ParsedSummary
+  /** 前端本地状态：处理状态 */
+  processingStatus?: ProcessingStatus
 }

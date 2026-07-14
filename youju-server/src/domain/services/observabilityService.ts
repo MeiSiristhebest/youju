@@ -1,12 +1,9 @@
-import type {
-  ObservabilityReadRepository,
-  ScenarioKnowledgeReadRepository,
-} from '../ports/repositories.js'
+import type { ObservabilityRepository, ScenarioKnowledgeRepository } from '../ports/repositories.js'
 
 export class ObservabilityService {
   constructor(
-    private readonly observabilityRepo: ObservabilityReadRepository,
-    private readonly scenarioKnowledgeRepo: ScenarioKnowledgeReadRepository,
+    private readonly observabilityRepo: ObservabilityRepository,
+    private readonly scenarioKnowledgeRepo: ScenarioKnowledgeRepository,
   ) {}
 
   async getCostStats(userId: number | null, sessionId?: string | null) {

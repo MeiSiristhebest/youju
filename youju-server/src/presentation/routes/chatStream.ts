@@ -1,4 +1,5 @@
 import express from 'express'
+import type { ServerResponse } from 'http'
 import { createTenantContext } from '../../domain/context/tenantContext.js'
 import type { ChatService } from '../../domain/services/chatService.js'
 import type { ModelConfigService } from '../../domain/services/modelConfigService.js'
@@ -24,6 +25,14 @@ router.post(
   chatRateLimiter,
   validateBody(chatMessageSchema),
   async (req, res) => {
+    console.log('[ChatStream] 请求到达:', {
+      conversationId: req.params.id,
+      content: req.body.content?.slice(0, 50),
+      contextSourceIds: req.body.contextSourceIds,
+      scenarioType: req.body.scenarioType,
+      hasAiConfig: !!req.body.aiConfig,
+    })
+
     const { userId, sessionId } = await getUserIdAndSessionId(req)
     const conversationId = String(req.params.id)
 
@@ -53,18 +62,22 @@ router.post(
       res.write(`data: ${JSON.stringify(data)}\n\n`)
     }
 
-    const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
-      userId,
-      sessionId,
-    )
-    const aiConfig = defaultModelConfig
-      ? {
+    // 优先从请求体获取 aiConfig，回退到数据库查询
+    let aiConfig = req.body.aiConfig
+    if (!aiConfig) {
+      const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
+        userId,
+        sessionId,
+      )
+      if (defaultModelConfig) {
+        aiConfig = {
           apiKey: defaultModelConfig.apiKey,
           baseURL: defaultModelConfig.baseURL,
           model: defaultModelConfig.model,
           provider: defaultModelConfig.provider,
         }
-      : undefined
+      }
+    }
 
     const abortController = new AbortController()
     req.on('close', () => {
@@ -136,18 +149,22 @@ router.post('/messages/:id/regenerate', chatRateLimiter, async (req, res) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`)
     }
 
-    const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
-      userId,
-      sessionId,
-    )
-    const aiConfig = defaultModelConfig
-      ? {
+    // 优先从请求体获取 aiConfig，回退到数据库查询
+    let aiConfig = req.body.aiConfig
+    if (!aiConfig) {
+      const defaultModelConfig = await getModelConfigService().getDefaultModelConfig(
+        userId,
+        sessionId,
+      )
+      if (defaultModelConfig) {
+        aiConfig = {
           apiKey: defaultModelConfig.apiKey,
           baseURL: defaultModelConfig.baseURL,
           model: defaultModelConfig.model,
           provider: defaultModelConfig.provider,
         }
-      : undefined
+      }
+    }
 
     const abortController = new AbortController()
     req.on('close', () => {

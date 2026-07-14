@@ -48,9 +48,9 @@ export function ComparisonSection() {
       const rows = gsap.utils.toArray<HTMLElement>('[data-compare-row]')
 
       if (leftCol) {
-        gsap.from(leftCol, {
-          x: -60,
-          opacity: 0,
+        gsap.to(leftCol, {
+          x: 0,
+          opacity: 1,
           duration: 1,
           ease: 'power3.out',
           scrollTrigger: {
@@ -62,9 +62,9 @@ export function ComparisonSection() {
       }
 
       if (rightCol) {
-        gsap.from(rightCol, {
-          x: 60,
-          opacity: 0,
+        gsap.to(rightCol, {
+          x: 0,
+          opacity: 1,
           duration: 1,
           ease: 'power3.out',
           scrollTrigger: {
@@ -76,10 +76,10 @@ export function ComparisonSection() {
       }
 
       if (vsBadge) {
-        gsap.from(vsBadge, {
-          scale: 0,
-          rotate: -15,
-          opacity: 0,
+        gsap.to(vsBadge, {
+          scale: 1,
+          rotate: 0,
+          opacity: 1,
           duration: 0.8,
           ease: 'back.out(1.7)',
           delay: 0.3,
@@ -92,9 +92,9 @@ export function ComparisonSection() {
       }
 
       if (rows.length > 0) {
-        gsap.from(rows, {
-          y: 20,
-          opacity: 0,
+        gsap.to(rows, {
+          y: 0,
+          opacity: 1,
           stagger: 0.08,
           duration: 0.6,
           ease: 'power3.out',
@@ -124,6 +124,7 @@ export function ComparisonSection() {
           {/* VS 装饰 */}
           <div
             data-vs
+            style={{ opacity: 0, transform: 'scale(0) rotate(-15deg)' }}
             className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-16 h-16 rounded-full bg-paper border-2 border-accent items-center justify-center font-display text-2xl font-medium text-accent rotate-[-5deg]"
           >
             VS
@@ -132,7 +133,7 @@ export function ComparisonSection() {
           {/* 左列：传统方式 */}
           <div
             data-col-left
-            className="rounded-lg border border-rule/50 bg-paper-dark/40 p-6 lg:p-8"
+            className="gsap-reveal-left rounded-lg border border-rule/50 bg-paper-dark/40 p-6 lg:p-8"
           >
             <div className="flex items-center gap-2 mb-6">
               <span className="text-xs font-mono tracking-widest text-ink-faint uppercase">
@@ -143,7 +144,11 @@ export function ComparisonSection() {
             <h3 className="font-display text-2xl font-medium text-ink-muted mb-6">传统方式</h3>
             <div className="space-y-3">
               {comparisons.map((c, i) => (
-                <div key={c.aspect} data-compare-row className="flex items-start gap-3 py-2">
+                <div
+                  key={c.aspect}
+                  data-compare-row
+                  className="gsap-reveal flex items-start gap-3 py-2"
+                >
                   <div className="shrink-0 w-5 h-5 rounded-full bg-danger/10 flex items-center justify-center mt-0.5">
                     <X className="w-3 h-3 text-danger" />
                   </div>
@@ -163,7 +168,7 @@ export function ComparisonSection() {
           {/* 右列：有据 */}
           <div
             data-col-right
-            className="rounded-lg border-2 border-accent/40 bg-accent-bg/30 p-6 lg:p-8 relative"
+            className="gsap-reveal-right rounded-lg border-2 border-accent/40 bg-accent-bg/30 p-6 lg:p-8 relative"
           >
             <div className="flex items-center gap-2 mb-6">
               <span className="text-xs font-mono tracking-widest text-accent uppercase">YOUJU</span>
@@ -172,7 +177,11 @@ export function ComparisonSection() {
             <h3 className="font-display text-2xl font-medium text-ink mb-6">有据</h3>
             <div className="space-y-3">
               {comparisons.map((c, i) => (
-                <div key={c.aspect} data-compare-row className="flex items-start gap-3 py-2">
+                <div
+                  key={c.aspect}
+                  data-compare-row
+                  className="gsap-reveal flex items-start gap-3 py-2"
+                >
                   <div className="shrink-0 w-5 h-5 rounded-full bg-accent/15 flex items-center justify-center mt-0.5">
                     <Check className="w-3 h-3 text-accent" />
                   </div>

@@ -40,6 +40,7 @@ const SOURCE_TYPE_ICONS: Record<SourceType, ReactNode> = {
   web: <Link size={14} strokeWidth={1.5} />,
   screenshot: <FileText size={14} strokeWidth={1.5} />,
   contract: <FileText size={14} strokeWidth={1.5} />,
+  other: <FileText size={14} strokeWidth={1.5} />,
 }
 
 export function ChatInput({ onSend, onStop, isStreaming, disabled, defaultValue }: ChatInputProps) {
@@ -128,17 +129,18 @@ export function ChatInput({ onSend, onStop, isStreaming, disabled, defaultValue 
             aria-haspopup="listbox"
             aria-expanded={scopeOpen}
             aria-label="选择上下文范围"
-            className="flex items-center gap-1.5 px-2 py-1 text-xs text-ink-muted hover:bg-paper-dark hover:text-ink rounded-md transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-ink-muted bg-paper-dark border border-rule/60 hover:border-accent/40 hover:text-ink rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-paper-dark disabled:hover:border-rule/60"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-            <span className="max-w-[120px] truncate">{currentScopeOption.label}</span>
+            <Search size={13} strokeWidth={1.75} className="shrink-0 text-ink-faint" />
+            <span className="text-[11px] text-ink-faint shrink-0">检索范围</span>
+            <span className="max-w-[120px] truncate font-medium">{currentScopeOption.label}</span>
             {contextScope === 'custom' && selectedSourceIds.length > 0 && (
               <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-mono rounded-full bg-accent text-paper">
                 {selectedSourceIds.length}
               </span>
             )}
             <ChevronDown
-              size={12}
+              size={13}
               strokeWidth={2}
               className={cn('transition-transform duration-200', scopeOpen && 'rotate-180')}
             />

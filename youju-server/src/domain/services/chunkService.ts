@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { chunkDocument } from '../../infrastructure/fileParser/chunker.js'
+import { embeddingAdapter } from '../../ai/adapters/embeddingAdapter.js'
 import type { EmbeddingPort } from '../ports/aiPorts.js'
-import type { AnalysisLogRepository, ChunkRepository } from '../ports/repositories.js'
+import type { ChunkResult, DocumentChunkerPort } from '../ports/infrastructurePorts.js'
+import type {
+  AnalysisLogRepository,
+  ChunkRepository,
+  ModelConfigRepository,
+} from '../ports/repositories.js'
 import type { AnalysisLog, Source, SourceChunk } from '../types.js'
 
 export interface ChunkOptions {
@@ -17,7 +22,38 @@ export class ChunkService {
     private readonly chunkRepo: ChunkRepository | null,
     private readonly embeddingPort: EmbeddingPort | null,
     private readonly analysisLogRepo: AnalysisLogRepository | null,
+    private readonly documentChunker: DocumentChunkerPort,
+    private readonly modelConfigRepo: ModelConfigRepository | null = null,
   ) {}
+
+  private async getEmbeddingPort(
+    userId: number | null,
+    sessionId: string | null,
+  ): Promise<EmbeddingPort | null> {
+    if (!this.embeddingPort) return null
+    if (!this.modelConfigRepo) return this.embeddingPort
+    try {
+      const config = (await this.modelConfigRepo.getDefaultConfig(
+        userId,
+        sessionId,
+        'embedding',
+      )) as {
+        api_key?: string
+        base_url?: string
+        model?: string
+      } | null
+      if (config && config.api_key) {
+        return embeddingAdapter.withConfig({
+          baseURL: config.base_url,
+          apiKey: config.api_key,
+          model: config.model,
+        })
+      }
+    } catch {
+      // ignore
+    }
+    return this.embeddingPort
+  }
 
   async chunkAndEmbed(source: Source, options?: ChunkOptions): Promise<void> {
     if (!this.chunkRepo) {
@@ -30,7 +66,7 @@ export class ChunkService {
       return
     }
 
-    const userId = options?.userId ?? null
+    const userId = options?.userId ? parseInt(options.userId, 10) : null
     const sessionId = options?.sessionId ?? null
 
     const logGroupId = `embed-${source.id}-${Date.now()}-${randomUUID().slice(0, 8)}`
@@ -44,7 +80,7 @@ export class ChunkService {
 
     const startTime = Date.now()
 
-    const chunkResult = chunkDocument(content, {
+    const chunkResult = this.documentChunker.chunkDocument(content, {
       parentChunkSize: options?.parentChunkSize,
       childChunkSize: options?.childChunkSize,
       overlap: options?.overlap,
@@ -69,7 +105,9 @@ export class ChunkService {
       }),
     )
 
-    if (!this.embeddingPort) {
+    const embedPort = await this.getEmbeddingPort(userId, sessionId)
+
+    if (!embedPort) {
       await this.appendLog(
         logGroupId,
         'skipped',
@@ -84,7 +122,7 @@ export class ChunkService {
 
     try {
       await this.appendLog(logGroupId, 'embed_start', logPatch({}))
-      await this.embedChunks(childChunks, parentChunks, logGroupId, logPatch)
+      await this.embedChunks(childChunks, parentChunks, embedPort, logGroupId, logPatch)
       await this.appendLog(
         logGroupId,
         'completed',
@@ -137,6 +175,7 @@ export class ChunkService {
   private async embedChunks(
     childChunks: SourceChunk[],
     parentChunks: SourceChunk[],
+    embedPort: EmbeddingPort,
     logGroupId: string,
     logPatch: (extra: Record<string, unknown>) => Record<string, unknown>,
   ): Promise<void> {
@@ -147,7 +186,7 @@ export class ChunkService {
     for (let i = 0; i < allChunks.length; i += batchSize) {
       const batch = allChunks.slice(i, i + batchSize)
       const texts = batch.map((c) => c.content)
-      const results = await this.embeddingPort!.embed(texts)
+      const results = await embedPort.embed(texts)
 
       for (let j = 0; j < batch.length; j++) {
         const chunk = batch[j]
@@ -177,33 +216,23 @@ function nowIso(): string {
 }
 
 function toSourceChunk(
-  chunkResult: {
-    id: string
-    content: string
-    charOffsetStart: number
-    charOffsetEnd: number
-    headingPath: string
-    tokenCount: number
-    parentChunkId: string | null
-    chunkIndex: number
-  },
+  chunk: ChunkResult,
   sourceId: string,
-  userId: string | null,
+  userId: number | null,
   sessionId: string | null,
-  embedStatus: SourceChunk['embedStatus'] = 'pending',
 ): SourceChunk {
   return {
-    id: chunkResult.id,
+    id: chunk.id,
     sourceId,
-    parentChunkId: chunkResult.parentChunkId,
-    chunkIndex: chunkResult.chunkIndex,
-    content: chunkResult.content,
-    charOffsetStart: chunkResult.charOffsetStart,
-    charOffsetEnd: chunkResult.charOffsetEnd,
-    headingPath: chunkResult.headingPath || null,
-    tokenCount: chunkResult.tokenCount,
-    embedStatus,
-    userId,
+    content: chunk.content,
+    parentChunkId: chunk.parentChunkId,
+    chunkIndex: chunk.chunkIndex,
+    charOffsetStart: chunk.charOffsetStart,
+    charOffsetEnd: chunk.charOffsetEnd,
+    headingPath: chunk.headingPath,
+    tokenCount: chunk.tokenCount,
+    embedStatus: 'pending',
+    userId: userId?.toString() ?? null,
     sessionId,
     createdAt: nowIso(),
   }

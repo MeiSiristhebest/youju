@@ -1,19 +1,22 @@
-import type { AnalyzeResult, ChecklistItem, TaskRecord } from '../types'
+import type { AnalyzeResult, ChecklistItem, Task, TaskRecord } from '../types'
 import { apiClient } from './apiClient'
 import { handleApiError } from './errorHandler'
+
+export interface InitialSource {
+  type: string
+  name: string
+  content: string
+  meta?: string
+}
 
 export interface CreateTaskParams {
   title: string
   scenarioType: string
   sourceIds: string[]
+  initialSources?: InitialSource[]
 }
 
-export interface TaskDetail {
-  id: string
-  title: string
-  scenarioType: string
-  sourceCount: number
-  createdAt: string
+export interface TaskDetail extends Task {
   result: AnalyzeResult & { checklist: ChecklistItem[] }
 }
 
@@ -53,6 +56,14 @@ export const taskApi = {
   async updateChecklist(taskId: string, checkedItems: string[]): Promise<void> {
     try {
       return await apiClient.put<void>(`/api/tasks/${taskId}/checklist`, { checkedItems })
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  },
+
+  async updateTaskTitle(taskId: string, title: string): Promise<TaskRecord> {
+    try {
+      return await apiClient.put<TaskRecord>(`/api/tasks/${taskId}/title`, { title })
     } catch (error) {
       throw handleApiError(error)
     }

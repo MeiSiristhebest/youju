@@ -17,9 +17,14 @@ export interface ParseResult {
 }
 
 export const sourceApi = {
-  async listSources(): Promise<Source[]> {
+  async listSources(taskId?: string, all?: boolean): Promise<Source[]> {
     try {
-      return await apiClient.get<Source[]>('/api/sources')
+      const params = new URLSearchParams()
+      if (taskId) params.set('task_id', taskId)
+      if (all) params.set('all', 'true')
+      const query = params.toString()
+      const url = query ? `/api/sources?${query}` : '/api/sources'
+      return await apiClient.get<Source[]>(url)
     } catch (error) {
       throw handleApiError(error)
     }
@@ -29,15 +34,18 @@ export const sourceApi = {
     type: SourceType
     name: string
     content: string
+    taskId?: string
   }): Promise<Source> {
     try {
-      return await apiClient.post<Source>('/api/sources/text', params)
+      const { taskId, ...rest } = params
+      const body = taskId ? { ...rest, task_id: taskId } : rest
+      return await apiClient.post<Source>('/api/sources/text', body)
     } catch (error) {
       throw handleApiError(error)
     }
   },
 
-  async uploadFile(file: File, type: SourceType, name?: string): Promise<Source> {
+  async uploadFile(file: File, type: SourceType, name?: string, taskId?: string): Promise<Source> {
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -45,15 +53,25 @@ export const sourceApi = {
       if (name) {
         formData.append('name', name)
       }
+      if (taskId) {
+        formData.append('task_id', taskId)
+      }
       return await apiClient.post<Source>('/api/sources/upload', formData)
     } catch (error) {
       throw handleApiError(error)
     }
   },
 
-  async addUrlSource(params: { url: string; type: SourceType; name?: string }): Promise<Source> {
+  async addUrlSource(params: {
+    url: string
+    type: SourceType
+    name?: string
+    taskId?: string
+  }): Promise<Source> {
     try {
-      return await apiClient.post<Source>('/api/sources/url', params)
+      const { taskId, ...rest } = params
+      const body = taskId ? { ...rest, task_id: taskId } : rest
+      return await apiClient.post<Source>('/api/sources/url', body)
     } catch (error) {
       throw handleApiError(error)
     }

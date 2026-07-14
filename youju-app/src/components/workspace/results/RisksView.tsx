@@ -17,7 +17,10 @@ export function RisksView({ onEvidenceClick }: RisksViewProps) {
       <div className="px-4 py-2 border-b border-rule bg-paper/[0.02] flex items-center justify-end shrink-0">
         <RiskViewSwitcher />
       </div>
-      <div key={riskView} className="flex-1 overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+      <div
+        key={riskView}
+        className="flex-1 flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]"
+      >
         {riskView === 'tree' && <RiskTree onEvidenceClick={onEvidenceClick} />}
         {riskView === 'list' && <RiskListView onEvidenceClick={onEvidenceClick} />}
         {riskView === 'kanban' && <RiskKanbanView onEvidenceClick={onEvidenceClick} />}

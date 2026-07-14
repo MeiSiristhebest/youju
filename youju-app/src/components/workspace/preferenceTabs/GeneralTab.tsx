@@ -1,11 +1,12 @@
-import { FileText, Globe, Moon, Palette, Settings, Sun } from 'lucide-react'
+import { FileText, Globe, HelpCircle, Moon, Palette, Settings, Sun } from 'lucide-react'
 import type { Language } from '../../../i18n'
 import { cn } from '../../../lib/utils'
 import { useUIPreferenceStore } from '../../../stores/useUIPreferenceStore'
 import { SectionTitle, SelectRow, SettingRow, Toggle } from './shared'
 
 export function GeneralTab() {
-  const { generalSettings, updateGeneralSettings, theme, setTheme } = useUIPreferenceStore()
+  const { generalSettings, updateGeneralSettings, theme, setTheme, restartProductTour } =
+    useUIPreferenceStore()
 
   const handleLanguageChange = (lang: Language) => {
     updateGeneralSettings({ language: lang })
@@ -100,6 +101,27 @@ export function GeneralTab() {
             { value: 'homework', label: '作业/申请提交' },
           ]}
           onChange={(v) => updateGeneralSettings({ defaultScenario: v as any })}
+        />
+      </div>
+
+      <SectionTitle
+        icon={<HelpCircle size={16} strokeWidth={1.5} />}
+        title="帮助与引导"
+        description="新手教程和使用帮助"
+      />
+      <div className="bg-paper-dark/30 border border-rule/50 rounded-lg divide-y divide-rule/40 px-4 py-3">
+        <SettingRow
+          label="重新查看新手教程"
+          description="重新播放产品引导教程"
+          action={
+            <button
+              type="button"
+              onClick={restartProductTour}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors cursor-pointer"
+            >
+              重新开始
+            </button>
+          }
         />
       </div>
 

@@ -7,6 +7,35 @@ import { FUNNEL_STEP_DEFINITIONS, FunnelChart } from '../FunnelChart'
 import { IncrementalDetailPanel } from '../IncrementalDetailPanel'
 import { ReasoningStepCard } from './ReasoningStepCard'
 
+const STEP_ID_TO_FUNNEL_KEY: Record<string, string> = {
+  'step-scenario-discovery': 'scenario_discovery',
+  'step-input-parsing': 'input_parsing',
+  'step-dimension-discovery': 'dimension_discovery',
+  'step-cross-source-extraction': 'cross_source_extraction',
+  'step-discrepancy-detection': 'diff_detection_evidence',
+  'step-self-check': 'self_check_loop',
+  'step-final-output': 'final_output',
+}
+
+const FUNNEL_KEY_ALIASES: Record<string, string[]> = {
+  scenario_discovery: ['场景识别', '场景发现', 'scenario'],
+  input_parsing: ['材料解析', '输入解析', '多材料结构化解析', 'parsing'],
+  dimension_discovery: ['维度发现', '维度提取', '分析维度发现与归纳', 'dimensions'],
+  cross_source_extraction: ['跨源提取', '要素提取', '跨源要素提取', 'extraction'],
+  diff_detection_evidence: ['冲突检测', '差异检测', '冲突与差异检测', 'detection'],
+  self_check_loop: ['结果校验', '证据校验', '证据链校验与自我验证', 'validation'],
+  final_output: ['报告生成', '最终输出', '最终报告组装与输出', 'output'],
+}
+
+function matchTraceStepToFunnelKey(step: ReasoningStep, funnelKey: string): boolean {
+  if (step.stepId && STEP_ID_TO_FUNNEL_KEY[step.stepId] === funnelKey) {
+    return true
+  }
+  const aliases = FUNNEL_KEY_ALIASES[funnelKey] || []
+  const stepText = [step.step, step.name, step.title].filter(Boolean).join(' ')
+  return aliases.some((alias) => stepText.includes(alias))
+}
+
 export function TraceView() {
   const result = useAnalysisStore((state) => state.result)
   const analysisStep = useAnalysisStore((state) => state.analysisStep)
@@ -18,12 +47,19 @@ export function TraceView() {
   const funnelSteps = useMemo<FunnelStep[]>(() => {
     const traceSteps = result?.reasoningTrace || []
 
-    return FUNNEL_STEP_DEFINITIONS.map((stepDef, index) => {
-      const traceStep = traceSteps[index]
-      const isCompleted = index < analysisStep || (!!result && !analyzing)
-      const isRunning = index === analysisStep && analyzing
-      const isFailed = failedSteps.has(index)
-      const isSkipped = skippedSteps.has(index)
+    const traceStepByKey = new Map<string, ReasoningStep>()
+    FUNNEL_STEP_DEFINITIONS.forEach((stepDef) => {
+      const matched = traceSteps.find((s) => matchTraceStepToFunnelKey(s, stepDef.key))
+      if (matched) traceStepByKey.set(stepDef.key, matched)
+    })
+
+    return FUNNEL_STEP_DEFINITIONS.map((stepDef, defIndex) => {
+      const traceStep = traceStepByKey.get(stepDef.key) ?? traceSteps[defIndex]
+
+      const isCompleted = defIndex < analysisStep || (!!result && !analyzing)
+      const isRunning = defIndex === analysisStep && analyzing
+      const isFailed = failedSteps.has(defIndex)
+      const isSkipped = skippedSteps.has(defIndex)
 
       let status: FunnelStep['status'] = 'pending'
       if (isFailed) status = 'failed'
@@ -31,12 +67,12 @@ export function TraceView() {
       else if (isRunning) status = 'running'
       else if (isCompleted) status = 'completed'
 
-      const durationMs = traceStep?.durationMs ?? (isCompleted ? 800 + index * 300 : undefined)
+      const durationMs = traceStep?.durationMs
 
       return {
         id: stepDef.key,
-        name: stepDef.name,
-        description: stepDef.description,
+        name: traceStep?.title || stepDef.name,
+        description: traceStep?.description || stepDef.description,
         durationMs,
         status,
         failureRate: isFailed ? 100 : undefined,
@@ -47,12 +83,22 @@ export function TraceView() {
               description: traceStep.description ?? stepDef.description,
             }
           : undefined,
-        index,
+        index: defIndex,
       }
     })
   }, [result, analysisStep, analyzing, failedSteps, skippedSteps])
 
-  if (!result?.reasoningTrace) return null
+  if (!result?.reasoningTrace || result.reasoningTrace.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center py-16 px-4">
+        <div className="w-16 h-16 mb-4 rounded-full bg-paper-dark flex items-center justify-center text-ink-faint border border-rule">
+          <Sparkles size={28} strokeWidth={1.5} />
+        </div>
+        <p className="text-sm font-medium text-ink mb-1">暂无思考过程</p>
+        <p className="text-xs text-ink-faint">分析完成后将展示 AI 推理步骤</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 p-4 text-left">

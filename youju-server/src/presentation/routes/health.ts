@@ -1,7 +1,6 @@
 import express from 'express'
 import type { ObservabilityService } from '../../domain/services/observabilityService.js'
 import { getUserIdAndSessionId } from '../../infrastructure/auth.js'
-import { getBackgroundJobsStatus } from '../../infrastructure/backgroundJobs.js'
 import { getCleanupStats } from '../../infrastructure/dataCleanup.js'
 import {
   backupDatabase,
@@ -11,6 +10,7 @@ import {
   rotateBackups,
 } from '../../infrastructure/dbBackup.js'
 import { getService, Tokens } from '../../infrastructure/di/serviceLocator.js'
+import { isMockMode } from '../../infrastructure/env.js'
 
 function getObservabilityService(): ObservabilityService {
   return getService<ObservabilityService>(Tokens.ObservabilityService)
@@ -19,7 +19,7 @@ function getObservabilityService(): ObservabilityService {
 const router = express.Router()
 
 router.get('/health', (_req, res) => {
-  res.json({ code: 200, data: { status: 'ok', hasAiKey: !!process.env.AI_API_KEY } })
+  res.json({ code: 200, data: { status: 'ok', hasAiKey: !isMockMode() } })
 })
 
 router.get('/admin/stats', async (req, res) => {
@@ -33,9 +33,31 @@ router.get('/admin/stats', async (req, res) => {
     res.json({
       code: 200,
       data: {
-        ...costStats,
-        stepPerformance: stepStats,
-        knowledge: knowledgeStats,
+        cost: {
+          totalTokens: costStats.tokens?.total || 0,
+          promptTokens: costStats.tokens?.prompt || 0,
+          completionTokens: costStats.tokens?.completion || 0,
+          estimatedCost: costStats.estimatedCost || 0,
+        },
+        stepPerformance: stepStats.map((s) => ({
+          step: s.stepName,
+          avgDurationMs: s.avgLatencyMs,
+          avgTokens: s.avgTokens,
+        })),
+        knowledgeBase: {
+          scenarioCount: knowledgeStats.total || 0,
+          dimensionCount: Array.isArray(knowledgeStats.byScenario)
+            ? knowledgeStats.byScenario.length
+            : Object.keys(knowledgeStats.byScenario || {}).length,
+          topDimensions: Array.isArray(knowledgeStats.byScenario)
+            ? knowledgeStats.byScenario.slice(0, 10).map((s: any) => ({
+                name: s.scenarioType || '未知',
+                count: s.totalFrequency || s.patternCount || 0,
+              }))
+            : Object.entries(knowledgeStats.byScenario || {})
+                .slice(0, 10)
+                .map(([name, count]) => ({ name, count: count as number })),
+        },
       },
     })
   } catch (e) {
@@ -50,13 +72,11 @@ router.get('/admin/stats', async (req, res) => {
 router.get('/admin/db-stats', async (_req, res) => {
   try {
     const cleanupStats = await getCleanupStats()
-    const jobsStatus = getBackgroundJobsStatus()
     const backupStats = getBackupStats()
     res.json({
       code: 200,
       data: {
         cleanup: cleanupStats,
-        backgroundJobs: jobsStatus,
         backups: backupStats,
       },
     })

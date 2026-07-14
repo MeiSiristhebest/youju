@@ -18,9 +18,19 @@ export const CURRENT_PROMPT_VERSION = 'v1'
 
 export type PromptType = 'analysis' | 'draft' | 'chat'
 
+export type StepPromptName =
+  | 'step-1-scenario'
+  | 'step-2-input-parsing'
+  | 'step-3-dimension-discovery'
+  | 'step-4-cross-source-extraction'
+  | 'step-5-discrepancy-detection'
+  | 'step-6-self-check'
+
 let analysisSystemPromptV1 = ''
 let draftSystemPromptV1 = ''
 let chatSystemPromptV1 = ''
+let sharedHeaderV1 = ''
+const stepPromptCache: Partial<Record<StepPromptName, string>> = {}
 
 function loadMarkdown(filePath: string): string {
   try {
@@ -41,6 +51,39 @@ function ensurePromptsLoaded() {
   if (!chatSystemPromptV1) {
     chatSystemPromptV1 = loadMarkdown(path.join(__dirname, 'versions/v1/chat.system.md'))
   }
+  if (!sharedHeaderV1) {
+    sharedHeaderV1 = loadMarkdown(path.join(__dirname, 'versions/v1/steps/shared-header.md'))
+  }
+}
+
+function applyTemplateVariables(prompt: string): string {
+  const rulesSummary = getRiskRulesSummary()
+  const selfCheck = SELF_CHECK_RULES.map((r, i) => `${i + 1}. ${r}`).join('\n')
+  const qualityBar = QUALITY_BAR.map((r, i) => `${i + 1}. ${r}`).join('\n')
+
+  return prompt
+    .replaceAll('{{RISK_RULES_VERSION}}', RISK_RULES_VERSION)
+    .replaceAll('{{RISK_RULES_SUMMARY}}', rulesSummary)
+    .replaceAll('{{SELF_CHECK_RULES}}', selfCheck)
+    .replaceAll('{{QUALITY_BAR}}', qualityBar)
+}
+
+export function getStepSystemPrompt(
+  stepName: StepPromptName,
+  version: string = CURRENT_PROMPT_VERSION,
+): string {
+  ensurePromptsLoaded()
+
+  if (stepPromptCache[stepName]) {
+    return applyTemplateVariables(stepPromptCache[stepName]!)
+  }
+
+  const fileName = `${stepName}.system.md`
+  const stepPrompt = loadMarkdown(path.join(__dirname, `versions/${version}/steps/${fileName}`))
+  const combined = `${sharedHeaderV1}\n\n${stepPrompt}`
+  stepPromptCache[stepName] = combined
+
+  return applyTemplateVariables(combined)
 }
 
 export function loadChatSystemPrompt(version: string = CURRENT_PROMPT_VERSION): string {

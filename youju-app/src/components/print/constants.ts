@@ -1,3 +1,4 @@
+import { getRiskLevelLabel, getRiskTypeLabel } from '@/constants/riskLabels'
 import type { RiskLevel } from '@/types'
 
 export const KAMI = {
@@ -29,17 +30,11 @@ export const monoFont =
   '"JetBrains Mono", "SF Mono", "Fira Code", Consolas, Monaco, "TsangerJinKai02", "Source Han Serif SC", monospace'
 
 export function levelLabel(level: RiskLevel): string {
-  return level === 'critical' ? '严重' : level === 'warning' ? '需要确认' : '提示'
+  return getRiskLevelLabel(level)
 }
 
-export function typeLabel(type: string): string {
-  const map: Record<string, string> = {
-    conflict: '直接矛盾',
-    promise: '承诺未落文字',
-    missing: '信息缺失',
-    info: '信息提示',
-  }
-  return map[type] || type
+export function typeLabel(type: string, scenarioType?: string): string {
+  return getRiskTypeLabel(type, scenarioType)
 }
 
 export function levelStyle(level: RiskLevel): { color: string; bg: string } {

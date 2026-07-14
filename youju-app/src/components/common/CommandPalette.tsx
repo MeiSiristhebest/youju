@@ -24,8 +24,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SCENARIOS } from '../../constants/workspace'
 import { useChat } from '../../hooks/useChat'
 import { matchCommand } from '../../lib/pinyin'
+import { jsonStorage } from '../../lib/storage'
 import { useAnalysisStore, useUIPreferenceStore } from '../../stores'
 import { useChatDraftStore } from '../../stores/useChatDraftStore'
+import { useSourceStore } from '../../stores/useSourceStore'
 import type { ScenarioType } from '../../types'
 import {
   Command,
@@ -78,7 +80,7 @@ interface CommandItemData {
   submenuScenario?: string
 }
 
-const RECENT_KEY = 'youju_recent_commands'
+const RECENT_KEY = 'recent_commands'
 const MAX_RECENT = 5
 
 // 对话场景预设问题（与 ChatEmpty 保持一致，供命令面板子菜单使用）
@@ -122,25 +124,16 @@ const DEFAULT_CHAT_QUESTIONS = [
 
 function loadRecentCommands(): string[] {
   if (typeof window === 'undefined') return []
-  try {
-    const saved = localStorage.getItem(RECENT_KEY)
-    return saved ? JSON.parse(saved) : []
-  } catch {
-    return []
-  }
+  return jsonStorage.getItem<string[]>(RECENT_KEY) || []
 }
 
 function saveRecentCommand(commandId: string) {
   if (typeof window === 'undefined') return
-  try {
-    const recent = loadRecentCommands()
-    const filtered = recent.filter((id) => id !== commandId)
-    filtered.unshift(commandId)
-    const trimmed = filtered.slice(0, MAX_RECENT)
-    localStorage.setItem(RECENT_KEY, JSON.stringify(trimmed))
-  } catch {
-    // ignore
-  }
+  const recent = loadRecentCommands()
+  const filtered = recent.filter((id) => id !== commandId)
+  filtered.unshift(commandId)
+  const trimmed = filtered.slice(0, MAX_RECENT)
+  jsonStorage.setItem(RECENT_KEY, trimmed)
 }
 
 export function CommandPalette({
@@ -168,7 +161,10 @@ export function CommandPalette({
   const setActiveTab = useAnalysisStore((s) => s.setActiveTab)
   const selectedRisk = useAnalysisStore((s) => s.selectedRisk)
   const setAiEditorTargetRiskId = useAnalysisStore((s) => s.setAiEditorTargetRiskId)
-  const { conversations, createConversation, selectConversation } = useChat()
+  const currentTaskId = useSourceStore((s) => s.currentTaskId)
+  const { conversations, createConversation, selectConversation } = useChat(
+    currentTaskId ?? undefined,
+  )
   const setPendingQuestion = useChatDraftStore((s) => s.setPendingQuestion)
 
   useEffect(() => {

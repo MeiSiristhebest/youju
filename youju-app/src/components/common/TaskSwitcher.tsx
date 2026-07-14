@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
   BookOpen,
@@ -12,9 +13,11 @@ import {
   Newspaper,
   XCircle,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { SCENARIOS } from '../../constants/workspace'
+import { useTasks } from '../../hooks/useTasks'
 import { matchCommand } from '../../lib/pinyin'
+import { useAnalysisStore, useSourceStore } from '../../stores'
 import { useWorkspaceTabsStore, type WorkspaceTab } from '../../stores/useWorkspaceTabsStore'
 import {
   Command,
@@ -40,9 +43,9 @@ const statusConfig: Record<
   }
 > = {
   idle: { label: '待分析', icon: Clock, className: 'text-muted-foreground' },
-  analyzing: { label: '分析中', icon: Loader2, className: 'text-blue-500' },
-  completed: { label: '已完成', icon: CheckCircle2, className: 'text-green-500' },
-  failed: { label: '失败', icon: XCircle, className: 'text-red-500' },
+  analyzing: { label: '分析中', icon: Loader2, className: 'text-info' },
+  completed: { label: '已完成', icon: CheckCircle2, className: 'text-success' },
+  failed: { label: '失败', icon: XCircle, className: 'text-danger' },
   cancelled: { label: '已取消', icon: AlertCircle, className: 'text-muted-foreground' },
 }
 
@@ -78,9 +81,30 @@ function formatDate(timestamp: number): string {
 
 export function TaskSwitcher({ isOpen, onOpenChange }: TaskSwitcherProps) {
   const [search, setSearch] = useState('')
-  const recentTabs = useWorkspaceTabsStore((s) => s.getRecentTabs())
-  const activeTabId = useWorkspaceTabsStore((s) => s.activeTabId)
-  const setActiveTab = useWorkspaceTabsStore((s) => s.setActiveTab)
+
+  const queryClient = useQueryClient()
+  const { tasks: taskHistory } = useTasks()
+  const { setSources, setCurrentScenario, setCurrentTask, setSelectedSourceId, isDemo } =
+    useSourceStore()
+  const { setResult, setAnalyzing, setAnalysisStep, setSelectedRisk, setChecklist, setDimensions } =
+    useAnalysisStore()
+
+  const activeTabId = useWorkspaceTabsStore((state) => state.activeTabId)
+  const openTab = useWorkspaceTabsStore((state) => state.openTab)
+
+  const recentTabs = useMemo(() => {
+    return taskHistory.map((task) => ({
+      id: task.id,
+      taskId: task.id,
+      scenario: task.scenarioType as WorkspaceTab['scenario'],
+      scenarioName: task.title,
+      status: 'completed' as WorkspaceTab['status'],
+      sourceCount: task.sourceCount,
+      riskCount: 0,
+      createdAt: new Date(task.createdAt).getTime(),
+      lastOpenedAt: Date.now(),
+    }))
+  }, [taskHistory])
 
   const filteredTabs = useMemo(() => {
     if (!search.trim()) return recentTabs
@@ -94,14 +118,51 @@ export function TaskSwitcher({ isOpen, onOpenChange }: TaskSwitcherProps) {
     })
   }, [search, recentTabs])
 
-  const handleSelect = (tabId: string) => {
-    setActiveTab(tabId)
-    onOpenChange(false)
-  }
+  const handleSelect = useCallback(
+    async (taskId: string) => {
+      const tab = recentTabs.find((t) => t.id === taskId)
+      if (!tab) return
 
-  const getScenarioIcon = (scenario: string) => {
+      const scenarioInfo = SCENARIOS.find((s) => s.id === tab.scenario)
+      const tabName = scenarioInfo?.name || tab.scenarioName
+      openTab(tab.scenario, tabName)
+
+      setSelectedSourceId(null)
+      setResult(null)
+      setAnalyzing(false)
+      setAnalysisStep(0)
+      setSelectedRisk(null)
+      setChecklist([])
+      setDimensions([])
+
+      setCurrentTask({ id: tab.taskId || tab.id, title: tab.scenarioName })
+      setCurrentScenario(tab.scenario)
+
+      queryClient.setQueryData(['sources', tab.taskId || tab.id], [])
+      queryClient.invalidateQueries({ queryKey: ['sources', tab.taskId || tab.id] })
+
+      onOpenChange(false)
+    },
+    [
+      recentTabs,
+      openTab,
+      setSelectedSourceId,
+      setResult,
+      setAnalyzing,
+      setAnalysisStep,
+      setSelectedRisk,
+      setChecklist,
+      setDimensions,
+      setCurrentTask,
+      setCurrentScenario,
+      queryClient,
+      onOpenChange,
+    ],
+  )
+
+  const getScenarioIcon = useCallback((scenario: string) => {
     return scenarioIconMap[scenario] || FileText
-  }
+  }, [])
 
   return (
     <CommandDialog
@@ -120,7 +181,6 @@ export function TaskSwitcher({ isOpen, onOpenChange }: TaskSwitcherProps) {
                 const Icon = getScenarioIcon(tab.scenario)
                 const StatusIcon = statusConfig[tab.status].icon
                 const statusInfo = statusConfig[tab.status]
-                const _scenarioInfo = SCENARIOS.find((s) => s.id === tab.scenario)
                 const isActive = tab.id === activeTabId
 
                 return (
@@ -159,7 +219,7 @@ export function TaskSwitcher({ isOpen, onOpenChange }: TaskSwitcherProps) {
                           {tab.sourceCount} 材料
                         </span>
                         {tab.riskCount > 0 && (
-                          <span className="flex items-center gap-1 text-orange-500">
+                          <span className="flex items-center gap-1 text-accent-secondary">
                             <AlertCircle size={10} />
                             {tab.riskCount} 风险
                           </span>

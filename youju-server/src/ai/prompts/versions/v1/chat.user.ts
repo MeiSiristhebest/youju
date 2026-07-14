@@ -2,9 +2,12 @@ export function buildChatUserPrompt(content: string, contextSourceIds?: string[]
   const trimmed = content.trim()
   if (contextSourceIds && contextSourceIds.length > 0) {
     const ids = contextSourceIds.join(', ')
-    return `${trimmed}（请在以下素材范围内检索：[${ids}]）`
+    return `<user_question>
+${trimmed}
+</user_question>
+<context_scope>请在以下素材范围内检索：[${ids}]</context_scope>`
   }
-  return trimmed
+  return `<user_question>
+${trimmed}
+</user_question>`
 }
-
-export default buildChatUserPrompt

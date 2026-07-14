@@ -96,9 +96,9 @@ export function ScenesSection({ onStart }: ScenesSectionProps) {
       const cards = gsap.utils.toArray<HTMLElement>('[data-scene-card]')
       if (cards.length === 0) return
 
-      gsap.from(cards, {
-        y: 40,
-        opacity: 0,
+      gsap.to(cards, {
+        y: 0,
+        opacity: 1,
         stagger: { each: 0.1, from: 'start' },
         duration: 0.8,
         ease: 'power3.out',
@@ -149,7 +149,7 @@ export function ScenesSection({ onStart }: ScenesSectionProps) {
                   <div
                     key={si}
                     data-scene-card
-                    className={`relative p-8 lg:p-10 border-b border-rule md:border-r group cursor-pointer transition-all duration-300 hover:bg-paper/60 hover:-translate-y-1 hover:shadow-lg ${
+                    className={`relative p-8 lg:p-10 border-b border-rule md:border-r group cursor-pointer transition-all duration-300 hover:bg-paper/60 hover:-translate-y-1 hover:shadow-lg gsap-reveal ${
                       si % 2 === 1 ||
                       (category.scenes.length % 2 === 1 && si === category.scenes.length - 1)
                         ? 'md:border-r-0'

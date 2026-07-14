@@ -13,7 +13,6 @@ import {
   Home,
   LayoutGrid,
   LogOut,
-  MessageCircle,
   Moon,
   Newspaper,
   PenLine,
@@ -32,10 +31,11 @@ import { cn } from '@/lib/utils'
 import { SCENARIOS } from '../../constants/workspace'
 import { useTranslation } from '../../i18n'
 import { useUIPreferenceStore } from '../../stores'
-import { ChatHistorySidebar } from '../chat/ChatHistorySidebar'
 import { Button } from '../ui/button'
 import { MagneticButton } from '../ui/MagneticButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+
+import type { OverlayPanelType } from './OverlayPanel'
 
 const scenarioIconMap: Record<string, ReactNode> = {
   legal_case: <Gavel size={15} strokeWidth={1.5} />,
@@ -59,13 +59,14 @@ interface WorkspaceSidebarProps {
   onShowPreference: () => void
   onShowModelSettings: () => void
   onShowMonitor: () => void
-  onShowChat: () => void
   onShowTeam?: () => void
   onShowTemplates?: () => void
   onShowApiSettings?: () => void
   onShowApiLogs?: () => void
   onShowBilling?: () => void
   onCollapse?: () => void
+  activeOverlayPanel?: OverlayPanelType
+  onGoDesk?: () => void
 }
 
 interface CollapsibleSectionProps {
@@ -153,27 +154,20 @@ export function WorkspaceSidebar({
   onShowPreference,
   onShowModelSettings,
   onShowMonitor,
-  onShowChat,
   onShowTeam,
   onShowTemplates,
   onShowApiSettings,
   onShowApiLogs,
   onShowBilling,
   onCollapse,
+  activeOverlayPanel,
+  onGoDesk,
 }: WorkspaceSidebarProps) {
   const { theme, toggleTheme } = useUIPreferenceStore()
   const { t } = useTranslation()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  // AI 对话历史侧栏展开状态
-  const [showChatHistory, setShowChatHistory] = useState(false)
 
   const isCustomScenario = currentScenario === null
-
-  // 点击"AI 对话"入口：切换到对话 tab + 展开/收起会话历史
-  const handleToggleChat = () => {
-    onShowChat()
-    setShowChatHistory((prev) => !prev)
-  }
 
   return (
     <aside
@@ -219,8 +213,9 @@ export function WorkspaceSidebar({
           <SidebarNavButton
             icon={<BarChart3 size={14} strokeWidth={1.5} />}
             label={t('nav.analysisDesk')}
-            active
-            ariaCurrent="page"
+            active={!activeOverlayPanel}
+            ariaCurrent={!activeOverlayPanel ? 'page' : undefined}
+            onClick={onGoDesk}
           />
           <SidebarNavButton
             icon={<History size={14} strokeWidth={1.5} />}
@@ -262,20 +257,10 @@ export function WorkspaceSidebar({
         </CollapsibleSection>
 
         <CollapsibleSection title="工具" defaultOpen={false}>
-          <Tooltip>
-            <TooltipTrigger render={<span className="block w-full" />}>
-              <SidebarNavButton
-                icon={<MessageCircle size={14} strokeWidth={1.5} />}
-                label="AI 对话"
-                active={showChatHistory}
-                onClick={handleToggleChat}
-              />
-            </TooltipTrigger>
-            <TooltipContent>Ctrl+J</TooltipContent>
-          </Tooltip>
           <SidebarNavButton
             icon={<Settings size={14} strokeWidth={1.5} />}
             label={t('nav.preferences')}
+            active={activeOverlayPanel === 'preferences'}
             onClick={onShowPreference}
           />
           <SidebarNavButton
@@ -292,17 +277,20 @@ export function WorkspaceSidebar({
           <SidebarNavButton
             icon={<Server size={14} strokeWidth={1.5} />}
             label="模型设置"
+            active={activeOverlayPanel === 'model-settings'}
             onClick={onShowModelSettings}
           />
           <SidebarNavButton
             icon={<Activity size={14} strokeWidth={1.5} />}
             label={t('nav.systemMonitor')}
+            active={activeOverlayPanel === 'monitor'}
             onClick={onShowMonitor}
           />
           {onShowTemplates && (
             <SidebarNavButton
               icon={<LayoutGrid size={14} strokeWidth={1.5} />}
               label="模板市场"
+              active={activeOverlayPanel === 'templates'}
               onClick={onShowTemplates}
             />
           )}
@@ -310,6 +298,7 @@ export function WorkspaceSidebar({
             <SidebarNavButton
               icon={<Users size={14} strokeWidth={1.5} />}
               label="团队协作"
+              active={activeOverlayPanel === 'team'}
               onClick={onShowTeam}
             />
           )}
@@ -317,6 +306,7 @@ export function WorkspaceSidebar({
             <SidebarNavButton
               icon={<Code2 size={14} strokeWidth={1.5} />}
               label="API / Webhook"
+              active={activeOverlayPanel === 'api-settings'}
               onClick={onShowApiSettings}
             />
           )}
@@ -324,6 +314,7 @@ export function WorkspaceSidebar({
             <SidebarNavButton
               icon={<Terminal size={14} strokeWidth={1.5} />}
               label="API 日志"
+              active={activeOverlayPanel === 'api-logs'}
               onClick={onShowApiLogs}
             />
           )}
@@ -332,17 +323,11 @@ export function WorkspaceSidebar({
               icon={<Crown size={14} strokeWidth={1.5} />}
               label="升级 Pro"
               variant="accent"
+              active={activeOverlayPanel === 'billing'}
               onClick={onShowBilling}
             />
           )}
         </CollapsibleSection>
-
-        {/* AI 对话历史侧栏：点击"AI 对话"入口后展开 */}
-        {showChatHistory && (
-          <div className="mb-3 mx-0.5 h-64 rounded-lg overflow-hidden border border-rule/60 animate-[fadeIn_0.15s_ease-out]">
-            <ChatHistorySidebar className="border-r-0" />
-          </div>
-        )}
       </div>
 
       {/* 底部区域 */}

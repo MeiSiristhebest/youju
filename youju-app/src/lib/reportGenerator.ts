@@ -1,3 +1,4 @@
+import { getRiskLevelEmoji, getRiskLevelLabel, getRiskTypeLabel } from '@/constants/riskLabels'
 import type { AnalyzeResult, Source } from '../types'
 
 function safeAnalyzeResult(r: Partial<AnalyzeResult> | undefined | null) {
@@ -35,31 +36,6 @@ function safeAnalyzeResult(r: Partial<AnalyzeResult> | undefined | null) {
   }
 }
 
-function riskLevelLabel(level: string) {
-  return level === 'critical' ? '严重' : level === 'warning' ? '需要确认' : '提示'
-}
-
-function riskLevelEmoji(level: string) {
-  return level === 'critical' ? '🔴' : level === 'warning' ? '🟡' : '🔵'
-}
-
-function riskTypeLabel(type: string) {
-  const map: Record<string, string> = {
-    conflict: '直接矛盾',
-    promise: '承诺未落文字',
-    missing: '信息缺失',
-    info: '信息提示',
-  }
-  return map[type] || type
-}
-
-function getRiskSourceNames(risk: { evidence?: { sourceName: string }[]; sources?: string[] }) {
-  if (risk.evidence && risk.evidence.length > 0) {
-    return risk.evidence.map((e) => e.sourceName)
-  }
-  return risk.sources || []
-}
-
 function hasExtractedEntities(extracted: {
   dates: unknown[]
   amounts: unknown[]
@@ -74,12 +50,20 @@ function hasExtractedEntities(extracted: {
   )
 }
 
+function getRiskSourceNames(risk: { evidence?: { sourceName: string }[]; sources?: string[] }) {
+  if (risk.evidence && risk.evidence.length > 0) {
+    return risk.evidence.map((e) => e.sourceName)
+  }
+  return risk.sources || []
+}
+
 export function generateReportText(
   result: AnalyzeResult | Partial<AnalyzeResult> | undefined | null,
   srcs: Source[] | undefined | null,
 ): string {
   const r = safeAnalyzeResult(result)
   const sources = srcs || []
+  const scenarioType = result?.scenario?.type
 
   const lines: string[] = []
 
@@ -117,9 +101,9 @@ export function generateReportText(
       const sourceNames = getRiskSourceNames(risk)
       lines.push('')
       lines.push(
-        `${i + 1}. 【${riskLevelEmoji(risk.level)} ${riskLevelLabel(risk.level)}】${risk.title}`,
+        `${i + 1}. 【${getRiskLevelEmoji(risk.level)} ${getRiskLevelLabel(risk.level)}】${risk.title}`,
       )
-      lines.push(`   类型：${riskTypeLabel(risk.type)}`)
+      lines.push(`   类型：${getRiskTypeLabel(risk.type, scenarioType)}`)
       if (risk.dimension) {
         lines.push(`   维度：${risk.dimension}`)
       }
@@ -207,6 +191,7 @@ export function generateReportMarkdown(
 ): string {
   const r = safeAnalyzeResult(result)
   const sources = srcs || []
+  const scenarioType = result?.scenario?.type
 
   const lines: string[] = []
 
@@ -245,9 +230,9 @@ export function generateReportMarkdown(
     r.risks.forEach((risk, i) => {
       const sourceNames = getRiskSourceNames(risk)
       lines.push('')
-      lines.push(`### ${i + 1}. ${riskLevelEmoji(risk.level)} ${risk.title}`)
+      lines.push(`### ${i + 1}. ${getRiskLevelEmoji(risk.level)} ${risk.title}`)
       lines.push('')
-      lines.push(`- **类型**：${riskTypeLabel(risk.type)}`)
+      lines.push(`- **类型**：${getRiskTypeLabel(risk.type, scenarioType)}`)
       if (risk.dimension) {
         lines.push(`- **维度**：${risk.dimension}`)
       }

@@ -12,6 +12,7 @@
 import { Loader2, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChatCitation } from '@/types'
+import { MarkdownContent } from './MarkdownContent'
 
 export interface ChatStreamRendererProps {
   streamingMessage: string
@@ -103,15 +104,13 @@ export function ChatStreamRenderer({
               <span className="text-sm">正在检索文档...</span>
             </div>
           ) : hasContent ? (
-            // 流式文本 + blink 光标
+            // 流式 Markdown 渲染 + blink 光标
             <>
-              <div className="whitespace-pre-wrap break-words">
-                {streamingMessage}
-                <span
-                  className="ml-0.5 inline-block h-4 w-[2px] translate-y-[2px] bg-accent align-middle animate-pulse"
-                  aria-hidden="true"
-                />
-              </div>
+              <MarkdownContent content={streamingMessage} />
+              <span
+                className="ml-0.5 inline-block h-4 w-[2px] translate-y-[2px] bg-accent align-middle animate-pulse"
+                aria-hidden="true"
+              />
 
               {/* 流式过程中缓存的 citations，complete 时由父组件 ChatMessage 渲染最终引用 */}
               {hasCitations && (

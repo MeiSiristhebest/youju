@@ -1,7 +1,7 @@
 import { useGSAP } from '@gsap/react'
 import { AlertTriangle, CheckCircle, Clock, Zap } from 'lucide-react'
 import { useRef } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, formatDimensionName } from '@/lib/utils'
 import { gsap } from '../../lib/gsap'
 import type { Risk, RiskStatus } from '../../types'
 import { RiskWorkflowSkeleton } from './RiskWorkflowSkeleton'
@@ -147,18 +147,18 @@ export function RiskWorkflowPanel({
                       <div className="text-[11px] font-medium text-ink leading-snug line-clamp-2 mb-1">
                         {risk.title}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span
                           className={cn(
-                            'text-[9px] px-1.5 py-0.5 rounded border font-medium',
+                            'text-[9px] px-1.5 py-0.5 rounded border font-medium shrink-0',
                             RISK_STATUS_STYLES[status],
                           )}
                         >
                           {RISK_STATUS_LABELS[status]}
                         </span>
                         {risk.dimension && (
-                          <span className="text-[9px] text-ink-faint font-mono truncate">
-                            {risk.dimension}
+                          <span className="text-[9px] text-ink-faint truncate min-w-0">
+                            {formatDimensionName(risk.dimension)}
                           </span>
                         )}
                       </div>

@@ -16,7 +16,7 @@ import {
 import { useState } from 'react'
 import { SCENARIOS } from '../../constants/workspace'
 import { formatDuration } from '../../lib/history'
-import { cn } from '../../lib/utils'
+import { cn, formatDimensionName } from '../../lib/utils'
 import type { HistorySnapshot } from '../../types/history'
 
 interface HistoryDetailPanelProps {
@@ -378,7 +378,7 @@ export function HistoryDetailPanel({
                               : risk.type === 'missing'
                                 ? '信息缺失'
                                 : '信息提示'}
-                          {risk.dimension && ` · ${risk.dimension}`}
+                          {risk.dimension && ` · ${formatDimensionName(risk.dimension)}`}
                         </div>
                         <div className="text-[11px] text-ink-muted leading-relaxed line-clamp-2">
                           {risk.description}
@@ -458,13 +458,7 @@ export function HistoryDetailPanel({
                       >
                         {item.text}
                       </div>
-                      {(item.riskType || item.dimension) && (
-                        <div className="text-[10px] text-ink-faint mt-1 flex items-center gap-2">
-                          {item.riskType && <span>{item.riskType}</span>}
-                          {item.riskType && item.dimension && <span>·</span>}
-                          {item.dimension && <span>{item.dimension}</span>}
-                        </div>
-                      )}
+                      {/* ChecklistItem 不再包含 riskType 和 dimension 字段 */}
                     </div>
                   </div>
                 ))

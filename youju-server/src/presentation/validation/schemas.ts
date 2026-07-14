@@ -4,24 +4,38 @@ export const sourceTextSchema = z.object({
   type: z.string().min(1).max(50),
   name: z.string().min(1).max(200),
   content: z.string().min(1).max(500_000),
+  task_id: z.string().max(50).optional(),
 })
 
 export const sourceUrlSchema = z.object({
   url: z.string().url(),
   type: z.string().min(1).max(50).default('web'),
   name: z.string().max(200).optional(),
+  task_id: z.string().max(50).optional(),
 })
 
 export const sourceUploadSchema = z.object({
   type: z.string().min(1).max(50).optional(),
   name: z.string().max(200).optional(),
+  task_id: z.string().max(50).optional(),
 })
+
+export const aiConfigSchema = z
+  .object({
+    apiKey: z.string().min(1).max(500),
+    baseURL: z.string().max(500),
+    model: z.string().min(1).max(100),
+    provider: z.string().max(50).optional(),
+  })
+  .optional()
 
 export const analyzeSchema = z.object({
   sourceIds: z.array(z.string()).optional(),
   scenarioType: z.string().min(1).max(50).default('custom'),
   taskId: z.string().optional(),
   incremental: z.boolean().optional(),
+  aiConfig: aiConfigSchema,
+  isDemo: z.boolean().optional(),
 })
 
 export const taskCreateSchema = z.object({
@@ -65,6 +79,13 @@ const PROVIDER_ENUM = z.enum([
   'zhipu',
   'moonshot',
   'qwen',
+  'volcengine',
+  'qianfan',
+  'yi',
+  'spark',
+  'openrouter',
+  'agnes',
+  'gemini',
   'custom',
 ])
 
@@ -82,6 +103,7 @@ export const modelConfigCreateSchema = z.object({
       }),
     )
     .default([]),
+  configType: z.enum(['llm', 'embedding']).default('llm'),
   isDefault: z.boolean().default(false),
 })
 
@@ -99,6 +121,7 @@ export const modelConfigUpdateSchema = z.object({
       }),
     )
     .optional(),
+  configType: z.enum(['llm', 'embedding']).optional(),
   isDefault: z.boolean().optional(),
 })
 
@@ -107,6 +130,12 @@ export const modelConfigTestSchema = z.object({
   apiKey: z.string().min(1).max(500),
   baseURL: z.string().url().max(500),
   model: z.string().min(1).max(100),
+})
+
+export const modelListFetchSchema = z.object({
+  provider: PROVIDER_ENUM.default('openai'),
+  apiKey: z.string().min(1).max(500),
+  baseURL: z.string().url().max(500),
 })
 
 export const draftCopySchema = z.object({
@@ -134,6 +163,7 @@ export const chatMessageSchema = z.object({
   content: z.string().min(1).max(10000),
   contextSourceIds: z.array(z.string()).optional(),
   scenarioType: z.string().max(50).optional(),
+  aiConfig: aiConfigSchema,
 })
 
 export const chatFeedbackSchema = z.object({

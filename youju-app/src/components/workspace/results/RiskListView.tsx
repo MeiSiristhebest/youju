@@ -11,7 +11,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { getRiskTypeLabel } from '@/constants/riskLabels'
+import { cn, formatDimensionName } from '@/lib/utils'
 import { useAnalysisStore } from '../../../stores'
 import type { Risk, RiskLevel, RiskStatus } from '../../../types'
 import { useToast } from '../../common/Toast'
@@ -38,19 +39,13 @@ const statusLabelMap: Record<RiskStatus, string> = {
   ignored: '已忽略',
 }
 
-const typeLabelMap: Record<string, string> = {
-  conflict: '直接矛盾',
-  promise: '承诺未落文字',
-  missing: '信息缺失',
-  info: '信息提示',
-}
-
 export function RiskListView({ onEvidenceClick }: RiskListViewProps) {
   const result = useAnalysisStore((state) => state.result)
   const selectedRisk = useAnalysisStore((state) => state.selectedRisk)
   const setSelectedRisk = useAnalysisStore((state) => state.setSelectedRisk)
   const getRiskStatus = useAnalysisStore((state) => state.getRiskStatus)
   const setRiskStatus = useAnalysisStore((state) => state.setRiskStatus)
+  const scenarioType = useAnalysisStore((state) => state.result?.scenario?.type)
   const { showToast } = useToast()
 
   const [sortField, setSortField] = useState<SortField>('confidence')
@@ -200,7 +195,7 @@ export function RiskListView({ onEvidenceClick }: RiskListViewProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 overflow-hidden">
       {selectedIds.size > 0 && (
         <div className="px-4 py-2.5 border-b border-rule bg-accent-bg/30 flex items-center justify-between shrink-0 sticky top-0 z-10">
           <div className="flex items-center gap-2">
@@ -305,10 +300,10 @@ export function RiskListView({ onEvidenceClick }: RiskListViewProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto flex flex-col">
         {sortedRisks.length === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
+          <div className="flex-1 flex flex-col items-center justify-center px-4">
+            <div className="w-16 h-16 mb-4 rounded-full bg-accent-tertiary-bg flex items-center justify-center text-accent-tertiary">
               <CheckCircle size={28} strokeWidth={1.5} />
             </div>
             <p className="text-sm font-medium text-ink mb-1">一切正常</p>
@@ -369,7 +364,7 @@ export function RiskListView({ onEvidenceClick }: RiskListViewProps) {
 
                   <div className="w-24 shrink-0">
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-paper border border-rule/60 text-ink-muted">
-                      {typeLabelMap[risk.type] || risk.type}
+                      {getRiskTypeLabel(risk.type, scenarioType)}
                     </span>
                   </div>
 
@@ -397,7 +392,7 @@ export function RiskListView({ onEvidenceClick }: RiskListViewProps) {
                   <div className="w-24 shrink-0">
                     {risk.dimension ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-accent-bg/40 text-accent border border-accent/10">
-                        {risk.dimension}
+                        {formatDimensionName(risk.dimension)}
                       </span>
                     ) : (
                       <span className="text-[10px] text-ink-faint">—</span>

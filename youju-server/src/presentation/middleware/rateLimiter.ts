@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express'
 import { type RateLimitRequestHandler, rateLimit } from 'express-rate-limit'
 import { rateLimited } from '../../domain/errors.js'
+import { getEnv, isTest } from '../../infrastructure/env.js'
 
 interface RedisStoreLike {
   sendCommand: (...args: unknown[]) => unknown
@@ -10,8 +11,8 @@ let redisStore: RedisStoreLike | null = null
 let redisStorePromise: Promise<RedisStoreLike | undefined> | null = null
 
 async function createRedisStore(prefix: string): Promise<RedisStoreLike | undefined> {
-  const redisUrl = process.env.REDIS_URL
-  if (!redisUrl || process.env.NODE_ENV === 'test') return undefined
+  const redisUrl = getEnv().REDIS_URL
+  if (!redisUrl || isTest()) return undefined
 
   try {
     const { RedisStore } = await import('rate-limit-redis')
@@ -71,14 +72,14 @@ function createLazyRateLimiter(options: LazyRateLimiterOptions): RateLimitReques
   const baseOptions = {
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (_req: Request) => process.env.NODE_ENV === 'test',
+    skip: (_req: Request) => isTest(),
     handler: formatErrorResponse,
     ...rateLimitOptions,
   }
 
   limiter = rateLimit(baseOptions)
 
-  if (process.env.REDIS_URL && process.env.NODE_ENV !== 'test') {
+  if (getEnv().REDIS_URL && !isTest()) {
     getRedisStore(prefix || 'rl:general:')
       .then((store) => {
         if (store) {
@@ -103,38 +104,40 @@ function createLazyRateLimiter(options: LazyRateLimiterOptions): RateLimitReques
   }) as RateLimitRequestHandler
 }
 
+const env = getEnv()
+
 export const generalRateLimiter = createLazyRateLimiter({
-  windowMs: 60 * 1000,
-  limit: 120,
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  limit: env.RATE_LIMIT_GENERAL_PER_MIN,
   prefix: 'rl:general:',
 })
 
 export const authRateLimiter = createLazyRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
+  windowMs: env.RATE_LIMIT_AUTH_WINDOW_MS,
+  limit: env.RATE_LIMIT_AUTH_PER_15MIN,
   prefix: 'rl:auth:',
 })
 
 export const analyzeRateLimiter = createLazyRateLimiter({
-  windowMs: 60 * 1000,
-  limit: 10,
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  limit: env.RATE_LIMIT_ANALYZE_PER_MIN,
   prefix: 'rl:analyze:',
 })
 
 export const urlFetchRateLimiter = createLazyRateLimiter({
-  windowMs: 60 * 1000,
-  limit: 20,
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  limit: env.RATE_LIMIT_URLFETCH_PER_MIN,
   prefix: 'rl:urlfetch:',
 })
 
 export const chatRateLimiter = createLazyRateLimiter({
-  windowMs: 60 * 1000,
-  limit: 30,
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  limit: env.RATE_LIMIT_CHAT_PER_MIN,
   prefix: 'rl:chat:',
 })
 
 export async function initRateLimiters(): Promise<void> {
-  if (process.env.REDIS_URL && process.env.NODE_ENV !== 'test') {
+  if (getEnv().REDIS_URL && !isTest()) {
     await getRedisStore('rl:general:')
   }
 }

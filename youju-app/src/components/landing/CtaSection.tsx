@@ -24,10 +24,10 @@ export function CtaSection({ onStart }: CtaSectionProps) {
           once: true,
         },
       })
-      tl.from('[data-cta-eyebrow]', { y: 20, opacity: 0, duration: 0.6 })
-        .from('[data-cta-subtitle]', { y: 20, opacity: 0, duration: 0.7 }, '-=0.2')
-        .from('[data-cta-button]', { y: 20, opacity: 0, duration: 0.6 }, '-=0.3')
-        .from('[data-cta-marquee]', { opacity: 0, duration: 0.6 }, '-=0.3')
+      tl.to('[data-cta-eyebrow]', { y: 0, opacity: 1, duration: 0.6 })
+        .to('[data-cta-subtitle]', { y: 0, opacity: 1, duration: 0.7 }, '-=0.2')
+        .to('[data-cta-button]', { y: 0, opacity: 1, duration: 0.6 }, '-=0.3')
+        .to('[data-cta-marquee]', { opacity: 1, duration: 0.6 }, '-=0.3')
     },
     { scope: sectionRef },
   )
@@ -51,7 +51,7 @@ export function CtaSection({ onStart }: CtaSectionProps) {
       </div>
 
       <div className="max-w-4xl mx-auto text-center relative z-10">
-        <div data-cta-eyebrow>
+        <div data-cta-eyebrow className="gsap-reveal">
           <span className="text-[11px] font-mono tracking-[0.25em] uppercase text-accent-faint">
             — 开始你的推理
           </span>
@@ -70,12 +70,12 @@ export function CtaSection({ onStart }: CtaSectionProps) {
 
         <p
           data-cta-subtitle
-          className="mt-8 text-base text-ink-faint max-w-lg mx-auto leading-relaxed"
+          className="gsap-reveal mt-8 text-base text-ink-faint max-w-lg mx-auto leading-relaxed"
         >
           上传你的材料，让有据帮你梳理事实脉络、识别信息冲突、输出可信结论。
         </p>
 
-        <div data-cta-button className="mt-12 flex justify-center">
+        <div data-cta-button className="gsap-reveal mt-12 flex justify-center">
           <MagneticButton onClick={onStart} iconRight={<ArrowRight size={16} strokeWidth={1.5} />}>
             立即开始使用
           </MagneticButton>
@@ -86,6 +86,7 @@ export function CtaSection({ onStart }: CtaSectionProps) {
       <div
         data-cta-marquee
         className="absolute bottom-0 left-0 right-0 py-4 border-t border-paper/10"
+        style={{ opacity: 0 }}
       >
         <Marquee
           items={ctaMarqueeItems}

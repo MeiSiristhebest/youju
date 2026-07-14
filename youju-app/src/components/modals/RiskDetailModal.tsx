@@ -16,29 +16,22 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
+import { getRiskTypeLabel } from '@/constants/riskLabels'
 import { cn } from '@/lib/utils'
 import { gsap } from '../../lib/gsap'
 import { useAnalysisStore } from '../../stores'
-import type { Evidence, Risk, RiskLevel, RiskStatus } from '../../types'
+import type { Evidence, Risk, RiskLevel, RiskStatus, RiskType } from '../../types'
 import { AiInlineEditor } from '../workspace/AiInlineEditor'
 
 interface RiskDetailModalProps {
   risk: Risk | null
   onClose: () => void
-  onFeedback: (riskId: string, feedback: 'accurate' | 'inaccurate') => void
+  onFeedback: (riskId: string, riskType: RiskType, isAccurate: boolean) => void
   onEvidenceClick?: (sourceId: string, quote: string) => void
-  riskStatus: RiskStatus
   onStatusChange: (riskId: string, status: RiskStatus) => void
   notes: string | null
   notesUpdatedAt: string | null
   onNotesChange: (riskId: string, notes: string) => void
-}
-
-const RISK_TYPE_LABELS: Record<string, string> = {
-  conflict: '直接矛盾',
-  promise: '承诺未落文字',
-  missing: '信息缺失',
-  info: '信息提示',
 }
 
 const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
@@ -66,7 +59,6 @@ export function RiskDetailModal({
   onClose,
   onFeedback,
   onEvidenceClick,
-  riskStatus,
   onStatusChange,
   notes,
   notesUpdatedAt,
@@ -79,8 +71,12 @@ export function RiskDetailModal({
   const overlayRef = useRef<HTMLDivElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
   const updateRiskDescription = useAnalysisStore((s) => s.updateRiskDescription)
+  const getRiskStatus = useAnalysisStore((s) => s.getRiskStatus)
   const aiEditorTargetRiskId = useAnalysisStore((s) => s.aiEditorTargetRiskId)
   const setAiEditorTargetRiskId = useAnalysisStore((s) => s.setAiEditorTargetRiskId)
+  const scenarioType = useAnalysisStore((s) => s.result?.scenario?.type)
+
+  const riskStatus = risk ? getRiskStatus(risk.id, 'pending') : 'pending'
 
   useEffect(() => {
     if (aiEditorTargetRiskId && risk && aiEditorTargetRiskId === risk.id) {
@@ -176,7 +172,7 @@ export function RiskDetailModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => onFeedback(risk.id, 'accurate')}
+              onClick={() => onFeedback(risk.id, risk.type, true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-success bg-success-bg border border-success/30 hover:bg-success-bg/80 transition-colors"
               title="标记为准确"
             >
@@ -185,7 +181,7 @@ export function RiskDetailModal({
             </button>
             <button
               type="button"
-              onClick={() => onFeedback(risk.id, 'inaccurate')}
+              onClick={() => onFeedback(risk.id, risk.type, false)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-danger bg-danger-bg border border-danger/30 hover:bg-danger-bg/80 transition-colors"
               title="标记为不准确"
             >
@@ -276,16 +272,16 @@ export function RiskDetailModal({
             </div>
             <Badge variant="secondary" className="gap-1.5">
               <Sparkles size={12} className="text-accent" />
-              {RISK_TYPE_LABELS[risk.type] || risk.type}
+              {getRiskTypeLabel(risk.type, scenarioType)}
             </Badge>
             {risk.isNew && (
-              <span className="inline-flex items-center justify-center px-2.5 py-0.5 text-xs font-bold text-white bg-danger rounded-md shadow-sm">
+              <span className="inline-flex items-center justify-center px-2.5 py-0.5 text-xs font-bold text-danger-foreground bg-danger rounded-md shadow-sm">
                 NEW
               </span>
             )}
             {risk.levelChange?.upgraded && (
               <span
-                className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 text-xs font-bold text-white bg-warning rounded-md shadow-sm"
+                className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 text-xs font-bold text-warning-foreground bg-warning rounded-md shadow-sm"
                 title={`${RISK_LEVEL_LABELS[risk.levelChange.from]} → ${RISK_LEVEL_LABELS[risk.levelChange.to]}`}
               >
                 <TrendingUp size={12} />
@@ -348,7 +344,7 @@ export function RiskDetailModal({
             <div>
               <span className="text-xs text-ink-faint">类型</span>
               <p className="text-sm text-ink font-medium mt-1">
-                {RISK_TYPE_LABELS[risk.type] || risk.type}
+                {getRiskTypeLabel(risk.type, scenarioType)}
               </p>
             </div>
             {risk.dimension && (
@@ -395,13 +391,16 @@ export function RiskDetailModal({
                     key={idx}
                     className={cn(
                       'rounded-xl border bg-paper/[0.02] p-4 transition-all duration-200',
-                      onEvidenceClick && ev.sourceId
+                      onEvidenceClick
                         ? 'cursor-pointer hover:border-accent/40 hover:bg-accent-bg/20'
                         : 'border-rule',
                     )}
                     onClick={() => {
-                      if (onEvidenceClick && ev.sourceId) {
-                        onEvidenceClick(ev.sourceId, ev.quote)
+                      if (onEvidenceClick) {
+                        onEvidenceClick(
+                          ev.sourceId || ev.sourceName,
+                          ev.highlightedText || ev.quote,
+                        )
                       }
                     }}
                   >
@@ -443,7 +442,7 @@ export function RiskDetailModal({
                         : ev.quote}
                       "
                     </p>
-                    {onEvidenceClick && ev.sourceId && (
+                    {onEvidenceClick && (
                       <div className="mt-2 flex items-center justify-end">
                         <span className="text-xs text-accent font-medium">查看原文 →</span>
                       </div>

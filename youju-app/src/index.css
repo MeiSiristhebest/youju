@@ -96,26 +96,36 @@
   --color-tertiary-950: var(--tertiary-950);
 
   /* Accent variants (Editorial Print) */
+  --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
   --color-accent-faint: var(--accent-faint);
   --color-accent-bg: var(--accent-bg);
   --color-accent-secondary: var(--accent-secondary);
+  --color-accent-secondary-foreground: var(--accent-secondary-foreground);
   --color-accent-secondary-soft: var(--accent-secondary-soft);
   --color-accent-secondary-faint: var(--accent-secondary-faint);
   --color-accent-secondary-bg: var(--accent-secondary-bg);
   --color-accent-tertiary: var(--accent-tertiary);
+  --color-accent-tertiary-foreground: var(--accent-tertiary-foreground);
   --color-accent-tertiary-soft: var(--accent-tertiary-soft);
   --color-accent-tertiary-faint: var(--accent-tertiary-faint);
   --color-accent-tertiary-bg: var(--accent-tertiary-bg);
 
   /* Semantic variants */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-success-bg: var(--success-bg);
   --color-success-faint: var(--success-faint);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-warning-bg: var(--warning-bg);
   --color-warning-faint: var(--warning-faint);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
   --color-danger-bg: var(--danger-bg);
   --color-danger-faint: var(--danger-faint);
   --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-info-bg: var(--info-bg);
 
   /* Radius system */
@@ -195,14 +205,17 @@
 
   /* Backward-compatible accent aliases */
   --accent: var(--primary-700);
+  --accent-foreground: #ffffff;
   --accent-soft: var(--primary-600);
   --accent-faint: var(--primary-200);
   --accent-bg: var(--primary-50);
   --accent-secondary: var(--secondary-600);
+  --accent-secondary-foreground: #ffffff;
   --accent-secondary-soft: var(--secondary-500);
   --accent-secondary-faint: var(--secondary-300);
   --accent-secondary-bg: var(--secondary-100);
   --accent-tertiary: var(--tertiary-700);
+  --accent-tertiary-foreground: #ffffff;
   --accent-tertiary-soft: var(--tertiary-600);
   --accent-tertiary-faint: var(--tertiary-300);
   --accent-tertiary-bg: var(--tertiary-50);
@@ -211,6 +224,7 @@
      Semantic Color System
      ============================================ */
   --success: #166534;
+  --success-foreground: #ffffff;
   --success-bg: #dcfce7;
   --success-faint: #bbf7d0;
   --success-50: #f0fdf4;
@@ -218,6 +232,7 @@
   --success-600: #16a34a;
   --success-700: #15803d;
   --warning: #D97706;
+  --warning-foreground: #ffffff;
   --warning-bg: #fef3c7;
   --warning-faint: #fde68a;
   --warning-50: #fffbeb;
@@ -225,6 +240,7 @@
   --warning-600: #d97706;
   --warning-700: #b45309;
   --danger: #991b1b;
+  --danger-foreground: #ffffff;
   --danger-bg: #fee2e2;
   --danger-faint: #fecaca;
   --danger-50: #fef2f2;
@@ -232,6 +248,7 @@
   --danger-600: #dc2626;
   --danger-700: #b91c1c;
   --info: #1e40af;
+  --info-foreground: #ffffff;
   --info-bg: #dbeafe;
   --info-50: #eff6ff;
   --info-100: #dbeafe;
@@ -312,33 +329,33 @@
   --shadow-xl: 0 24px 48px -8px rgba(28, 25, 23, 0.12);
   --shadow-inner: inset 0 2px 4px 0 rgba(28, 25, 23, 0.05);
 
-  /* shadcn theme variables (Editorial Print) */
-  --background: #f5efe6;
-  --foreground: #1c1917;
-  --card: #f5efe6;
-  --card-foreground: #1c1917;
-  --popover: #f5efe6;
-  --popover-foreground: #1c1917;
-  --primary: #2C5F4A;
-  --primary-foreground: #f5efe6;
-  --secondary: #ebe4d8;
-  --secondary-foreground: #1c1917;
-  --muted: #ebe4d8;
-  --muted-foreground: #57534e;
-  --destructive: #991b1b;
-  --destructive-foreground: #f5efe6;
-  --border: #d6d0c4;
-  --input: #d6d0c4;
-  --ring: #2C5F4A;
+  /* shadcn theme variables (Editorial Print) - mapped to brand colors */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-dark);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--paper);
+  --secondary: var(--paper-dark);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-dark);
+  --muted-foreground: var(--ink-muted);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--paper);
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--accent);
   --radius: 4px;
-  --sidebar: #f5efe6;
-  --sidebar-foreground: #1c1917;
-  --sidebar-primary: #2C5F4A;
-  --sidebar-primary-foreground: #f5efe6;
-  --sidebar-accent: #ebe4d8;
-  --sidebar-accent-foreground: #1c1917;
-  --sidebar-border: #d6d0c4;
-  --sidebar-ring: #2C5F4A;
+  --sidebar: var(--paper);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--paper-dark);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--rule);
+  --sidebar-ring: var(--accent);
 }
 
 .dark {
@@ -400,14 +417,17 @@
 
   /* Backward-compatible accent aliases (dark mode) */
   --accent: var(--primary-400);
+  --accent-foreground: var(--primary-50);
   --accent-soft: var(--primary-300);
   --accent-faint: var(--primary-700);
   --accent-bg: var(--primary-50);
   --accent-secondary: var(--secondary-600);
+  --accent-secondary-foreground: var(--secondary-50);
   --accent-secondary-soft: var(--secondary-700);
   --accent-secondary-faint: var(--secondary-400);
   --accent-secondary-bg: var(--secondary-200);
   --accent-tertiary: var(--tertiary-500);
+  --accent-tertiary-foreground: var(--tertiary-50);
   --accent-tertiary-soft: var(--tertiary-600);
   --accent-tertiary-faint: var(--tertiary-300);
   --accent-tertiary-bg: var(--tertiary-50);
@@ -416,6 +436,7 @@
      Semantic Color System (Dark Mode)
      ============================================ */
   --success: #4ade80;
+  --success-foreground: #052e1f;
   --success-bg: #064e3b;
   --success-faint: #14532d;
   --success-50: #052e1f;
@@ -423,6 +444,7 @@
   --success-600: #22c55e;
   --success-700: #4ade80;
   --warning: #fbbf24;
+  --warning-foreground: #451a03;
   --warning-bg: #78350f;
   --warning-faint: #78350f;
   --warning-50: #451a03;
@@ -430,6 +452,7 @@
   --warning-600: #f59e0b;
   --warning-700: #fbbf24;
   --danger: #f87171;
+  --danger-foreground: #1c0606;
   --danger-bg: #450a0a;
   --danger-faint: #7f1d1d;
   --danger-50: #1c0606;
@@ -437,6 +460,7 @@
   --danger-600: #ef4444;
   --danger-700: #f87171;
   --info: #60a5fa;
+  --info-foreground: #172554;
   --info-bg: #1e3a5f;
   --info-50: #172554;
   --info-100: #1e3a5f;
@@ -452,32 +476,32 @@
   --shadow-xl: 0 24px 48px -8px rgba(0, 0, 0, 0.6);
   --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
 
-  /* shadcn theme variables (dark mode) */
-  --background: #0f172a;
-  --foreground: #f8fafc;
-  --card: #1e293b;
-  --card-foreground: #f8fafc;
-  --popover: #1e293b;
-  --popover-foreground: #f8fafc;
-  --primary: #1f7350;
-  --primary-foreground: #f8fafc;
-  --secondary: #334155;
-  --secondary-foreground: #f8fafc;
-  --muted: #334155;
-  --muted-foreground: #94a3b8;
-  --destructive: #f87171;
-  --destructive-foreground: #0f172a;
-  --border: #334155;
-  --input: #334155;
-  --ring: #1f7350;
-  --sidebar: #0f172a;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #1f7350;
-  --sidebar-primary-foreground: #f8fafc;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: #334155;
-  --sidebar-ring: #1f7350;
+  /* shadcn theme variables (dark mode) - mapped to brand colors */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper-dark);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-dark);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--paper);
+  --secondary: var(--paper-deep);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-deep);
+  --muted-foreground: var(--ink-muted);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--paper);
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--accent);
+  --sidebar: var(--paper);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--paper-dark);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--rule);
+  --sidebar-ring: var(--accent);
 }
 
 /*
@@ -595,48 +619,50 @@ select:focus {
    Editorial Typography - Refined
    ============================================ */
 
-/* Display/Editorial headings */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  text-wrap: balance;
-}
+/* Display/Editorial headings — in @layer base so Tailwind utilities can override */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
 
-h1 {
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 400;
-  letter-spacing: -0.03em;
-}
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 400;
+    letter-spacing: -0.03em;
+  }
 
-h2 {
-  font-size: clamp(1.75rem, 4vw, 2.75rem);
-  font-weight: 450;
-  letter-spacing: -0.025em;
-}
+  h2 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 450;
+    letter-spacing: -0.025em;
+  }
 
-h3 {
-  font-size: clamp(1.35rem, 2.5vw, 1.875rem);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
+  h3 {
+    font-size: clamp(1.35rem, 2.5vw, 1.875rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
 
-h4 {
-  font-size: clamp(1.125rem, 2vw, 1.5rem);
-  font-weight: 500;
-  letter-spacing: -0.015em;
-}
+  h4 {
+    font-size: clamp(1.125rem, 2vw, 1.5rem);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
 
-h5, h6 {
-  font-size: 1.125rem;
-  font-weight: 500;
-}
+  h5, h6 {
+    font-size: 1.125rem;
+    font-weight: 500;
+  }
 
-/* Paragraphs with optimal line length */
-p {
-  max-width: 65ch;
-  text-wrap: pretty;
+  /* Paragraphs with optimal line length */
+  p {
+    max-width: 65ch;
+    text-wrap: pretty;
+  }
 }
 
 /* Typography utilities */
@@ -1198,6 +1224,27 @@ p {
 .reveal-delay-3 { transition-delay: 150ms; }
 .reveal-delay-4 { transition-delay: 200ms; }
 .reveal-delay-5 { transition-delay: 250ms; }
+
+/* GSAP scroll animation initial state (no transition - GSAP handles it) */
+.gsap-reveal {
+  opacity: 0;
+  transform: translateY(40px);
+}
+
+.gsap-reveal-left {
+  opacity: 0;
+  transform: translateX(-40px);
+}
+
+.gsap-reveal-right {
+  opacity: 0;
+  transform: translateX(40px);
+}
+
+.gsap-reveal-scale {
+  opacity: 0;
+  transform: scale(0.95);
+}
 
 /* Number font variant - tabular for data columns */
 .tabular-nums {

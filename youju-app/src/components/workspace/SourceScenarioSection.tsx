@@ -1,4 +1,4 @@
-import { AlertTriangle, FileText, RefreshCw, Sparkles, Target } from 'lucide-react'
+import { AlertTriangle, FileCheck, FileText, RefreshCw, Sparkles, Target } from 'lucide-react'
 import { useTranslation } from '../../i18n'
 import { analyzeIntent } from '../../services/intentAnalysis'
 import { useSourceStore } from '../../stores/useSourceStore'

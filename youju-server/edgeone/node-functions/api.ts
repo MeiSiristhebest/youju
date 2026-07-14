@@ -2,7 +2,9 @@ import { IncomingMessage, ServerResponse } from 'node:http'
 import type { Express, Request as ExpressRequest, Response as ExpressResponse } from 'express'
 import { createApp } from '../../src/app.js'
 import { driver } from '../../src/data/db.js'
-import { preheatScenarioPresets } from '../../src/domain/services/analysisService.js'
+import { getContainer } from '../../src/app.js'
+import { Tokens } from '../../src/infrastructure/di/tokens.js'
+import type { AnalysisService } from '../../src/domain/services/analysisService.js'
 
 interface EdgeOneContext {
   request: Request
@@ -23,7 +25,9 @@ async function initializeApp() {
   appInstance = app
 
   if (process.env.ENABLE_SCENARIO_PREHEAT !== 'false') {
-    preheatScenarioPresets().catch((e) => {
+    const container = getContainer()
+    const analysisService = container.resolve<AnalysisService>(Tokens.AnalysisService)
+    analysisService.preheatScenarioPresets().catch((e: unknown) => {
       console.error('[EdgeOne] 场景预热失败:', e)
     })
   }

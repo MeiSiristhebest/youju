@@ -1,5 +1,6 @@
 import { CloudUpload, Info, ShieldCheck, Sparkles } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { MagneticButton } from '../ui/MagneticButton'
 
@@ -21,35 +22,6 @@ interface EmptyStateConfig {
   learnMore?: boolean
 }
 
-const emptyStateConfigs: Record<WorkspaceEmptyProps['type'], EmptyStateConfig> = {
-  sources: {
-    icon: <CloudUpload size={48} strokeWidth={1.2} />,
-    title: '上传你的第一份材料',
-    description: '支持文本粘贴、文件上传、URL 抓取',
-    actionLabel: '上传材料',
-    learnMore: true,
-  },
-  risk: {
-    icon: <ShieldCheck size={48} strokeWidth={1.2} />,
-    title: '暂无待处理风险',
-    description: '运行分析后，风险将显示在这里',
-    actionLabel: '开始分析',
-    learnMore: true,
-  },
-  context: {
-    icon: <Info size={48} strokeWidth={1.2} />,
-    title: '选择左侧风险查看详情',
-    description: '点击任意风险条目，这里将显示详细信息和证据',
-  },
-  result: {
-    icon: <Sparkles size={48} strokeWidth={1.2} />,
-    title: '创建你的第一次分析',
-    description: '选择场景并上传材料，AI 将为你交叉验证并发现风险',
-    actionLabel: '新建分析',
-    learnMore: true,
-  },
-}
-
 export function WorkspaceEmpty({
   type,
   onAction,
@@ -59,6 +31,37 @@ export function WorkspaceEmpty({
   learnMoreUrl,
   className,
 }: WorkspaceEmptyProps) {
+  const { t } = useTranslation()
+
+  const emptyStateConfigs: Record<WorkspaceEmptyProps['type'], EmptyStateConfig> = {
+    sources: {
+      icon: <CloudUpload size={48} strokeWidth={1.2} />,
+      title: t('empty.uploadFirstMaterial'),
+      description: t('empty.uploadMaterialDesc'),
+      actionLabel: t('empty.uploadMaterial'),
+      learnMore: true,
+    },
+    risk: {
+      icon: <ShieldCheck size={48} strokeWidth={1.2} />,
+      title: t('empty.noPendingRisks'),
+      description: t('empty.noPendingRisksDesc'),
+      actionLabel: t('empty.startAnalysis'),
+      learnMore: true,
+    },
+    context: {
+      icon: <Info size={48} strokeWidth={1.2} />,
+      title: t('empty.selectRisk'),
+      description: t('empty.selectRiskDesc'),
+    },
+    result: {
+      icon: <Sparkles size={48} strokeWidth={1.2} />,
+      title: t('empty.createFirstAnalysis'),
+      description: t('empty.createFirstAnalysisDesc'),
+      actionLabel: t('empty.newAnalysis'),
+      learnMore: true,
+    },
+  }
+
   const config = emptyStateConfigs[type]
 
   const displayTitle = title ?? config.title
@@ -103,7 +106,7 @@ export function WorkspaceEmpty({
           rel="noopener noreferrer"
           className="mt-4 text-sm text-accent underline underline-offset-4 hover:opacity-80 transition-opacity duration-200"
         >
-          了解更多
+          {t('empty.learnMore')}
         </a>
       )}
     </div>

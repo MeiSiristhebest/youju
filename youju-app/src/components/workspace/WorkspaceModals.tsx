@@ -16,6 +16,7 @@ import { AddSourceModal } from '../modals/AddSourceModal'
 import { DraftModal } from '../modals/DraftModal'
 import { LoginModal } from '../modals/LoginModal'
 import { RiskDetailModal } from '../modals/RiskDetailModal'
+import { ScenarioSelector } from '../modals/ScenarioSelector'
 import { ShareModal } from '../modals/ShareModal'
 import { SourceDetailModal } from '../modals/SourceDetailModal'
 import { HistoryDetailPanel } from './HistoryDetailPanel'
@@ -107,6 +108,8 @@ interface WorkspaceModalsProps {
   onToggleSidebar: () => void
   onToggleSourcePanel: () => void
   onToggleContextPanel: () => void
+  showScenarioSelector: boolean
+  onScenarioSelectorChange: (open: boolean) => void
   onNewAnalysis: (scenarioId: ScenarioType) => void
   onUploadSource: () => void
   onExportReport: () => void
@@ -196,6 +199,8 @@ export function WorkspaceModals(props: WorkspaceModalsProps) {
     onToggleSidebar,
     onToggleSourcePanel,
     onToggleContextPanel,
+    showScenarioSelector,
+    onScenarioSelectorChange,
     onNewAnalysis,
     onUploadSource,
     onExportReport,
@@ -332,6 +337,12 @@ export function WorkspaceModals(props: WorkspaceModalsProps) {
         onToggleSourcePanel={onToggleSourcePanel}
         contextPanelCollapsed={contextPanelCollapsed}
         onToggleContextPanel={onToggleContextPanel}
+      />
+
+      <ScenarioSelector
+        isOpen={showScenarioSelector}
+        onClose={() => onScenarioSelectorChange(false)}
+        onSelectScenario={onNewAnalysis}
       />
 
       <TaskSwitcher isOpen={showTaskSwitcher} onOpenChange={onTaskSwitcherChange} />

@@ -192,7 +192,7 @@ function TabItem({
   )
 }
 
-export function WorkspaceTabs({ onNewAnalysis }: { onNewAnalysis?: () => void }) {
+export function WorkspaceTabs({ onShowScenarioSelector }: { onShowScenarioSelector?: () => void }) {
   const tabs = useWorkspaceTabsStore((state) => state.tabs)
   const activeTabId = useWorkspaceTabsStore((state) => state.activeTabId)
   const setActiveTab = useWorkspaceTabsStore((state) => state.setActiveTab)
@@ -214,26 +214,6 @@ export function WorkspaceTabs({ onNewAnalysis }: { onNewAnalysis?: () => void })
   const menuRef = useRef<HTMLDivElement>(null)
 
   const { intentAnalysis, currentTaskId, currentTaskTitle, isDemo } = useSourceStore()
-
-  useEffect(() => {
-    if (isDemo) return
-    if (!intentAnalysis) return
-    if (!activeTabId) return
-
-    const activeTab = tabs.find((t) => t.id === activeTabId)
-    if (!activeTab) return
-
-    if (activeTab.scenarioName === '未命名分析' || activeTab.scenarioName === currentTaskTitle) {
-      const newTitle = intentAnalysis.scenarioType || '未命名分析'
-      if (newTitle !== activeTab.scenarioName) {
-        renameTab(activeTabId, newTitle)
-        if (currentTaskId === activeTabId) {
-          useSourceStore.getState().setCurrentTask({ id: currentTaskId, title: newTitle })
-          taskApi.updateTaskTitle(currentTaskId, newTitle).catch(console.error)
-        }
-      }
-    }
-  }, [intentAnalysis?.scenarioType, activeTabId])
 
   const { execute: executeCloseTab } = useUndoableAction<WorkspaceTab>({
     action: (tab) => {
@@ -466,7 +446,7 @@ export function WorkspaceTabs({ onNewAnalysis }: { onNewAnalysis?: () => void })
       ))}
       <button
         type="button"
-        onClick={onNewAnalysis}
+        onClick={onShowScenarioSelector}
         className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-ink-muted hover:bg-paper-dark hover:text-ink transition-colors cursor-pointer"
         aria-label="新建标签页"
         title="新建分析"

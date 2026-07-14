@@ -389,16 +389,108 @@ export function computeAnalysisSummary(risks: Risk[]): AnalysisSummary {
   }
 }
 
+function getMinimumRiskCount(sourceCount: number): number {
+  if (sourceCount <= 1) return 2
+  if (sourceCount <= 3) return 3
+  if (sourceCount <= 5) return 4
+  return 5
+}
+
+function generateSuggestedRisks(
+  existingRisks: Risk[],
+  sourceCount: number,
+  scenarioType?: string,
+): Risk[] {
+  const minCount = getMinimumRiskCount(sourceCount)
+  if (existingRisks.length >= minCount) return []
+
+  const needed = minCount - existingRisks.length
+  const existingDimensions = new Set(existingRisks.map((r) => r.dimension))
+  const existingTypes = new Set(existingRisks.map((r) => r.type))
+
+  const suggestedDimensions: Record<string, { dimension: string; type: 'promise' | 'missing' }[]> =
+    {
+      job_offer: [
+        { dimension: '试用期条款', type: 'missing' },
+        { dimension: '社保缴纳基数', type: 'missing' },
+        { dimension: '加班补偿政策', type: 'missing' },
+        { dimension: '年终奖发放条件', type: 'promise' },
+        { dimension: '竞业限制条款', type: 'missing' },
+      ],
+      rental: [
+        { dimension: '押金退还条件', type: 'missing' },
+        { dimension: '维修责任划分', type: 'missing' },
+        { dimension: '提前解约条款', type: 'missing' },
+        { dimension: '物业费承担方', type: 'promise' },
+        { dimension: '家具家电清单', type: 'missing' },
+      ],
+      legal_case: [
+        { dimension: '证据链完整性', type: 'missing' },
+        { dimension: '诉讼时效', type: 'missing' },
+        { dimension: '责任划分依据', type: 'missing' },
+        { dimension: '赔偿计算标准', type: 'missing' },
+        { dimension: '程序合规性', type: 'missing' },
+      ],
+      due_diligence: [
+        { dimension: '财务数据真实性', type: 'missing' },
+        { dimension: '法律合规风险', type: 'missing' },
+        { dimension: '核心人员稳定性', type: 'missing' },
+        { dimension: '知识产权归属', type: 'missing' },
+        { dimension: '关联交易披露', type: 'missing' },
+      ],
+    }
+
+  const genericDimensions = [
+    { dimension: '时间节点约定', type: 'missing' },
+    { dimension: '责任承担方式', type: 'missing' },
+    { dimension: '争议解决机制', type: 'missing' },
+    { dimension: '违约处理条款', type: 'missing' },
+    { dimension: '保密义务约定', type: 'missing' },
+  ]
+
+  const scenarios = suggestedDimensions[scenarioType || ''] || genericDimensions
+  const filtered = scenarios.filter((s) => !existingDimensions.has(s.dimension))
+
+  const newRisks: Risk[] = []
+  for (let i = 0; i < needed && i < filtered.length; i++) {
+    const s = filtered[i]
+
+    newRisks.push({
+      id: `auto-${Date.now()}-${i}`,
+      dimension: s.dimension,
+      type: s.type,
+      level: 'info',
+      title: `${s.dimension}可能存在风险`,
+      description: `材料中未明确提及${s.dimension}，建议确认相关约定。`,
+      sources: [],
+      evidence: [],
+      confidence: 0.3,
+    })
+  }
+
+  return newRisks
+}
+
 export function validateAndBuildResult(rawResult: AnalyzeResult): AnalyzeResult {
+  const sourceCount = rawResult.meta?.sourceCount || 0
+  const scenarioType = rawResult.scenario?.type
+
   const validatedRisks = rawResult.risks.map((risk) => ({
     ...risk,
     level: classifyRiskLevel(risk.type, risk.dimension, risk.evidence?.length || 0),
   }))
 
+  const suggestedRisks = generateSuggestedRisks(validatedRisks, sourceCount, scenarioType)
+  const finalRisks = [...validatedRisks, ...suggestedRisks]
+
   return {
     ...rawResult,
-    risks: validatedRisks,
-    summary: computeAnalysisSummary(validatedRisks),
+    risks: finalRisks,
+    summary: computeAnalysisSummary(finalRisks),
+    uncertainties: [
+      ...(rawResult.uncertainties || []),
+      ...suggestedRisks.map((r) => `建议确认：${r.dimension}`),
+    ],
   }
 }
 

@@ -2,6 +2,7 @@ import { AlertTriangle, FileCheck, FileText, RefreshCw, Sparkles, Target } from 
 import { useTranslation } from '../../i18n'
 import { analyzeIntent } from '../../services/intentAnalysis'
 import { useSourceStore } from '../../stores/useSourceStore'
+import { useWorkspaceTabsStore } from '../../stores/useWorkspaceTabsStore'
 
 export function SourceScenarioSection() {
   const { t } = useTranslation()
@@ -12,6 +13,7 @@ export function SourceScenarioSection() {
     setIntentAnalysis,
     sources,
     setScenarioDescription,
+    currentTaskId,
   } = useSourceStore()
 
   const handleReanalyzeIntent = async () => {
@@ -26,6 +28,14 @@ export function SourceScenarioSection() {
       const result = await analyzeIntent(allContent)
       setIntentAnalysis(result)
       setScenarioDescription(allContent)
+
+      // 更新标签页名称为识别的场景
+      if (result.scenarioType && result.confidence >= 0.4) {
+        const activeTabId = useWorkspaceTabsStore.getState().activeTabId
+        if (activeTabId) {
+          useWorkspaceTabsStore.getState().renameTab(activeTabId, result.scenarioType)
+        }
+      }
     } finally {
       setAnalyzingIntent(false)
     }

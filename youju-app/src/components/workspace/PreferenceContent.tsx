@@ -59,33 +59,33 @@ export function PreferenceContent({ prefs: _prefsProp, onClose }: PreferenceCont
   const tabs: TabItem[] = [
     {
       id: 'general',
-      label: '通用设置',
+      label: t('preference.general'),
       icon: <Settings size={14} strokeWidth={1.5} />,
-      description: '语言、主题、默认场景',
+      description: t('preference.generalDesc'),
     },
     {
       id: 'analysis',
-      label: '分析设置',
+      label: t('preference.analysis'),
       icon: <Brain size={14} strokeWidth={1.5} />,
-      description: '模型、置信度、自动保存',
+      description: t('preference.analysisDesc'),
     },
     {
       id: 'notifications',
-      label: '通知设置',
+      label: t('preference.notifications'),
       icon: <Bell size={14} strokeWidth={1.5} />,
-      description: '邮件、桌面、提醒',
+      description: t('preference.notificationsDesc'),
     },
     {
       id: 'export',
-      label: '导出设置',
+      label: t('preference.export'),
       icon: <Download size={14} strokeWidth={1.5} />,
-      description: '格式、风格、水印',
+      description: t('preference.exportDesc'),
     },
     {
       id: 'privacy',
-      label: '隐私与安全',
+      label: t('preference.privacy'),
       icon: <Shield size={14} strokeWidth={1.5} />,
-      description: '数据保留、自动删除',
+      description: t('preference.privacyDesc'),
     },
     {
       id: 'memory',
@@ -95,9 +95,9 @@ export function PreferenceContent({ prefs: _prefsProp, onClose }: PreferenceCont
     },
     {
       id: 'shortcuts',
-      label: '快捷键',
+      label: t('preference.shortcuts'),
       icon: <Keyboard size={14} strokeWidth={1.5} />,
-      description: '所有快捷键列表',
+      description: t('preference.shortcutsDesc'),
     },
   ]
 

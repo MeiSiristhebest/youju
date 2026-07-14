@@ -55,6 +55,7 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showGlobalSearch, setShowGlobalSearch] = useState(false)
   const [showTaskSwitcher, setShowTaskSwitcher] = useState(false)
+  const [showScenarioSelector, setShowScenarioSelector] = useState(false)
 
   const tourSteps: TourStep[] = [
     {
@@ -222,6 +223,7 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
     showTemplateMarket: activeOverlayPanel === 'templates',
     showApiSettings: activeOverlayPanel === 'api-settings',
     showTaskSwitcher,
+    showScenarioSelector,
     setMobileSidebarOpen,
     setMobileContextOpen,
     setShowTour,
@@ -249,6 +251,7 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
     setShowTemplateMarket: (v: boolean) => setActiveOverlayPanel(v ? 'templates' : null),
     setShowApiSettings: (v: boolean) => setActiveOverlayPanel(v ? 'api-settings' : null),
     setShowTaskSwitcher,
+    setShowScenarioSelector,
   })
 
   const handleSourcePanelResize = (delta: number) => {
@@ -307,8 +310,7 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
       onContextPanelExpand={() => setContextPanelCollapsed(false)}
       onSourcePanelResize={handleSourcePanelResize}
       onContextPanelResize={handleContextPanelResize}
-      onNewAnalysis={handlers.handleNewAnalysis}
-      onLoadScenario={handlers.handleLoadScenario}
+      onShowScenarioSelector={() => setShowScenarioSelector(true)}
       onShowHistory={handlers.handleShowHistory}
       onShowLogin={() => state.setShowLoginModal(true)}
       onLogout={state.logout}
@@ -467,6 +469,8 @@ export function WorkspacePage({ onGoHome }: WorkspacePageProps) {
         onExportReport={() => {
           // 导出报告功能占位
         }}
+        showScenarioSelector={showScenarioSelector}
+        onScenarioSelectorChange={setShowScenarioSelector}
       />
 
       {/* 全屏覆盖面板 */}

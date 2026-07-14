@@ -7,6 +7,7 @@ import { isDemoScenario } from '../services/demoAnalysisStream'
 import { analyzeIntent } from '../services/intentAnalysis'
 import { sourceApi } from '../services/sourceApi'
 import { useAnalysisStore, useSourceStore } from '../stores'
+import { useWorkspaceTabsStore } from '../stores/useWorkspaceTabsStore'
 import type { ParsedSource, ScenarioType, Source, SourceType } from '../types'
 import { useUndoableAction } from './useUndoableAction'
 
@@ -71,7 +72,6 @@ export const useSources = () => {
   const setCurrentTaskTitle = useSourceStore((s) => s.setCurrentTaskTitle)
 
   useEffect(() => {
-    if (isDemo) return
     if (sources.length === 0) return
 
     const hasNewContent = sources.some((s) => {
@@ -99,6 +99,14 @@ export const useSources = () => {
         const result = await analyzeIntent(allContent)
         setIntentAnalysis(result)
         setScenarioDescription(allContent)
+
+        // 更新标签页名称为识别的场景（置信度>=40%时）
+        if (result.scenarioType && result.confidence >= 0.4) {
+          const activeTabId = useWorkspaceTabsStore.getState().activeTabId
+          if (activeTabId) {
+            useWorkspaceTabsStore.getState().renameTab(activeTabId, result.scenarioType)
+          }
+        }
 
         if (!currentTaskTitle || currentTaskTitle === '未命名分析') {
           const newTitle = result.scenarioType || '未命名分析'

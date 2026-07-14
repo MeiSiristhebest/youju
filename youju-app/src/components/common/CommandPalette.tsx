@@ -23,6 +23,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SCENARIOS } from '../../constants/workspace'
 import { useChat } from '../../hooks/useChat'
+import { useTranslation } from '../../i18n'
 import { matchCommand } from '../../lib/pinyin'
 import { jsonStorage } from '../../lib/storage'
 import { useAnalysisStore, useUIPreferenceStore } from '../../stores'
@@ -151,6 +152,7 @@ export function CommandPalette({
   contextPanelCollapsed,
   onToggleContextPanel,
 }: CommandPaletteProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [activeSubmenu, setActiveSubmenu] = useState<CommandGroupKey | null>(null)
   const [askScenario, setAskScenario] = useState<string | null>(null)
@@ -269,7 +271,7 @@ export function CommandPalette({
       {
         id: 'action_new_analysis',
         group: 'actions',
-        title: '新建分析',
+        title: t('palette.newAnalysis'),
         description: '选择场景开始新分析',
         icon: Plus,
         shortcut: 'N',
@@ -280,7 +282,7 @@ export function CommandPalette({
       {
         id: 'action_upload',
         group: 'actions',
-        title: '上传材料',
+        title: t('palette.uploadMaterial'),
         description: '添加新的分析材料',
         icon: Upload,
         shortcut: 'U',
@@ -310,7 +312,7 @@ export function CommandPalette({
       {
         id: 'action_toggle_sidebar',
         group: 'actions',
-        title: sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏',
+        title: sidebarCollapsed ? t('palette.expandSidebar') : t('palette.collapseSidebar'),
         description: '显示/隐藏左侧导航',
         icon: sidebarCollapsed ? PanelLeftOpen : PanelLeftClose,
         shortcut: '\\',
@@ -320,7 +322,9 @@ export function CommandPalette({
       {
         id: 'action_toggle_source_panel',
         group: 'actions',
-        title: sourcePanelCollapsed ? '展开材料面板' : '折叠材料面板',
+        title: sourcePanelCollapsed
+          ? t('palette.expandSourcePanel')
+          : t('palette.collapseSourcePanel'),
         description: '显示/隐藏左侧材料面板',
         icon: sourcePanelCollapsed ? PanelLeftOpen : PanelLeftClose,
         keywords: ['材料', '面板', '折叠', '展开', 'clmb'],
@@ -329,7 +333,9 @@ export function CommandPalette({
       {
         id: 'action_toggle_context_panel',
         group: 'actions',
-        title: contextPanelCollapsed ? '展开上下文面板' : '折叠上下文面板',
+        title: contextPanelCollapsed
+          ? t('palette.expandContextPanel')
+          : t('palette.collapseContextPanel'),
         description: '显示/隐藏右侧上下文面板',
         icon: contextPanelCollapsed ? PanelRightOpen : PanelRightClose,
         keywords: ['上下文', '面板', '折叠', '展开', 'sxwmb'],

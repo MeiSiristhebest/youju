@@ -1,4 +1,14 @@
-import { Check, ChevronDown, FileText, Link, Search, Send, Square } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  FileText,
+  Link,
+  Plus,
+  Search,
+  Send,
+  Square,
+  Upload,
+} from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -23,6 +33,8 @@ export interface ChatInputProps {
   disabled?: boolean
   /** 初始值（用于推荐问题点击填入输入框，配合父级 key 重挂载） */
   defaultValue?: string
+  /** 是否为编辑模式 */
+  isEditing?: boolean
 }
 
 // 上下文范围选项
@@ -43,10 +55,18 @@ const SOURCE_TYPE_ICONS: Record<SourceType, ReactNode> = {
   other: <FileText size={14} strokeWidth={1.5} />,
 }
 
-export function ChatInput({ onSend, onStop, isStreaming, disabled, defaultValue }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  onStop,
+  isStreaming,
+  disabled,
+  defaultValue,
+  isEditing,
+}: ChatInputProps) {
   const [value, setValue] = useState(defaultValue ?? '')
   const [scopeOpen, setScopeOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [fileDragOver, setFileDragOver] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scopeRef = useRef<HTMLDivElement>(null)
@@ -55,6 +75,8 @@ export function ChatInput({ onSend, onStop, isStreaming, disabled, defaultValue 
   const selectedSourceIds = useChatStore((s) => s.selectedSourceIds)
   const setContextScope = useChatStore((s) => s.setContextScope)
   const setSelectedSourceIds = useChatStore((s) => s.setSelectedSourceIds)
+  const addSource = useSourceStore((s) => s.addSource)
+  const currentTaskId = useSourceStore((s) => s.currentTaskId)
 
   // textarea 自适应高度：内容增长时增高，最大 200px
   useEffect(() => {
@@ -105,14 +127,46 @@ export function ChatInput({ onSend, onStop, isStreaming, disabled, defaultValue 
   const currentScopeOption = SCOPE_OPTIONS.find((o) => o.value === contextScope) ?? SCOPE_OPTIONS[0]
 
   return (
-    <div className="rounded-2xl border border-rule bg-paper shadow-sm overflow-hidden">
+    <div
+      className={cn(
+        'rounded-2xl border border-rule bg-paper shadow-sm overflow-hidden transition-colors',
+        fileDragOver && 'border-accent bg-accent-bg/20',
+      )}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setFileDragOver(true)
+      }}
+      onDragLeave={() => setFileDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setFileDragOver(false)
+        const files = e.dataTransfer.files
+        if (files && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i]
+            const reader = new FileReader()
+            reader.onload = async (event) => {
+              const content = event.target?.result as string
+              await addSource({
+                id: `temp-${Date.now()}-${i}`,
+                name: file.name.replace(/\.[^.]+$/, '') || '上传文件',
+                type: 'doc',
+                content,
+                taskId: currentTaskId ?? undefined,
+              })
+            }
+            reader.readAsText(file)
+          }
+        }
+      }}
+    >
       <textarea
         ref={textareaRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        placeholder="输入问题，Enter 发送，Shift+Enter 换行"
+        placeholder={fileDragOver ? '释放文件以上传' : '输入问题，Enter 发送，Shift+Enter 换行'}
         aria-label="聊天输入框"
         rows={1}
         style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
@@ -199,11 +253,11 @@ export function ChatInput({ onSend, onStop, isStreaming, disabled, defaultValue 
             type="button"
             onClick={handleSend}
             disabled={!canSend}
-            aria-label="发送消息"
+            aria-label={isEditing ? '编辑消息' : '发送消息'}
             className="inline-flex items-center justify-center gap-1.5 px-3 h-8 rounded-lg bg-accent text-paper text-xs font-medium hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Send size={12} strokeWidth={2} />
-            发送
+            {isEditing ? '编辑' : '发送'}
           </button>
         )}
       </div>

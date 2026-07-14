@@ -52,7 +52,8 @@ export function BillingContent({ onClose }: BillingContentProps) {
     return billingCycle === 'yearly' ? `/月·年付` : plan.priceUnit
   }
 
-  const formatNumber = (n: number) => {
+  const formatNumber = (n: number | undefined) => {
+    if (n === undefined || n === null || isNaN(n)) return '0'
     if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`
     if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
     return n.toString()
@@ -173,7 +174,7 @@ export function BillingContent({ onClose }: BillingContentProps) {
                 <div>
                   <div className="text-[11px] text-ink-faint mb-1">预估费用</div>
                   <div className="text-base font-semibold text-ink">
-                    ${usage.estimatedCost.toFixed(4)}
+                    ${(usage.estimatedCost ?? 0).toFixed(4)}
                   </div>
                 </div>
               </div>
@@ -233,7 +234,7 @@ export function BillingContent({ onClose }: BillingContentProps) {
                           {formatNumber(item.tokens)}
                         </span>
                         <span className="text-[11px] text-accent w-16 text-right">
-                          ${item.estimatedCost.toFixed(4)}
+                          ${(item.estimatedCost ?? 0).toFixed(4)}
                         </span>
                       </div>
                     ))}
@@ -264,21 +265,21 @@ export function BillingContent({ onClose }: BillingContentProps) {
                 </div>
                 <div className="text-right">
                   <div className="text-xl font-bold text-ink">
-                    ¥{(usage.estimatedCost * 7.2).toFixed(2)}
+                    ¥{((usage.estimatedCost ?? 0) * 7.2).toFixed(2)}
                   </div>
                   <div className="text-[10px] text-ink-faint">
-                    约 ${usage.estimatedCost.toFixed(4)}
+                    约 ${(usage.estimatedCost ?? 0).toFixed(4)}
                   </div>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-accent-faint/30">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-ink-muted">本月分析次数</span>
-                  <span className="text-ink font-medium">{usage.totalAnalyses} 次</span>
+                  <span className="text-ink font-medium">{usage.totalAnalyses ?? 0} 次</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] mt-1">
                   <span className="text-ink-muted">成功率</span>
-                  <span className="text-ink font-medium">{usage.successRate}%</span>
+                  <span className="text-ink font-medium">{usage.successRate ?? 0}%</span>
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { ChevronRight, Clock, FileText, Search, Settings, Sparkles, Users, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { SCENARIOS } from '../../constants/workspace'
+import { useTranslation } from '../../i18n'
 import { cn } from '../../lib/utils'
 
 interface GlobalSearchProps {
@@ -35,45 +36,8 @@ const RECENT_ITEMS: SearchItem[] = [
   },
 ]
 
-const ACTION_ITEMS: SearchItem[] = [
-  {
-    id: 'action_new',
-    type: 'action',
-    title: '新建分析',
-    description: '从头开始自定义分析',
-    icon: Sparkles,
-    shortcut: 'N',
-  },
-  {
-    id: 'action_upload',
-    type: 'action',
-    title: '上传材料',
-    description: '添加新的分析材料',
-    icon: FileText,
-    shortcut: 'U',
-  },
-]
-
-const SETTINGS_ITEMS: SearchItem[] = [
-  {
-    id: 'settings_team',
-    type: 'settings',
-    title: '团队管理',
-    description: '邀请成员、设置权限',
-    icon: Users,
-    shortcut: 'T',
-  },
-  {
-    id: 'settings_api',
-    type: 'settings',
-    title: 'API 设置',
-    description: '管理 API Key 和 Webhook',
-    icon: Settings,
-    shortcut: 'A',
-  },
-]
-
 export function GlobalSearch({ isOpen, onOpenChange, onNavigate }: GlobalSearchProps) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -100,6 +64,44 @@ export function GlobalSearch({ isOpen, onOpenChange, onNavigate }: GlobalSearchP
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onOpenChange])
 
+  const actionItems: SearchItem[] = [
+    {
+      id: 'action_new',
+      type: 'action',
+      title: t('search.newAnalysis'),
+      description: t('search.newAnalysisDesc'),
+      icon: Sparkles,
+      shortcut: 'N',
+    },
+    {
+      id: 'action_upload',
+      type: 'action',
+      title: t('search.uploadMaterial'),
+      description: t('search.uploadMaterialDesc'),
+      icon: FileText,
+      shortcut: 'U',
+    },
+  ]
+
+  const settingsItems: SearchItem[] = [
+    {
+      id: 'settings_team',
+      type: 'settings',
+      title: t('search.teamManagement'),
+      description: t('search.teamManagementDesc'),
+      icon: Users,
+      shortcut: 'T',
+    },
+    {
+      id: 'settings_api',
+      type: 'settings',
+      title: t('search.apiSettings'),
+      description: t('search.apiSettingsDesc'),
+      icon: Settings,
+      shortcut: 'A',
+    },
+  ]
+
   const scenarioItems: SearchItem[] = SCENARIOS.filter((s) => s.id !== 'custom').map((s) => ({
     id: s.id,
     type: 'scenario' as const,
@@ -108,7 +110,7 @@ export function GlobalSearch({ isOpen, onOpenChange, onNavigate }: GlobalSearchP
     icon: s.iconComponent,
   }))
 
-  const allItems = [...scenarioItems, ...RECENT_ITEMS, ...ACTION_ITEMS, ...SETTINGS_ITEMS]
+  const allItems = [...scenarioItems, ...RECENT_ITEMS, ...actionItems, ...settingsItems]
 
   const filtered = query.trim()
     ? allItems.filter(
@@ -116,18 +118,18 @@ export function GlobalSearch({ isOpen, onOpenChange, onNavigate }: GlobalSearchP
           item.title.toLowerCase().includes(query.toLowerCase()) ||
           item.description?.toLowerCase().includes(query.toLowerCase()),
       )
-    : [...RECENT_ITEMS, ...scenarioItems.slice(0, 4), ...ACTION_ITEMS]
+    : [...RECENT_ITEMS, ...scenarioItems.slice(0, 4), ...actionItems]
 
   const groupedItems = filtered.reduce(
     (acc, item) => {
       const group =
         item.type === 'recent'
-          ? '最近访问'
+          ? t('search.recent')
           : item.type === 'scenario'
-            ? '场景模板'
+            ? t('search.scenarios')
             : item.type === 'action'
-              ? '快捷操作'
-              : '设置'
+              ? t('search.actions')
+              : t('search.settings')
       if (!acc[group]) acc[group] = []
       acc[group].push(item)
       return acc
@@ -173,7 +175,7 @@ export function GlobalSearch({ isOpen, onOpenChange, onNavigate }: GlobalSearchP
               setSelectedIndex(0)
             }}
             onKeyDown={handleKeyDown}
-            placeholder="搜索场景、历史记录、设置..."
+            placeholder={t('search.placeholder')}
             className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
           />
           <div className="flex items-center gap-1 text-[10px] text-ink-faint font-mono">
@@ -194,7 +196,7 @@ export function GlobalSearch({ isOpen, onOpenChange, onNavigate }: GlobalSearchP
           {flatItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Search size={28} strokeWidth={1} className="text-ink-faint mb-2" />
-              <p className="text-xs text-ink-faint">没有找到匹配结果</p>
+              <p className="text-xs text-ink-faint">{t('search.noResults')}</p>
             </div>
           ) : (
             Object.entries(groupedItems).map(([group, items]) => {
@@ -280,16 +282,18 @@ export function GlobalSearch({ isOpen, onOpenChange, onNavigate }: GlobalSearchP
               <kbd className="px-1 py-0.5 bg-paper border border-rule/60 rounded text-[9px] font-mono">
                 ↑↓
               </kbd>
-              导航
+              {t('search.navigation')}
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1 py-0.5 bg-paper border border-rule/60 rounded text-[9px] font-mono">
                 ↵
               </kbd>
-              选择
+              {t('search.select')}
             </span>
           </div>
-          <span className="text-[10px] text-ink-faint font-mono">{flatItems.length} 个结果</span>
+          <span className="text-[10px] text-ink-faint font-mono">
+            {flatItems.length} {t('search.results')}
+          </span>
         </div>
       </div>
     </>

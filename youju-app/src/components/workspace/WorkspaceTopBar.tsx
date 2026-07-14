@@ -1,4 +1,4 @@
-import { AlertTriangle, Home, Keyboard, Loader2, Play, Share2 } from 'lucide-react'
+import { AlertTriangle, Home, Keyboard, Loader2, Play, Search, Share2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from '../../i18n'
 import type { AnalysisLogEntry, AnalysisTaskStatus } from '../../stores/useAnalysisStore'
@@ -28,6 +28,7 @@ interface WorkspaceTopBarProps {
   onRetryAnalysis: () => void
   onShowKeyboardShortcuts: () => void
   onOpenRiskDrawer: () => void
+  onShowSearch: () => void
   showExportMenu?: boolean
   onShowExportMenuChange?: (open: boolean) => void
   printStyle: PrintStyle
@@ -53,6 +54,7 @@ export function WorkspaceTopBar({
   onRetryAnalysis,
   onShowKeyboardShortcuts,
   onOpenRiskDrawer,
+  onShowSearch,
   showExportMenu,
   onShowExportMenuChange,
   printStyle,
@@ -108,6 +110,15 @@ export function WorkspaceTopBar({
             )}
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={onShowSearch}
+          title="搜索命令 (Ctrl+K)"
+          aria-label="打开命令面板"
+        >
+          <Search size={13} strokeWidth={1.5} />
+        </Button>
         <Button
           variant="outline"
           size="icon-sm"

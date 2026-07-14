@@ -15,12 +15,16 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Pencil,
   RefreshCw,
+  Reply,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useToast } from '@/components/common/Toast'
+import { useTranslation } from '@/i18n'
 import { cn } from '@/lib/utils'
 import type { ChatCitation, ChatMessage as ChatMessageType, MessageFeedback } from '@/types'
 import { MarkdownContent } from './MarkdownContent'
@@ -31,16 +35,18 @@ export interface ChatMessageProps {
   onEvidenceClick?: (sourceId: string, quote: string) => void
   onFeedback?: (id: string, feedback: MessageFeedback) => void
   onRememberPreference?: (content: string) => Promise<void> | void
+  onReply?: (message: ChatMessageType) => void
+  onEdit?: (message: ChatMessageType) => void
+  onDelete?: (id: string) => void
+  parentMessage?: ChatMessageType | null
 }
 
-const USER_LABEL = '你'
-const ASSISTANT_LABEL = 'AI'
 const LANGFUSE_HOST = import.meta.env.VITE_LANGFUSE_HOST || 'https://cloud.langfuse.com'
 
 /** 格式化时间戳为 HH:MM */
-function formatTime(iso: string): string {
+function formatTime(iso: string, language: string): string {
   try {
-    return new Date(iso).toLocaleTimeString('zh-CN', {
+    return new Date(iso).toLocaleTimeString(language, {
       hour: '2-digit',
       minute: '2-digit',
     })
@@ -113,9 +119,11 @@ function ActionButton({ icon: Icon, label, onClick, active, disabled }: ActionBu
 /** 头像 */
 interface AvatarProps {
   isUser: boolean
+  userLabel: string
+  assistantLabel: string
 }
 
-function Avatar({ isUser }: AvatarProps) {
+function Avatar({ isUser, userLabel, assistantLabel }: AvatarProps) {
   return (
     <div
       className={cn(
@@ -125,7 +133,7 @@ function Avatar({ isUser }: AvatarProps) {
       )}
       aria-hidden="true"
     >
-      {isUser ? USER_LABEL : ASSISTANT_LABEL}
+      {isUser ? userLabel : assistantLabel}
     </div>
   )
 }
@@ -136,12 +144,22 @@ export function ChatMessage({
   onEvidenceClick,
   onFeedback,
   onRememberPreference,
+  onReply,
+  onEdit,
+  onDelete,
+  parentMessage,
 }: ChatMessageProps) {
   const { showToast } = useToast()
+  const { t, language } = useTranslation()
   const [copied, setCopied] = useState(false)
   const [remembering, setRemembering] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [contextMenuOpen, setContextMenuOpen] = useState(false)
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 })
   const isUser = message.role === 'user'
   const isAssistant = message.role === 'assistant'
+  const userLabel = t('chat.userLabel')
+  const assistantLabel = t('chat.assistantLabel')
 
   const handleCopy = async () => {
     try {
@@ -179,6 +197,69 @@ export function ChatMessage({
     }
   }
 
+  const handleReply = () => {
+    onReply?.(message)
+  }
+
+  const handleEdit = () => {
+    onEdit?.(message)
+  }
+
+  const handleDelete = () => {
+    if (confirmDelete) {
+      onDelete?.(message.id)
+      showToast('消息已删除', 'success')
+    } else {
+      setConfirmDelete(true)
+      setTimeout(() => setConfirmDelete(false), 3000)
+    }
+  }
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenuPosition({ x: e.clientX, y: e.clientY })
+    setContextMenuOpen(true)
+  }
+
+  const closeContextMenu = () => {
+    setContextMenuOpen(false)
+  }
+
+  useEffect(() => {
+    if (contextMenuOpen) {
+      const handleClickOutside = () => closeContextMenu()
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [contextMenuOpen])
+
+  const handleContextMenuAction = (action: string) => {
+    closeContextMenu()
+    switch (action) {
+      case 'reply':
+        handleReply()
+        break
+      case 'edit':
+        handleEdit()
+        break
+      case 'delete':
+        handleDelete()
+        break
+      case 'copy':
+        handleCopy()
+        break
+      case 'regenerate':
+        onRegenerate?.(message.id)
+        break
+      case 'feedback-positive':
+        handleFeedback('positive')
+        break
+      case 'feedback-negative':
+        handleFeedback('negative')
+        break
+    }
+  }
+
   const citations = message.citations ?? []
   const hasCitations = isAssistant && citations.length > 0
 
@@ -187,12 +268,35 @@ export function ChatMessage({
       className={cn('group/message flex gap-3 px-4 py-3', isUser ? 'flex-row-reverse' : 'flex-row')}
       data-role={message.role}
       data-message-id={message.id}
+      onContextMenu={handleContextMenu}
     >
-      <Avatar isUser={isUser} />
+      <Avatar isUser={isUser} userLabel={userLabel} assistantLabel={assistantLabel} />
 
       <div
         className={cn('flex max-w-[80%] flex-col gap-1.5', isUser ? 'items-end' : 'items-start')}
       >
+        {/* 引用的父消息 */}
+        {parentMessage && (
+          <div
+            className={cn(
+              'max-w-full rounded-lg px-3 py-2 text-xs border',
+              isUser
+                ? 'bg-accent/10 border-accent/30 text-paper/80'
+                : 'bg-paper-dark/60 border-rule/50 text-ink-muted',
+            )}
+          >
+            <div className="flex items-center gap-1 mb-1">
+              <Reply size={10} strokeWidth={2} />
+              <span className={cn('font-medium', isUser ? 'text-paper/90' : 'text-ink-faint')}>
+                {parentMessage.role === 'user' ? userLabel : assistantLabel}
+              </span>
+            </div>
+            <div className="whitespace-pre-wrap break-words line-clamp-2">
+              {parentMessage.content}
+            </div>
+          </div>
+        )}
+
         <div
           className={cn(
             'relative rounded-2xl px-4 py-2.5 text-base leading-relaxed shadow-sm',
@@ -244,7 +348,7 @@ export function ChatMessage({
             </div>
           )}
 
-          {/* Hover 操作栏 - 仅 assistant 消息，绝对定位右上角 */}
+          {/* Hover 操作栏 - assistant 消息 */}
           {isAssistant && (
             <div
               className={cn(
@@ -255,6 +359,7 @@ export function ChatMessage({
               role="toolbar"
               aria-label="消息操作"
             >
+              <ActionButton icon={Reply} label="回复" onClick={handleReply} disabled={!onReply} />
               <ActionButton
                 icon={copied ? Check : Copy}
                 label={copied ? '已复制' : '复制'}
@@ -283,33 +388,142 @@ export function ChatMessage({
               )}
             </div>
           )}
-        </div>
 
-        {/* User 消息操作栏 - hover 显示"记住偏好"按钮 */}
-        {isUser && onRememberPreference && (
-          <div
-            className={cn(
-              'flex items-center gap-0.5 rounded-lg border border-rule/60 bg-paper p-0.5 shadow-md',
-              'opacity-0 transition-opacity duration-150',
-              'group-hover/message:opacity-100 focus-within:opacity-100',
-            )}
-            role="toolbar"
-            aria-label="消息操作"
-          >
-            <ActionButton
-              icon={Brain}
-              label={remembering ? '保存中…' : '记住这个偏好'}
-              onClick={handleRemember}
-              disabled={remembering}
-            />
-          </div>
-        )}
+          {/* Hover 操作栏 - user 消息 */}
+          {isUser && (
+            <div
+              className={cn(
+                'absolute -top-3 right-2 flex items-center gap-0.5 rounded-lg border border-rule/60 bg-paper p-0.5 shadow-md',
+                'opacity-0 transition-opacity duration-150',
+                'group-hover/message:opacity-100 focus-within:opacity-100',
+              )}
+              role="toolbar"
+              aria-label="消息操作"
+            >
+              <ActionButton icon={Reply} label="回复" onClick={handleReply} disabled={!onReply} />
+              <ActionButton icon={Pencil} label="编辑" onClick={handleEdit} disabled={!onEdit} />
+              <ActionButton
+                icon={confirmDelete ? Check : Trash2}
+                label={confirmDelete ? '确认删除' : '删除'}
+                onClick={handleDelete}
+                disabled={!onDelete}
+                active={confirmDelete}
+              />
+              {onRememberPreference && (
+                <ActionButton
+                  icon={Brain}
+                  label={remembering ? '保存中…' : '记住这个偏好'}
+                  onClick={handleRemember}
+                  disabled={remembering}
+                />
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 时间戳 */}
         <time dateTime={message.createdAt} className="px-1 text-xs text-ink-faint">
-          {formatTime(message.createdAt)}
+          {formatTime(message.createdAt, language)}
         </time>
       </div>
+
+      {/* 右键菜单 */}
+      {contextMenuOpen && (
+        <div
+          className="fixed z-50 w-48 bg-paper border border-rule rounded-lg shadow-xl py-1"
+          style={{
+            left: Math.min(contextMenuPosition.x, window.innerWidth - 200),
+            top: Math.min(contextMenuPosition.y, window.innerHeight - 250),
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {onReply && (
+            <button
+              type="button"
+              onClick={() => handleContextMenuAction('reply')}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-ink hover:bg-paper-dark transition-colors"
+            >
+              <Reply size={14} strokeWidth={1.5} />
+              {t('chat.reply')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => handleContextMenuAction('copy')}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-ink hover:bg-paper-dark transition-colors"
+          >
+            <Copy size={14} strokeWidth={1.5} />
+            {t('chat.copy')}
+          </button>
+          {isUser && onEdit && (
+            <button
+              type="button"
+              onClick={() => handleContextMenuAction('edit')}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-ink hover:bg-paper-dark transition-colors"
+            >
+              <Pencil size={14} strokeWidth={1.5} />
+              {t('chat.edit')}
+            </button>
+          )}
+          {isAssistant && onRegenerate && (
+            <button
+              type="button"
+              onClick={() => handleContextMenuAction('regenerate')}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-ink hover:bg-paper-dark transition-colors"
+            >
+              <RefreshCw size={14} strokeWidth={1.5} />
+              {t('chat.regenerate')}
+            </button>
+          )}
+          {onFeedback && (
+            <>
+              <div className="h-px bg-rule/60 my-1" />
+              <button
+                type="button"
+                onClick={() => handleContextMenuAction('feedback-positive')}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors',
+                  message.feedback === 'positive'
+                    ? 'bg-accent-bg/40 text-accent'
+                    : 'text-ink hover:bg-paper-dark',
+                )}
+              >
+                <ThumbsUp size={14} strokeWidth={1.5} />
+                {t('chat.agree')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleContextMenuAction('feedback-negative')}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors',
+                  message.feedback === 'negative'
+                    ? 'bg-accent-bg/40 text-accent'
+                    : 'text-ink hover:bg-paper-dark',
+                )}
+              >
+                <ThumbsDown size={14} strokeWidth={1.5} />
+                {t('chat.disagree')}
+              </button>
+            </>
+          )}
+          {isUser && onDelete && (
+            <>
+              <div className="h-px bg-rule/60 my-1" />
+              <button
+                type="button"
+                onClick={() => handleContextMenuAction('delete')}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors',
+                  confirmDelete ? 'bg-danger/10 text-danger' : 'text-danger hover:bg-danger/10',
+                )}
+              >
+                <Trash2 size={14} strokeWidth={1.5} />
+                {confirmDelete ? t('chat.confirmDelete') : t('chat.delete')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

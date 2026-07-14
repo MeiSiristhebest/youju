@@ -2,6 +2,7 @@ import { useGSAP } from '@gsap/react'
 import { ChevronLeft, ChevronRight, Menu, Plus, UploadCloud } from 'lucide-react'
 import type { DragEvent, ReactNode } from 'react'
 import { useRef, useState } from 'react'
+import { useTranslation } from '../../i18n'
 import { gsap } from '../../lib/gsap'
 import { storageKeys } from '../../lib/storage'
 import type { AnalysisLogEntry, AnalysisTaskStatus } from '../../stores/useAnalysisStore'
@@ -73,8 +74,7 @@ interface WorkspaceLayoutProps {
   onContextPanelExpand: () => void
   onSourcePanelResize: (delta: number) => void
   onContextPanelResize: (delta: number) => void
-  onNewAnalysis: () => void
-  onLoadScenario: (id: ScenarioType) => void
+  onShowScenarioSelector: () => void
   onShowHistory: () => void
   onShowLogin: () => void
   onLogout: () => void
@@ -163,8 +163,7 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
     onContextPanelExpand,
     onSourcePanelResize,
     onContextPanelResize,
-    onNewAnalysis,
-    onLoadScenario,
+    onShowScenarioSelector,
     onShowHistory,
     onShowLogin,
     onLogout,
@@ -212,6 +211,7 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [mobileRiskDrawerOpen, setMobileRiskDrawerOpen] = useState(false)
+  const { t } = useTranslation()
 
   useGSAP(
     () => {
@@ -301,8 +301,7 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
             onGoHome()
             onMobileSidebarClose()
           }}
-          onNewAnalysis={onNewAnalysis}
-          onLoadScenario={(id) => onLoadScenario(id as ScenarioType)}
+          onShowScenarioSelector={onShowScenarioSelector}
           onShowHistory={onShowHistory}
           onShowLogin={onShowLogin}
           onLogout={onLogout}
@@ -337,7 +336,7 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
           <button
             type="button"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:bg-paper-dark hover:text-ink transition-colors cursor-pointer border border-rule/60 bg-paper-dark/60"
-            onClick={onNewAnalysis}
+            onClick={onShowScenarioSelector}
             aria-label="新建分析"
             title="新建分析"
           >
@@ -366,13 +365,14 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
             onAnalyze={onAnalyze}
             onRetryAnalysis={onRetryAnalysis}
             onShowKeyboardShortcuts={onShowKeyboardShortcuts}
+            onShowSearch={onShowSearch}
             onOpenRiskDrawer={() => setMobileRiskDrawerOpen(true)}
             showExportMenu={showExportMenu}
             onShowExportMenuChange={onShowExportMenuChange}
             printStyle={printStyle}
             onPrintStyleChange={onPrintStyleChange}
           />
-          <WorkspaceTabs onNewAnalysis={onNewAnalysis} />
+          <WorkspaceTabs onShowScenarioSelector={onShowScenarioSelector} />
           <button
             className="absolute left-3 top-7 -translate-y-1/2 md:hidden p-2 text-ink-muted hover:text-ink transition-colors z-10"
             onClick={onMobileSidebarOpen}
@@ -391,7 +391,7 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
                 className="text-[10px] font-mono text-accent tracking-widest uppercase writing-mode-vertical"
                 style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
               >
-                材料
+                {t('layout.materials')}
               </div>
               <button
                 type="button"
@@ -453,7 +453,7 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
             <ResultPanel
               onAnalyze={onAnalyze}
               onCancel={onCancelAnalysis}
-              onLoadScenario={(id) => onLoadScenario(id as ScenarioType)}
+              onLoadScenario={(id) => onShowScenarioSelector()}
               onAddSource={onAddSource}
               hasSources={sources.length > 0}
               onEvidenceClick={onEvidenceClick}
@@ -478,7 +478,7 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
                 className="text-[9px] font-mono text-ink-faint tracking-wider"
                 style={{ writingMode: 'vertical-rl' }}
               >
-                风险详情
+                {t('layout.riskDetails')}
               </span>
               {selectedRisk && (
                 <div className="w-2 h-2 rounded-full bg-danger" title="有选中的风险" />
@@ -581,11 +581,9 @@ export function WorkspaceLayout(props: WorkspaceLayoutProps) {
               <UploadCloud size={36} strokeWidth={1.5} className="text-accent" />
             </div>
             <div className="text-xl font-semibold text-ink font-display tracking-tight">
-              释放文件以添加材料
+              {t('layout.dropFiles')}
             </div>
-            <div className="text-sm text-ink-muted mt-2 font-body">
-              支持 TXT、PDF、Word、图片等多种格式
-            </div>
+            <div className="text-sm text-ink-muted mt-2 font-body">{t('layout.dropFilesDesc')}</div>
           </div>
         </div>
       )}

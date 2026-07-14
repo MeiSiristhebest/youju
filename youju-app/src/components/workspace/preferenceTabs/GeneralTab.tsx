@@ -1,5 +1,6 @@
 import { FileText, Globe, HelpCircle, Moon, Palette, Settings, Sun } from 'lucide-react'
 import type { Language } from '../../../i18n'
+import { useTranslation } from '../../../i18n'
 import { cn } from '../../../lib/utils'
 import { useUIPreferenceStore } from '../../../stores/useUIPreferenceStore'
 import { SectionTitle, SelectRow, SettingRow, Toggle } from './shared'
@@ -7,17 +8,19 @@ import { SectionTitle, SelectRow, SettingRow, Toggle } from './shared'
 export function GeneralTab() {
   const { generalSettings, updateGeneralSettings, theme, setTheme, restartProductTour } =
     useUIPreferenceStore()
+  const { t, setLanguage } = useTranslation()
 
   const handleLanguageChange = (lang: Language) => {
     updateGeneralSettings({ language: lang })
+    setLanguage(lang)
   }
 
   return (
     <div className="space-y-8">
       <SectionTitle
         icon={<Globe size={16} strokeWidth={1.5} />}
-        title="语言与区域"
-        description="选择界面显示语言"
+        title={t('preference.languageAndRegion')}
+        description={t('preference.languageAndRegionDesc')}
       />
       <div className="bg-paper-dark/30 border border-rule/50 rounded-lg p-4">
         <div className="grid grid-cols-2 gap-2">
@@ -31,7 +34,7 @@ export function GeneralTab() {
                 : 'bg-paper text-ink-muted border-rule/60 hover:bg-paper-dark hover:text-ink',
             )}
           >
-            简体中文
+            {t('preference.chinese')}
           </button>
           <button
             type="button"
@@ -43,15 +46,15 @@ export function GeneralTab() {
                 : 'bg-paper text-ink-muted border-rule/60 hover:bg-paper-dark hover:text-ink',
             )}
           >
-            English
+            {t('preference.english')}
           </button>
         </div>
       </div>
 
       <SectionTitle
         icon={<Palette size={16} strokeWidth={1.5} />}
-        title="外观主题"
-        description="选择你喜欢的界面主题"
+        title={t('preference.appearanceTheme')}
+        description={t('preference.appearanceThemeDesc')}
       />
       <div className="bg-paper-dark/30 border border-rule/50 rounded-lg p-4">
         <div className="grid grid-cols-2 gap-2">
@@ -66,7 +69,7 @@ export function GeneralTab() {
             )}
           >
             <Sun size={14} strokeWidth={1.5} />
-            浅色模式
+            {t('preference.lightMode')}
           </button>
           <button
             type="button"
@@ -79,26 +82,26 @@ export function GeneralTab() {
             )}
           >
             <Moon size={14} strokeWidth={1.5} />
-            深色模式
+            {t('preference.darkMode')}
           </button>
         </div>
       </div>
 
       <SectionTitle
         icon={<FileText size={16} strokeWidth={1.5} />}
-        title="默认场景"
-        description="新建分析时默认使用的场景模板"
+        title={t('preference.defaultScenario')}
+        description={t('preference.defaultScenarioDesc')}
       />
       <div className="bg-paper-dark/30 border border-rule/50 rounded-lg divide-y divide-rule/40 px-4 py-3">
         <SelectRow
-          label="默认场景模板"
-          description="选择新建分析时默认加载的场景"
+          label={t('preference.defaultScenarioTemplate')}
+          description={t('preference.defaultScenarioTemplateDesc')}
           value={generalSettings.defaultScenario}
           options={[
-            { value: 'custom', label: '自定义分析' },
-            { value: 'jobOffer', label: '求职 Offer 确认' },
-            { value: 'rentContract', label: '租房签约' },
-            { value: 'homework', label: '作业/申请提交' },
+            { value: 'custom', label: t('preference.customAnalysis') },
+            { value: 'jobOffer', label: t('scenario.jobOffer') },
+            { value: 'rentContract', label: t('scenario.rentContract') },
+            { value: 'homework', label: t('scenario.homework') },
           ]}
           onChange={(v) => updateGeneralSettings({ defaultScenario: v as any })}
         />

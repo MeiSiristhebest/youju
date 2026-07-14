@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef } from 'react'
 import {
+  authHeaders,
   type ChatSSECompleteResult,
   type CreateConversationParams,
   chatApi,
 } from '../services/chatApi'
 import { useChatStore } from '../stores/useChatStore'
+import { useModelConfigStore } from '../stores/useModelConfigStore'
 import { useSourceStore } from '../stores/useSourceStore'
 import type { ChatMessage, ContextScope } from '../types'
 
@@ -126,6 +128,32 @@ export const useChat = (taskId?: string) => {
     retry: retryOnlyNetwork,
   })
 
+  // 生成对话标题
+  const generateTitle = async (content: string, scenarioType?: string): Promise<string> => {
+    try {
+      const aiConfig = useModelConfigStore.getState().getAIConfig()
+      const response = await fetch('/api/chat/generate-title', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          content,
+          scenarioType,
+          ...(aiConfig ? { aiConfig } : {}),
+        }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        return data.title || content.slice(0, 30)
+      }
+    } catch {
+      // fallback
+    }
+    return content.slice(0, 30) || '新对话'
+  }
+
   // 流式发送消息（核心）
   const sendMessageMutation = useMutation({
     mutationFn: async (params: {
@@ -141,6 +169,7 @@ export const useChat = (taskId?: string) => {
       })
 
       let conversationId = activeConversationId
+      let isNewConversation = false
 
       // 首次发送：自动创建会话
       if (!conversationId) {
@@ -155,6 +184,7 @@ export const useChat = (taskId?: string) => {
         addConversation(newConv)
         setActiveConversationId(newConv.id)
         conversationId = newConv.id
+        isNewConversation = true
         queryClient.setQueryData(['chat', 'conversations', taskId], (prev: unknown) => {
           const list = Array.isArray(prev) ? prev : []
           return [newConv, ...list]
@@ -204,7 +234,7 @@ export const useChat = (taskId?: string) => {
             setStreamingCitations(citations)
             setIsRetrieving(false)
           },
-          onComplete: (completeResult) => {
+          onComplete: async (completeResult) => {
             const assistantMessage: ChatMessage = {
               id: `msg-${Date.now()}`,
               conversationId,
@@ -220,6 +250,17 @@ export const useChat = (taskId?: string) => {
               createdAt: new Date().toISOString(),
             }
             addMessage(assistantMessage)
+
+            if (isNewConversation) {
+              try {
+                const newTitle = await generateTitle(params.content, params.scenarioType)
+                if (newTitle && newTitle !== (params.content.slice(0, 30) || '新对话')) {
+                  renameConversationMutation.mutate({ id: conversationId, title: newTitle })
+                }
+              } catch {
+                // ignore
+              }
+            }
           },
           onError: (error) => {
             setStreamError(error.message)
@@ -319,6 +360,7 @@ export const useChat = (taskId?: string) => {
     selectConversation: setActiveConversationId,
     setContextScope,
     setSelectedSourceIds,
+    updateMessage,
 
     // mutation states
     isCreating: createConversationMutation.isPending,

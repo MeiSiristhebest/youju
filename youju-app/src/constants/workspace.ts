@@ -6,6 +6,7 @@ import {
   Home,
   type LucideIcon,
   Newspaper,
+  Sparkles,
 } from 'lucide-react'
 import type { Scenario, SourceType } from '../types'
 
@@ -88,6 +89,16 @@ export const SCENARIOS: ScenarioWithCategory[] = [
     iconComponent: GraduationCap,
     description: '对照作业要求检查提交内容的完整性',
     sourceCount: 2,
+    category: '个人事务',
+    featured: false,
+  },
+  {
+    id: 'custom',
+    name: '自定义场景',
+    icon: 'sparkles',
+    iconComponent: Sparkles,
+    description: '自由上传材料，让 AI 自动识别分析意图',
+    sourceCount: 0,
     category: '个人事务',
     featured: false,
   },

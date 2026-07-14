@@ -64,6 +64,7 @@ interface UseWorkspaceHandlersParams {
   showTemplateMarket: boolean
   showApiSettings: boolean
   showTaskSwitcher: boolean
+  showScenarioSelector: boolean
   setMobileSidebarOpen: (open: boolean) => void
   setMobileContextOpen: (open: boolean) => void
   setShowTour: (show: boolean) => void
@@ -91,6 +92,7 @@ interface UseWorkspaceHandlersParams {
   setShowTemplateMarket: (show: boolean) => void
   setShowApiSettings: (show: boolean) => void
   setShowTaskSwitcher: (show: boolean) => void
+  setShowScenarioSelector: (show: boolean) => void
 }
 
 export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
@@ -122,6 +124,7 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     showTemplateMarket,
     showApiSettings,
     showTaskSwitcher,
+    showScenarioSelector,
     setMobileSidebarOpen,
     setMobileContextOpen,
     setShowTour,
@@ -149,6 +152,7 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
     setShowTemplateMarket,
     setShowApiSettings,
     setShowTaskSwitcher,
+    setShowScenarioSelector,
   } = params
 
   const queryClient = useQueryClient()
@@ -577,17 +581,11 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
       setIsDemo,
       setCurrentScenario: setCurrentScenarioInStore,
       setCurrentTask,
-      setIntentAnalysis,
-      setAnalyzingIntent,
-      setScenarioDescription,
       setSelectedSourceId,
     } = useSourceStore.getState()
     setSources([])
     setIsDemo(false)
     setCurrentScenarioInStore(null)
-    setIntentAnalysis(null)
-    setAnalyzingIntent(false)
-    setScenarioDescription('')
     setSelectedSourceId(null)
     resetAnalysis()
     setSelectedRisk(null)
@@ -600,8 +598,8 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
         scenarioType: 'custom',
         sourceIds: [],
       })
-      setCurrentTask({ id: task.id, title: task.title })
-      useWorkspaceTabsStore.getState().openTab('custom', '未命名分析')
+      setCurrentTask({ id: task.id, title: '自定义分析' })
+      useWorkspaceTabsStore.getState().openTab('custom', '自定义分析')
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['sources', task.id] })
     } catch (error) {
@@ -1235,6 +1233,7 @@ export function useWorkspaceHandlers(params: UseWorkspaceHandlersParams) {
       showTeamPanel,
       showTemplateMarket,
       showApiSettings,
+      showScenarioSelector,
     },
     setters: {
       setMobileSidebarOpen,

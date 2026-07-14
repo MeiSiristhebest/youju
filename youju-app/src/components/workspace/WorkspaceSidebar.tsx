@@ -51,8 +51,7 @@ interface WorkspaceSidebarProps {
   currentScenario: string | null
   user: { id: number; nickname: string; avatar: string; phone?: string } | null
   onGoHome: () => void
-  onNewAnalysis: () => void
-  onLoadScenario: (id: string) => void
+  onShowScenarioSelector: () => void
   onShowHistory: () => void
   onShowLogin: () => void
   onLogout: () => void
@@ -146,8 +145,7 @@ export function WorkspaceSidebar({
   currentScenario,
   user,
   onGoHome,
-  onNewAnalysis,
-  onLoadScenario,
+  onShowScenarioSelector,
   onShowHistory,
   onShowLogin,
   onLogout,
@@ -197,7 +195,7 @@ export function WorkspaceSidebar({
           id="tour-new-analysis-btn"
           variant="primary"
           size="md"
-          onClick={onNewAnalysis}
+          onClick={onShowScenarioSelector}
           iconLeft={<Plus size={14} strokeWidth={1.5} />}
           className="w-full"
           strength={0.3}
@@ -224,11 +222,14 @@ export function WorkspaceSidebar({
           />
         </CollapsibleSection>
 
-        {['专业场景', '个人事务'].map((category) => {
-          const categoryScenarios = SCENARIOS.filter((s) => s.category === category)
+        {[
+          { key: '专业场景', label: t('sidebar.professionalScenarios') },
+          { key: '个人事务', label: t('sidebar.personalAffairs') },
+        ].map((category) => {
+          const categoryScenarios = SCENARIOS.filter((s) => s.category === category.key)
           if (categoryScenarios.length === 0) return null
           return (
-            <CollapsibleSection key={category} title={category}>
+            <CollapsibleSection key={category.key} title={category.label}>
               {categoryScenarios.map((s) => {
                 const isActive = currentScenario === s.id
                 return (
@@ -237,7 +238,7 @@ export function WorkspaceSidebar({
                     icon={scenarioIconMap[s.id] || <PenLine size={14} strokeWidth={1.5} />}
                     label={s.name}
                     active={isActive}
-                    onClick={() => onLoadScenario(s.id)}
+                    onClick={onShowScenarioSelector}
                     ariaCurrent={isActive ? 'page' : undefined}
                   />
                 )
@@ -246,17 +247,17 @@ export function WorkspaceSidebar({
           )
         })}
 
-        <CollapsibleSection title="自定义">
+        <CollapsibleSection title={t('sidebar.custom')}>
           <SidebarNavButton
             icon={<PenLine size={14} strokeWidth={1.5} />}
             label={t('nav.custom')}
             active={isCustomScenario}
-            onClick={onNewAnalysis}
+            onClick={onShowScenarioSelector}
             ariaCurrent={isCustomScenario ? 'page' : undefined}
           />
         </CollapsibleSection>
 
-        <CollapsibleSection title="工具" defaultOpen={false}>
+        <CollapsibleSection title={t('sidebar.tools')} defaultOpen={false}>
           <SidebarNavButton
             icon={<Settings size={14} strokeWidth={1.5} />}
             label={t('nav.preferences')}
@@ -276,7 +277,7 @@ export function WorkspaceSidebar({
           />
           <SidebarNavButton
             icon={<Server size={14} strokeWidth={1.5} />}
-            label="模型设置"
+            label={t('sidebar.modelSettings')}
             active={activeOverlayPanel === 'model-settings'}
             onClick={onShowModelSettings}
           />
@@ -289,7 +290,7 @@ export function WorkspaceSidebar({
           {onShowTemplates && (
             <SidebarNavButton
               icon={<LayoutGrid size={14} strokeWidth={1.5} />}
-              label="模板市场"
+              label={t('sidebar.templateMarket')}
               active={activeOverlayPanel === 'templates'}
               onClick={onShowTemplates}
             />
@@ -297,7 +298,7 @@ export function WorkspaceSidebar({
           {onShowTeam && (
             <SidebarNavButton
               icon={<Users size={14} strokeWidth={1.5} />}
-              label="团队协作"
+              label={t('sidebar.teamCollaboration')}
               active={activeOverlayPanel === 'team'}
               onClick={onShowTeam}
             />
@@ -305,7 +306,7 @@ export function WorkspaceSidebar({
           {onShowApiSettings && (
             <SidebarNavButton
               icon={<Code2 size={14} strokeWidth={1.5} />}
-              label="API / Webhook"
+              label={t('sidebar.apiWebhook')}
               active={activeOverlayPanel === 'api-settings'}
               onClick={onShowApiSettings}
             />
@@ -313,7 +314,7 @@ export function WorkspaceSidebar({
           {onShowApiLogs && (
             <SidebarNavButton
               icon={<Terminal size={14} strokeWidth={1.5} />}
-              label="API 日志"
+              label={t('sidebar.apiLogs')}
               active={activeOverlayPanel === 'api-logs'}
               onClick={onShowApiLogs}
             />
@@ -321,7 +322,7 @@ export function WorkspaceSidebar({
           {onShowBilling && (
             <SidebarNavButton
               icon={<Crown size={14} strokeWidth={1.5} />}
-              label="升级 Pro"
+              label={t('sidebar.upgradePro')}
               variant="accent"
               active={activeOverlayPanel === 'billing'}
               onClick={onShowBilling}
@@ -411,7 +412,7 @@ export function WorkspaceSidebar({
             title="折叠侧边栏"
           >
             <ChevronLeft size={13} strokeWidth={1.5} />
-            <span>折叠</span>
+            <span>{t('sidebar.collapse')}</span>
           </Button>
         )}
       </div>

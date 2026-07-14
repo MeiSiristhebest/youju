@@ -73,7 +73,7 @@ export interface StreamMessageParams {
  * 复用 apiClient 的鉴权头逻辑：从 localStorage 读取 token / sessionId，
  * 与 apiClient.request 中保持一致（else if 优先级）。
  */
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   const token = storage.getItem(storageKeys.token)
   const sessionId = storage.getItem(storageKeys.sessionId)
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }

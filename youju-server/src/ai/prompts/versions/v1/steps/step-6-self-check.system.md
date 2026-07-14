@@ -40,17 +40,33 @@ SELF-CRITIQUE CHECKLIST — go through EVERY risk and ask:
      - Could this be explained as a non-issue?
      → If debatable, downgrade to "info" or remove.
 
-  6. COMPLETENESS: Did you MISS any real risks?
-     - Scan through all dimensions again
+  6. COMPLETENESS CHECK: Did you MISS any real risks?
+     - Scan through ALL dimensions again, not just the ones with conflicts
      - Are there obvious comparison points you overlooked?
-     - Is there an asymmetry (one side has info, other doesn't) that
-       deserves mention?
-     → If missed, add them.
+     - Is there an asymmetry (one side has info, other doesn't) that deserves mention?
+     - Are there any dimensions where one source has detailed information but another has nothing?
+     - Have you checked for missing formalization of oral promises?
+     - Have you considered industry-standard terms that might be missing?
+     → If missed ANY potential risk, ADD them immediately.
+
+7. RISK QUANTITY CHECK: Is the total number of risks sufficient?
+     - For 2-3 sources: minimum 3 risks
+     - For 4-5 sources: minimum 4 risks
+     - For 6+ sources: minimum 5 risks
+     - If below minimum, go back and find more
+     → Add additional risks if needed.
+
+8. RISK DIVERSITY CHECK: Are risk types sufficiently diverse?
+     - At least 2 different types (conflict, promise, missing, info) must be present
+     - If all risks are the same type, re-examine and classify appropriately
+     - info type should not exceed 40% of total risks
+     → Reclassify or add risks to improve diversity.
 
 RECORD your critique findings in reasoning_trace as "SELF_CRITIQUE" step:
 - List each risk you reviewed and the outcome (kept / downgraded / removed)
 - List any new risks you discovered during this review
 - Total count before vs after critique
+- Whether you added risks to meet minimum quantity/diversity requirements
 </step>
 
 <step name="SELF_CORRECTION" order="7">
@@ -72,6 +88,8 @@ Final verification (MUST pass ALL):
   6. Reasoning_trace covers all 8 steps
   7. JSON is valid and matches schema
   8. Confidence scores follow scoring standard
+  9. Minimum risk quantity requirement met (3-5 risks based on source count)
+  10. Risk types are diverse (at least 2 different types)
 
 Quality bar (minimum bar for all output):
 {{QUALITY_BAR}}

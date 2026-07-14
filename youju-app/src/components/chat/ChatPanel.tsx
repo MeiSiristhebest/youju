@@ -8,7 +8,7 @@ import { chatApi } from '../../services/chatApi'
 import { useChatStore } from '../../stores/useChatStore'
 import { useSourceStore } from '../../stores/useSourceStore'
 import type { Source } from '../../types'
-import type { MessageFeedback } from '../../types/chat'
+import type { ChatMessage as ChatMessageType, MessageFeedback } from '../../types/chat'
 import { SourceDetailModal } from '../modals/SourceDetailModal'
 import { ModelSettingsContent } from '../workspace/ModelSettingsContent'
 import { ChatEmpty } from './ChatEmpty'
@@ -30,7 +30,7 @@ interface ChatPanelProps {
 // 距底距离阈值（px）：小于此值视为"贴近底部"，新消息自动滚动
 const NEAR_BOTTOM_THRESHOLD = 100
 // "滚动到最新"按钮显示阈值（px）：距底超过此值时显示
-const SHOW_SCROLL_BUTTON_THRESHOLD = 200
+const SHOW_SCROLL_BUTTON_THRESHOLD = 150
 
 export function ChatPanel({ className, taskId, scenarioType }: ChatPanelProps) {
   const {
@@ -49,9 +49,11 @@ export function ChatPanel({ className, taskId, scenarioType }: ChatPanelProps) {
     selectConversation,
     createConversation,
     resetStream,
+    updateMessage,
   } = useChat(taskId)
 
   const sources = useSourceStore((s) => s.sources)
+  const intentAnalysis = useSourceStore((s) => s.intentAnalysis)
   const clearMessages = useChatStore((s) => s.clearMessages)
   const sourcesRef = useRef(sources)
   sourcesRef.current = sources
@@ -126,15 +128,22 @@ export function ChatPanel({ className, taskId, scenarioType }: ChatPanelProps) {
   const [detailHighlight, setDetailHighlight] = useState('')
   // 设置面板状态
   const [showSettings, setShowSettings] = useState(false)
+  // 正在编辑的消息
+  const [editingMessage, setEditingMessage] = useState<ChatMessageType | null>(null)
 
   const activeTitle = conversations.find((c) => c.id === activeConversationId)?.title
-  // 标题：优先显示场景中文名称，其次显示会话标题，最后回退到 "AI 对话"
+  // 标题：优先显示意图分析识别的场景，其次显示预设场景，再显示会话标题，最后回退到 "AI 对话"
   const panelTitle = useMemo(() => {
+    // 优先使用意图分析识别的场景（置信度>=40%）
+    if (intentAnalysis?.scenarioType && intentAnalysis.confidence >= 0.4) {
+      return intentAnalysis.scenarioType
+    }
+    // 其次使用预设场景
     if (scenarioType && SCENARIO_NAME_MAP[scenarioType]) {
       return SCENARIO_NAME_MAP[scenarioType]
     }
     return activeTitle ?? 'AI 对话'
-  }, [scenarioType, activeTitle])
+  }, [intentAnalysis, scenarioType, activeTitle])
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = scrollRef.current
@@ -251,6 +260,25 @@ export function ChatPanel({ className, taskId, scenarioType }: ChatPanelProps) {
     clearMessages()
   }, [streaming, abortStream, clearMessages])
 
+  const handleReply = useCallback((message: ChatMessageType) => {
+    const replyPrefix = `@${message.role === 'user' ? '你' : 'AI'} ${message.content.slice(0, 50)}${message.content.length > 50 ? '...' : ''}\n\n`
+    setInputContent(replyPrefix)
+    setInputNonce((n) => n + 1)
+  }, [])
+
+  const handleEdit = useCallback((message: ChatMessageType) => {
+    setEditingMessage(message)
+    setInputContent(message.content)
+    setInputNonce((n) => n + 1)
+  }, [])
+
+  const handleDeleteMessage = useCallback(
+    (messageId: string) => {
+      updateMessage(messageId, { isArchived: true })
+    },
+    [updateMessage],
+  )
+
   const isEmpty = messages.length === 0 && !streaming
 
   return (
@@ -344,6 +372,14 @@ export function ChatPanel({ className, taskId, scenarioType }: ChatPanelProps) {
                   onEvidenceClick={handleEvidenceClick}
                   onFeedback={handleFeedback}
                   onRememberPreference={handleRememberPreference}
+                  onReply={handleReply}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteMessage}
+                  parentMessage={
+                    m.parentMessageId
+                      ? (messages.find((msg) => msg.id === m.parentMessageId) ?? null)
+                      : null
+                  }
                 />
               ))}
               {streaming && (
@@ -380,6 +416,7 @@ export function ChatPanel({ className, taskId, scenarioType }: ChatPanelProps) {
           onSend={handleSend}
           onStop={abortStream}
           isStreaming={streaming}
+          isEditing={!!editingMessage}
         />
       </footer>
 

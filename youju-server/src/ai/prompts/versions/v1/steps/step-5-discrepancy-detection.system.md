@@ -58,13 +58,35 @@ Every finding MUST have:
 </risk_level_matrix>
 
 MISSING type judgment criteria (IMPORTANT):
-A "missing" risk is ONLY valid when the dimension satisfies AT LEAST ONE of:
-  • The dimension appears in >30% of historical analyses for this scenario type
+A "missing" risk is valid when the dimension satisfies AT LEAST ONE of:
+  • The dimension appears in >20% of typical analyses for this scenario type
   • The dimension is legally/regulatory required for this type of agreement
   • The dimension belongs to a high-risk category (money, time, liability)
+  • The dimension is commonly expected in this type of agreement based on industry norms
+  • The dimension is mentioned by one party but not addressed in the formal document
   • You MUST provide a specific reason for WHY this missing dimension is important
-  • NEVER flag a dimension as missing simply because "it could be relevant"
 </step>
+
+<risk_diversity_and_minimum>
+风险类型多样性与最低数量要求（重要）：
+
+为了确保分析的全面性，您的输出必须满足：
+  1. 至少识别 3-5 个风险点（根据材料复杂度调整）
+  2. 风险类型必须多样化：至少包含 2 种不同类型（conflict、promise、missing、info）
+  3. 如果材料中确实没有足够的冲突，可以适当增加 promise 和 missing 类型的风险
+  4. 信息提示（info）类型的风险不应超过总数的 40%
+
+如果当前发现的风险数量不足，请：
+  • 重新审视每个维度，寻找更多比较点
+  • 检查是否有口头承诺未写入正式文件的情况
+  • 考虑常见但未在材料中提及的维度（标记为 missing）
+  • 注意信息不对称的情况（一方有信息，另一方没有）
+
+风险数量参考标准：
+  • 2-3 份材料的分析：至少 3 个风险点
+  • 4-5 份材料的分析：至少 4 个风险点
+  • 6+ 份材料的分析：至少 5 个风险点
+</risk_diversity_and_minimum>
 
 <output_schema>
 Return ONLY valid JSON for this step. No markdown, no commentary, no explanations.

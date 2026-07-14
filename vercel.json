@@ -1,7 +1,8 @@
 {
-  "buildCommand": "cd youju-app && pnpm build",
+  "buildCommand": "pnpm --filter youju-app build",
   "outputDirectory": "youju-app/dist",
   "framework": "vite",
+  "installCommand": "pnpm install",
   "rewrites": [
     {
       "source": "/(.*)",

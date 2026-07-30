@@ -6,11 +6,13 @@
 
 ## 🇨🇳 中文
 
-### 📖 项目简介
+### 📖 项目起源与设计初衷 (Origin & Vision)
 
-**有据 (YouJu)** 是一款专注于**法律与商务交易风险预警**的 AI 智能分析系统。项目解决在二手交易、房屋租赁、外包合同签订及商务谈判中常见的“口头承诺不落地”、“合同条款与沟通记录矛盾”以及“隐蔽排他条款”等痛点。
+**有据 (YouJu)** 是一张数字化的“信息核对桌”与 AI 风险排雷工作台。项目的产生源于真实痛点：在求职 Offer 确认、房屋租赁、外包合同签订、比赛报名及商业采购等场景中，信息往往散落在 **微信聊天记录、正式合同 PDF、网页公示及邮件** 等多个地方。人的大脑无法同时记住所有版本并逐一比对，导致“口头说一套、落笔另一套”或“口头承诺无书面落字”的纠纷频发。
 
-系统通过多源材料协同比对引擎（支持粘贴聊天记录、上传 TXT/PDF 合同文本、抓取网页 URL），利用 **Gemini API** 结合自定义的领域专家 Prompt 约束规范，自动化扫描并甄别信息冲突与法律风险漏洞，同时一键生成具备法律防护效力的**防扯皮确认话术草稿**。
+> **核心原则**：不替你做决定，只帮你在真正签字、付钱、提交前，把所有依据放回同一张桌上，让 AI 当那个“逐条对照、较真排雷的人”。
+
+在 **TRAE AI 创造力大赛** 中，“有据”凭借创新的 5 层解耦架构与 7 步可追溯推理流水线，获得了广泛关注与认可。
 
 ---
 
@@ -18,108 +20,112 @@
 
 以下架构模块均在本项目中进行了完整的实现与落地，点击对应模块中的源码直链，即可查阅底层的核心代码实现细节：
 
-### 1. 分层 DDD (Domain-Driven Design) 领域驱动架构 (Clean Architecture) 🏛️
+### 1. 5 层解耦 Clean / DDD 领域驱动架构 (5-Layer Decoupled Architecture) 🏛️
 
-*   **架构演进与思考**：后端采用严格的 Clean Architecture 分层架构，解耦业务领域模型（Domain）、AI 大模型推理引擎（AI Providers）、外部 Web 抓取/文件解析（Infrastructure）以及 HTTP 路由控制器（Presentation）。极大地提升了系统的单元测试覆盖率与 AI 模型更换弹力。
-*   **分层架构流转图**：
+*   **架构演进与思考**：摒弃传统“后端直接调大模型返回”的混杂模式，构建了 5 层严格隔离的架构。AI 仅负责“语义理解与表达”，业务逻辑判定（如风险等级划分、置信度折算）完全由 Domain 层接管。Prompt 仅管表达，所有 AI 输出均经过 Zod Schema 运行时校验，不合格则触发自动重试。
+*   **5 层隔离拓扑图**：
 
 ```mermaid
 graph TD
-    subgraph PresentationLayer [Presentation 层 - 接口与控制器]
-        Routes[Express Routes - /api/analyze, /api/draft]
-        Controllers[SourceController & AnalysisController]
+    subgraph Layer1 [UI Layer - React 18 / Vite]
+        UI[交互工作台 - 材料添加 / 风险看板 / 话术生成]
     end
 
-    subgraph DomainLayer [Domain 层 - 领域模型与核心规则]
-        RiskEntity[Risk & Contradiction Entity Models]
-        SeverityRules[Severity Threshold Matrix - 🔴/🟡/🔵]
-        SourceAggregate[Source Material Aggregate Root]
+    subgraph Layer2 [API Layer - Express Routes]
+        API[Express Controller & Route Interceptors]
     end
 
-    subgraph InfrastructureLayer [Infrastructure 层 - 基础设施与采集]
-        WebScraper[Web Page Content Extractor - Cheerio/Axios]
-        FileParser[PDF/TXT Document Reader]
+    subgraph Layer3 [Domain Layer - 核心业务与规则中枢]
+        Domain[风险等级矩阵 🔴/🟡/🔵 · 置信度算子 · 证据比对算法]
     end
 
-    subgraph AILayer [AI Engine 层 - 混合智能推理引擎]
-        GeminiProvider[Gemini Stream API Provider]
-        RuleEngine[In-Memory Heuristic Fallback Engine]
+    subgraph Layer4 [AI Orchestration Layer - 推理流水线]
+        Orchestration[7 步 Pipeline 执行器 · Prompt 版本管理 · Schema 校验器]
     end
 
-    Controllers --> SourceAggregate
-    Controllers --> AILayer
-    AILayer --> RiskEntity
-    Controllers --> InfrastructureLayer
+    subgraph Layer5 [Data & Infrastructure Layer - 基础设施与采集]
+        Data[Web Scraper / PDF Parser / OCR Extractor / Heuristic Fallback]
+    end
+
+    UI --> API
+    API --> Domain
+    Domain --> Orchestration
+    Orchestration --> Data
 ```
 
 *   **📂 核心源码直链**：
-    - [youju-server/src/domain/ (核心领域风险实体与规则表)](youju-server/src/domain/)
-    - [youju-server/src/ai/ (Gemini API 适配器与内置规则模拟引擎)](youju-server/src/ai/)
-    - [youju-server/src/infrastructure/ (网页抓取与文件解析适配层)](youju-server/src/infrastructure/)
-    - [youju-server/src/presentation/ (Express API 控制器及 DTO 参数校验)](youju-server/src/presentation/)
+    - [youju-server/src/domain/ (核心领域风险实体、规则算子与 Schema 表)](youju-server/src/domain/)
+    - [youju-server/src/ai/ (Gemini 大模型 Connector 与 7 步 Pipeline 编排器)](youju-server/src/ai/)
+    - [youju-server/src/infrastructure/ (网页抓取与多格式文档提取器)](youju-server/src/infrastructure/)
+    - [youju-server/src/presentation/ (Express API 控制器与 DTO 路由)](youju-server/src/presentation/)
 
 ---
 
-### 2. 多源异构材料比对与双引擎风险甄别流水线 (Multi-Source Ingestion & Dual AI Engine) 🔍
+### 2. 7 步透明推理流水线与自检自纠循环 (7-Step Transparent AI Pipeline) 🧠
 
-*   **设计思路**：支持多端异构文本协同分析。用户可同时输入合同样本与微信/钉钉聊天截图文本。系统首先在内存中对所有 Sources 进行清洗与词法拆解，随后送入双模态分析引擎：在提供 `AI_API_KEY` 时调用真实大模型；无 Key 时自动平滑降级至内置启发式规则引擎，保证系统离线可用性。
-*   **时序原理图**：
+*   **设计思路**：摒弃黑盒输出，将 AI 比对过程拆解为 7 个透明的步骤。引入**自检循环 (Self-Reflection Loop)**：AI 审视自身的推理结论，进行包括“证据充分性、分类准确性、严重程度合理性、确认偏误”在内的 6 项自检，确保结论能在原文找到准确证据。
+*   **7 步流水线流程图**：
 
 ```mermaid
 sequenceDiagram
     actor Client as 前端 UI (React + Vite)
     participant Server as 路由控制器 (Express)
-    participant Parser as 异构材料解析器 (Infrastructure)
-    participant AI as 混合 AI 引擎 (Gemini / Fallback)
-    participant Draft as 话术生成器
+    participant Pipeline as 7步 Pipeline 执行器
+    participant Gemini as Gemini Stream API / Fallback
+    participant Verifier as 6项自检循环引擎
 
-    Client->>Server: POST /api/sources (提交聊天记录 / 合同文件 / 网页 URL)
-    Server->>Parser: 执行多源格式清洗与文本规范化
-    Parser-->>Server: 结构化存储 SourceMaterial[] 集合
-    Client->>Server: POST /api/analyze (发起并发风险分析)
-    Server->>AI: 传入所有 Source 关联文本 + CONTEXT.md 领域约束
-    alt 启用 AI_API_KEY
-        AI-->>AI: 调用 Gemini API 深度提取矛盾与证据链
-    else 未配置 Key
-        AI-->>AI: 触发内置规则匹配算法 (直接矛盾 / 口头未落字)
+    Client->>Server: 提交多源材料 (文本/PDF/URL/截图)
+    Server->>Pipeline: 启动 7 步推理流水线
+    Pipeline->>Pipeline: Step 1: 场景识别 (匹配 Offer/合同/赛事框架)
+    Pipeline->>Pipeline: Step 2: 输入解析 (结构化文本与元数据绑定)
+    Pipeline->>Pipeline: Step 3: 维度提取 (动态发现金额/时间/责任/承诺)
+    Pipeline->>Pipeline: Step 4: 要素比对 (跨源归一化关联)
+    Pipeline->>Gemini: Step 5: 冲突检测 (判定 🔴直接矛盾 / 🟡口头未落字 / 🔵提示)
+    Gemini-->>Pipeline: 返回初步 RiskReport
+    Pipeline->>Verifier: Step 6: 结果自检 (校验证据充分性与置信度)
+    alt 自检未通过
+        Verifier->>Gemini: 触发补充推理重跑
     end
-    AI-->>Server: 返回结构化 RiskReport (分级: 🔴直接矛盾 / 🟡口头承诺未落字 / 🔵提示)
-    Server-->>Client: 渲染可视化风险列表与争议证据对比
-    Client->>Server: POST /api/draft (选择特定风险点生成确认话术)
-    Server->>Draft: 构建防御性文本模版
-    Draft-->>Client: 返回一键复制的微信/邮件确认脚本
+    Pipeline-->>Server: Step 7: 报告生成 (关联原文证据链高亮)
+    Server-->>Client: 渲染可视化风险看板与证据跳转直链
 ```
 
-*   **📂 核心源码直链**：
-    - [youju-server/src/ai/ (Gemini 大模型 Prompt 交互与降级引擎)](youju-server/src/ai/)
-    - [youju-server/src/app.ts (Express 应用全局路由与依赖注入中枢)](youju-server/src/app.ts)
+*   **7 步流水线定义**：
+    1.  **场景识别**：自动识别材料类型（如 Offer / 租房合同 / 比赛通知），匹配最适配的分析维度。
+    2.  **输入解析**：解析异构材料，提取清洗后的元数据。
+    3.  **维度提取**：动态长出比对维度（金额 / 试用期 / 违约金 / 报销），而非预设死规则。
+    4.  **要素提取**：跨源关联相同维度的具体表述并提取原文 Snippets。
+    5.  **冲突检测**：精准甄别矛盾与缺失，附带置信度评分。
+    6.  **结果校验**：执行 6 项自检循环，排除 AI 确认偏误。
+    7.  **报告生成**：输出附带可点击溯源高亮证据链的结构化报告。
 
 ---
 
-### 3. 三级风险分类状态机与可视化展示 (Three-Tier Risk State Machine) 🔴🟡🔵
+### 3. 红黄绿风险看板与沟通话术生成器 (Risk Dashboard & Actionable Script Generator) 🛡️
 
-*   **设计思路**：将复杂的法律风险解构成三种直观等级，在 UI 侧以色彩标记并标注证据点来源（例如：聊天记录第 12 行 vs 合同条款第 4.2 条）：
-    - 🔴 **直接矛盾 (Direct Contradiction)**：即正式合同条款与沟通承诺存在截然相反的表述。
-    - 🟡 **承诺未落文字 (Unwritten Verbal Commitment)**：微信/口头答应了优惠或退款条件，但正式合同中完全缺失。
-    - 🔵 **信息提示 (Informational Note)**：模棱两可的模糊用词（如“尽快”、“协商解决”）。
+*   **三级风险分类看板**：
+    - 🔴 **严重风险 (Direct Contradiction)**：口头承诺与正式合同条款直接相左（如微信说试用期全额，合同写打 8 折）。
+    - 🟡 **待确认 (Unwritten Verbal Commitment)**：微信/口头答应的福利，正式合同中完全缺失。
+    - 🔵 **信息提示 (Informational Note)**：模糊用词（如“视公司绩效而定”、“尽快付清”）。
+*   **防扯皮沟通话术生成**：针对筛选出的特定风险点，AI 自动生成具备法律防护效力的沟通话术（支持**温和、正式、简洁**三种语气模式），直接复制发送至微信或邮件，促使对方回复以留下有效书面凭证。
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Ingestion : 材料导入 (Text/PDF/URL)
-    Ingestion --> Analysis : 触发交叉分析引擎
-    Analysis --> DirectContradiction : 检测到语义冲突
-    Analysis --> UnwrittenCommitment : 检测到单向口头承诺缺失
-    Analysis --> AmbiguousClause : 检测到责任界定模糊
-    DirectContradiction --> 🔴 HighRiskAlert : 标注红色高危
-    UnwrittenCommitment --> 🟡 MediumRiskAlert : 标注黄色中危
-    AmbiguousClause --> 🔵 InfoNotice : 标注蓝色提示
-    🔴 HighRiskAlert --> ScriptGeneration : 自动生成针对性防扯皮话术
-    🟡 MediumRiskAlert --> ScriptGeneration : 自动生成补签订补充协议话术
+    [*] --> Ingestion : 多源材料导入 (Text/PDF/URL)
+    Ingestion --> PipelineAnalysis : 触发 7 步推理流水线
+    PipelineAnalysis --> DirectContradiction : 检测到书面与口头截然相反
+    PipelineAnalysis --> UnwrittenCommitment : 检测到口头承诺落笔缺失
+    PipelineAnalysis --> AmbiguousClause : 检测到责任条款界定模糊
+    DirectContradiction --> 🔴 RedRisk : 标注红色高危 (附原文对比 Snippet)
+    UnwrittenCommitment --> 🟡 YellowRisk : 标注黄色中危 (提示补签协议)
+    AmbiguousClause --> 🔵 BlueNotice : 标注蓝色提示
+    🔴 RedRisk --> ScriptGen : 触发一键生成防扯皮沟通脚本
+    🟡 YellowRisk --> ScriptGen : 触发书面确认函生成
 ```
 
 *   **📂 核心源码直链**：
     - [CONTEXT.md (系统领域术语表与 Prompt 知识库)](CONTEXT.md)
-    - [PRD.md (详细产品功能定义与风险等级分类规范)](PRD.md)
+    - [PRD.md (详细产品需求说明书与 26 项 User Story 规范)](PRD.md)
 
 ---
 
@@ -129,16 +135,16 @@ stateDiagram-v2
 youju/
 ├── youju-app/              # React + Vite 前端客户端
 │   ├── src/
-│   │   ├── components/     # 材料输入、风险列表、话术对话生成组件
+│   │   ├── components/     # 工作台、红黄绿风险看板、话术生成对话框
 │   │   ├── hooks/          # 自定义 React Hooks (用以管理 Source 状态)
 │   │   └── api/            # REST API Axios 客户端封装
 │   └── package.json
 ├── youju-server/           # Express + TypeScript 领域后端服务
 │   ├── src/
-│   │   ├── ai/             # Gemini 大模型 Connector 与离线模拟引擎
-│   │   ├── domain/         # 核心 Risk / Source 领域模型定义
+│   │   ├── ai/             # Gemini 7 步 Pipeline 编排器与离线模拟引擎
+│   │   ├── domain/         # 核心 Risk / Source 领域模型与规则中枢
 │   │   ├── infrastructure/ # PDF/TXT 提取器与 URL 爬虫服务
-│   │   ├── presentation/   # Express 路由控制器与 DTO
+│   │   ├── presentation/   # Express 路由控制器与 DTO 校验
 │   │   ├── app.ts          # Express 实例初始化
 │   │   └── main.ts         # 服务启动入口
 │   └── package.json
@@ -152,12 +158,12 @@ youju/
 
 | 层级 | 核心技术 | 作用 |
 |:------|:-----------|:--------|
-| **后端语言与架构**| Node.js + Express + TypeScript | Clean Architecture / DDD 架构后端服务 |
-| **AI 大模型** | Google Gemini API (`gpt-3.5-turbo` / Gemini Connector) | 自动化漏洞扫描与确认话术推导 |
-| **规则引擎降级** | Custom Heuristic Rule Engine | 离线 / 无 Key 状态下的启发式风险甄别 |
-| **前端应用** | React 18 + Vite 5 + TypeScript | 响应式现代化 Web 前端 |
-| **材料采集解析** | Cheerio + Axios + File Middleware | 网页抓取与多格式文档文本提取 |
-| **样式与组件** | TailwindCSS + Lucide Icons | 高对比度可视化风险标注系统 |
+| **后端架构** | Node.js + Express + TypeScript | 5 层解耦 Clean / DDD 领域驱动后端 |
+| **AI 大模型引擎** | Google Gemini API (`gpt-3.5-turbo` / Gemini Connector) | 7 步 Pipeline 动态推演与话术生成 |
+| **离线引擎降级** | Heuristic Rule Engine | 无 Key / 离线状态下的启发式规则判定 |
+| **前端应用** | React 18 + Vite 5 + TypeScript | 高性能响应式数字工作台 |
+| **多源材料解析** | Cheerio + Axios + File Middleware | 网页抓取与 PDF/TXT/Doc 文档文本抽取 |
+| **UI 设计系统** | TailwindCSS + Lucide Icons | 高对比度风险看板与证据直链高亮 |
 
 ---
 
@@ -186,7 +192,7 @@ AI_API_KEY="your-gemini-or-openai-api-key"
 AI_BASE_URL="https://api.openai.com/v1"
 AI_MODEL="gpt-3.5-turbo"
 ```
-未配置 Key 时，后端将自动降级使用内置规则引擎。
+未配置 Key 时，后端将自动平滑降级使用内置规则引擎。
 
 ---
 
@@ -199,8 +205,8 @@ AI_MODEL="gpt-3.5-turbo"
 | `POST` | `/api/sources/url` | 自动抓取网页 URL 内容 |
 | `GET` | `/api/sources` | 获取已收集材料列表 |
 | `DELETE`| `/api/sources/:id` | 删除特定材料 |
-| `POST` | `/api/analyze` | 触发交叉风险比对，生成 RiskReport |
-| `POST` | `/api/draft` | 针对选定风险生成防扯皮微信/邮件确认话术 |
+| `POST` | `/api/analyze` | 触发 7 步推理流水线生成 RiskReport |
+| `POST` | `/api/draft` | 针对选定风险生成防扯皮沟通话术 |
 | `GET` | `/api/health` | 健康检查接口 |
 
 ---
@@ -209,19 +215,19 @@ AI_MODEL="gpt-3.5-turbo"
 
 ### 📖 Introduction
 
-**YouJu (有据)** is an AI-powered legal & contract risk analysis system designed to safeguard commercial transactions, housing leases, and freelance contract negotiations.
+**YouJu (有据)** is a digital risk inspection workbench designed to prevent contract loopholes and communication discrepancies before signing contracts, paying fees, or submitting applications.
 
-By orchestrating heterogeneous multi-source ingestion (chat logs, uploaded TXT/PDF contract documents, scraped web URLs), YouJu leverages the **Gemini API** alongside context-constrained prompt pipelines to automatically identify loopholes, missing verbal promises, and contract contradictions—instantly generating actionable confirmation scripts for dispute resolution.
+Built for **job offers, housing leases, freelance agreements, and procurement negotiations**, YouJu gathers fragmented information across WeChat chat logs, PDF contracts, emails, and web pages onto a single digital desk. Its transparent **7-Step AI Reasoning Pipeline** and **5-Layer Decoupled Architecture** automatically flag contradictions (🔴), unwritten verbal promises (🟡), and missing clauses (🔵)—enabling users to trace evidence snippets directly to original text and generate written confirmation scripts with one click.
 
 ---
 
-## 🛠️ Architecture Highlights
+## 🛠️ Architecture & Key Features
 
-### 1. Clean / DDD Layered Architecture 🏛️
-The backend enforces a strict Clean Architecture pattern separating domain entities (`domain/`), AI connectors and heuristic fallbacks (`ai/`), parsing infrastructure (`infrastructure/`), and HTTP controllers (`presentation/`).
+### 1. 5-Layer Decoupled Clean Architecture 🏛️
+Strictly isolates UI, API Controllers, Domain Rules, AI Pipeline Orchestration, and Data Infrastructure layers, ensuring business rules remain deterministic while AI handles semantic understanding.
 
-### 2. Multi-Source Ingestion & Dual-Engine Fallback 🔍
-Supports dual-mode processing: leverages real-time LLM inference when `AI_API_KEY` is provided, and gracefully degrades to an in-memory heuristic rule engine when offline.
+### 2. 7-Step Transparent AI Pipeline & Self-Reflection 🧠
+Includes Scenario Recognition, Multi-Source Input Parsing, Dynamic Dimension Extraction, Element Correlation, Conflict Detection, 6-Point Self-Reflection Loop, and Report Generation.
 
 ---
 

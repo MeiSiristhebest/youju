@@ -1,18 +1,22 @@
 # 💬 有据 (YouJu) - AI 驱动的合同漏洞与聊天记录风险分析助手
 
-[🇨🇳 中文](#-中文) | [🇺🇸 English](#-english)
+[![Live Demo](https://img.shields.io/badge/🌐_在线体验Demo-Tencent_Cloud-blue?style=for-the-badge)](https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+[![Tech Stack](https://img.shields.io/badge/Tech_Stack-React_%7C_Express_%7C_Gemini_API-8A2BE2?style=for-the-badge)](README.md)
+
+[🇨🇳 中文](README.md) | [🇺🇸 English](README_EN.md)
 
 ---
 
-## 🇨🇳 中文
-
-### 📖 项目起源与设计初衷 (Origin & Vision)
+## 📖 项目起源与设计初衷 (Origin & Vision)
 
 **有据 (YouJu)** 是一张数字化的“信息核对桌”与 AI 风险排雷工作台。项目的产生源于真实痛点：在求职 Offer 确认、房屋租赁、外包合同签订、比赛报名及商业采购等场景中，信息往往散落在 **微信聊天记录、正式合同 PDF、网页公示及邮件** 等多个地方。人的大脑无法同时记住所有版本并逐一比对，导致“口头说一套、落笔另一套”或“口头承诺无书面落字”的纠纷频发。
 
 > **核心原则**：不替你做决定，只帮你在真正签字、付钱、提交前，把所有依据放回同一张桌上，让 AI 当那个“逐条对照、较真排雷的人”。
 
 在 **TRAE AI 创造力大赛** 中，“有据”凭借创新的 5 层解耦架构与 7 步可追溯推理流水线，获得了广泛关注与认可。
+
+🌐 **官方在线体验 Demo**：[https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/](https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/)
 
 ---
 
@@ -211,26 +215,6 @@ AI_MODEL="gpt-3.5-turbo"
 
 ---
 
-## 🇺🇸 English
+## 📜 许可证 (License)
 
-### 📖 Introduction
-
-**YouJu (有据)** is a digital risk inspection workbench designed to prevent contract loopholes and communication discrepancies before signing contracts, paying fees, or submitting applications.
-
-Built for **job offers, housing leases, freelance agreements, and procurement negotiations**, YouJu gathers fragmented information across WeChat chat logs, PDF contracts, emails, and web pages onto a single digital desk. Its transparent **7-Step AI Reasoning Pipeline** and **5-Layer Decoupled Architecture** automatically flag contradictions (🔴), unwritten verbal promises (🟡), and missing clauses (🔵)—enabling users to trace evidence snippets directly to original text and generate written confirmation scripts with one click.
-
----
-
-## 🛠️ Architecture & Key Features
-
-### 1. 5-Layer Decoupled Clean Architecture 🏛️
-Strictly isolates UI, API Controllers, Domain Rules, AI Pipeline Orchestration, and Data Infrastructure layers, ensuring business rules remain deterministic while AI handles semantic understanding.
-
-### 2. 7-Step Transparent AI Pipeline & Self-Reflection 🧠
-Includes Scenario Recognition, Multi-Source Input Parsing, Dynamic Dimension Extraction, Element Correlation, Conflict Detection, 6-Point Self-Reflection Loop, and Report Generation.
-
----
-
-## 📜 License
-
-Licensed under the [MIT License](LICENSE).
+遵循 [MIT License](LICENSE) 开源协议。

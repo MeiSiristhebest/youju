@@ -72,7 +72,7 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    actor Client as "Frontend UI<br/>(React + Vite)"
+    actor Client as "Frontend UI<br/>(React + Vite)
     participant Server as "Route Controller (Express)"
     participant Pipeline as "7-Step Pipeline Executor"
     participant Gemini as "Gemini Stream API / Fallback"

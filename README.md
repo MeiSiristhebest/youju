@@ -72,25 +72,25 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    actor Client as "前端 UI<br/>(React + Vite)"
-    participant Server as "路由控制器 (Express)"
+    actor Client as "前端 UI<br/>(React + Vite)
+    participant Server as "路由控制器 (Express)
     participant Pipeline as "7步 Pipeline 执行器"
     participant Gemini as "Gemini Stream API / Fallback"
     participant Verifier as "6项自检循环引擎"
 
-    Client->>Server: "提交多源材料<br/>(文本/PDF/URL/截图)"
+    Client->>Server: "提交多源材料<br/>(文本/PDF/URL/截图)
     Server->>Pipeline: "启动 7 步推理流水线"
-    Pipeline->>Pipeline: "Step 1: 场景识别<br/>(匹配 Offer/合同/赛事框架)"
-    Pipeline->>Pipeline: "Step 2: 输入解析<br/>(结构化文本与元数据绑定)"
-    Pipeline->>Pipeline: "Step 3: 维度提取<br/>(动态发现金额/时间/责任/承诺)"
-    Pipeline->>Pipeline: "Step 4: 要素比对<br/>(跨源归一化关联)"
-    Pipeline->>Gemini: "Step 5: 冲突检测<br/>(判定 直接矛盾 / 口头未落字 / 提示)"
+    Pipeline->>Pipeline: "Step 1: 场景识别<br/>(匹配 Offer/合同/赛事框架)
+    Pipeline->>Pipeline: "Step 2: 输入解析<br/>(结构化文本与元数据绑定)
+    Pipeline->>Pipeline: "Step 3: 维度提取<br/>(动态发现金额/时间/责任/承诺)
+    Pipeline->>Pipeline: "Step 4: 要素比对<br/>(跨源归一化关联)
+    Pipeline->>Gemini: "Step 5: 冲突检测<br/>(判定 直接矛盾 / 口头未落字 / 提示)
     Gemini-->>Pipeline: "返回初步 RiskReport"
-    Pipeline->>Verifier: "Step 6: 结果自检<br/>(校验证据充分性与置信度)"
+    Pipeline->>Verifier: "Step 6: 结果自检<br/>(校验证据充分性与置信度)
     alt 自检未通过
         Verifier->>Gemini: "触发补充推理重跑"
     end
-    Pipeline-->>Server: "Step 7: 报告生成<br/>(关联原文证据链高亮)"
+    Pipeline-->>Server: "Step 7: 报告生成<br/>(关联原文证据链高亮)
     Server-->>Client: "渲染可视化风险看板<br/>与证据跳转直链"
 ```
 

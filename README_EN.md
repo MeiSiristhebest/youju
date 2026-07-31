@@ -266,7 +266,7 @@ git push origin feat/your-feature
 | **User Uploaded Malicious Documents** | File Middleware limits upload file size and type; server disables `eval` and template string rendering |
 | **Prompt Injection Attack** | 7-Step Pipeline strictly separates System Prompts from user input at each stage; Sanitizer guardrail truncates out-of-bounds output |
 
-**Vulnerability disclosure**: Report security issues directly to **`youju-security [at] googlegroups [dot] com`** — do not file a public issue. We commit to a **first response within 24 hours**.
+**Vulnerability disclosure**: Report security issues directly to **`maox_neta@foxmail.com`** — do not file a public issue. We commit to a **first response within 24 hours**.
 
 ---
 

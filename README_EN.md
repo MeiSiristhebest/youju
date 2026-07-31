@@ -2,7 +2,7 @@
 
 [![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Tencent_Cloud-blue?style=for-the-badge)](https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![Tech Stack](https://img.shields.io/badge/Tech_Stack-React_%7C_Express_%7C_Gemini_API-8A2BE2?style=for-the-badge)](README_EN.md)
+[![Tech Stack](https://img.shields.io/badge/Tech_Stack-React_%7C_Express_%7C_Gemini_API-8A2BE2?style=for-the-badge)](https://react.dev/)
 
 [🇨🇳 中文](README.md) | [🇺🇸 English](README_EN.md)
 
@@ -31,24 +31,24 @@ All architectural components below are fully implemented in this repository. Cli
 
 ```mermaid
 graph TD
-    subgraph Layer1 [UI Layer - React 18 / Vite]
-        UI[Interactive Workbench - Source Ingestion / Risk Board / Script Generator]
+    subgraph Layer1["UI Layer - React 18 / Vite"]
+        UI["Interactive Workbench - Source Ingestion / Risk Board / Script Generator"]
     end
 
-    subgraph Layer2 [API Layer - Express Routes]
-        API[Express Controller & Route Interceptors]
+    subgraph Layer2["API Layer - Express Routes"]
+        API["Express Controller & Route Interceptors"]
     end
 
-    subgraph Layer3 [Domain Layer - Core Business & Rule Hub]
-        Domain[Risk Matrix 🔴/🟡/🔵 · Confidence Operators · Evidence Matching Algorithms]
+    subgraph Layer3["Domain Layer - Core Business & Rule Hub"]
+        Domain["Risk Matrix - Severity Levels · Confidence Operators · Evidence Matching Algorithms"]
     end
 
-    subgraph Layer4 [AI Orchestration Layer - Reasoning Pipeline]
-        Orchestration[7-Step Pipeline Executor · Prompt Versioning · Schema Validators]
+    subgraph Layer4["AI Orchestration Layer - Reasoning Pipeline"]
+        Orchestration["7-Step Pipeline Executor · Prompt Versioning · Schema Validators"]
     end
 
-    subgraph Layer5 [Data & Infrastructure Layer - Ingestion & Extraction]
-        Data[Web Scraper / PDF Parser / OCR Extractor / Heuristic Fallback]
+    subgraph Layer5["Data & Infrastructure Layer - Ingestion & Extraction"]
+        Data["Web Scraper / PDF Parser / OCR Extractor / Heuristic Fallback"]
     end
 
     UI --> API
@@ -72,26 +72,26 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    actor Client as Frontend UI (React + Vite)
-    participant Server as Route Controller (Express)
-    participant Pipeline as 7-Step Pipeline Executor
-    participant Gemini as Gemini Stream API / Fallback
-    participant Verifier as 6-Point Self-Reflection Engine
+    actor Client as "Frontend UI<br/>(React + Vite)"
+    participant Server as "Route Controller (Express)"
+    participant Pipeline as "7-Step Pipeline Executor"
+    participant Gemini as "Gemini Stream API / Fallback"
+    participant Verifier as "6-Point Self-Reflection Engine"
 
-    Client->>Server: Submit Multi-Source Materials (Text/PDF/URL/OCR)
-    Server->>Pipeline: Trigger 7-Step Reasoning Pipeline
-    Pipeline->>Pipeline: Step 1: Scenario Recognition (Match Offer/Contract/Contest framework)
-    Pipeline->>Pipeline: Step 2: Input Parsing (Structured text & metadata binding)
-    Pipeline->>Pipeline: Step 3: Dimension Extraction (Dynamic discovery of Money/Dates/Terms)
-    Pipeline->>Pipeline: Step 4: Element Correlation (Cross-source normalized linking)
-    Pipeline->>Gemini: Step 5: Conflict Detection (Identify 🔴Contradiction / 🟡Unwritten / 🔵Info)
-    Gemini-->>Pipeline: Return Preliminary RiskReport
-    Pipeline->>Verifier: Step 6: Result Self-Reflection (Validate evidence & confidence scores)
+    Client->>Server: "Submit Multi-Source Materials<br/>(Text/PDF/URL/OCR)"
+    Server->>Pipeline: "Trigger 7-Step Reasoning Pipeline"
+    Pipeline->>Pipeline: "Step 1: Scenario Recognition<br/>(Match Offer/Contract/Contest framework)"
+    Pipeline->>Pipeline: "Step 2: Input Parsing<br/>(Structured text & metadata binding)"
+    Pipeline->>Pipeline: "Step 3: Dimension Extraction<br/>(Dynamic discovery of Money/Dates/Terms)"
+    Pipeline->>Pipeline: "Step 4: Element Correlation<br/>(Cross-source normalized linking)"
+    Pipeline->>Gemini: "Step 5: Conflict Detection<br/>(Identify Contradiction / Unwritten / Info)"
+    Gemini-->>Pipeline: "Return Preliminary RiskReport"
+    Pipeline->>Verifier: "Step 6: Result Self-Reflection<br/>(Validate evidence & confidence scores)"
     alt Reflection Failed
-        Verifier->>Gemini: Trigger supplementary reasoning re-run
+        Verifier->>Gemini: "Trigger supplementary reasoning re-run"
     end
-    Pipeline-->>Server: Step 7: Report Generation (Bind source text highlight anchors)
-    Server-->>Client: Render Visual Risk Dashboard & Evidence Tracing Links
+    Pipeline-->>Server: "Step 7: Report Generation<br/>(Bind source text highlight anchors)"
+    Server-->>Client: "Render Visual Risk Dashboard & Evidence Tracing Links"
 ```
 
 *   **7 Pipeline Steps Defined**:
@@ -115,16 +115,16 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Ingestion : Multi-Source Ingestion (Text/PDF/URL)
-    Ingestion --> PipelineAnalysis : Trigger 7-Step Reasoning Pipeline
-    PipelineAnalysis --> DirectContradiction : Detect oral vs written contradiction
-    PipelineAnalysis --> UnwrittenCommitment : Detect omitted verbal promises
-    PipelineAnalysis --> AmbiguousClause : Detect vague term boundaries
-    DirectContradiction --> 🔴 RedRisk : Flag High Risk (Attach source comparison snippet)
-    UnwrittenCommitment --> 🟡 YellowRisk : Flag Medium Risk (Prompt supplementary agreement)
-    AmbiguousClause --> 🔵 BlueNotice : Flag Info Notice
-    🔴 RedRisk --> ScriptGen : One-Click Script Generation
-    🟡 YellowRisk --> ScriptGen : Generate Written Confirmation Letter
+    [*] --> Ingestion : "Multi-Source Ingestion<br/>(Text/PDF/URL)"
+    Ingestion --> PipelineAnalysis : "Trigger 7-Step Reasoning Pipeline"
+    PipelineAnalysis --> DirectContradiction : "Detect oral vs written contradiction"
+    PipelineAnalysis --> UnwrittenCommitment : "Detect omitted verbal promises"
+    PipelineAnalysis --> AmbiguousClause : "Detect vague term boundaries"
+    DirectContradiction --> RedRisk : "Flag High Risk<br/>(Attach source comparison snippet)"
+    UnwrittenCommitment --> YellowRisk : "Flag Medium Risk<br/>(Prompt supplementary agreement)"
+    AmbiguousClause --> BlueNotice : "Flag Info Notice"
+    RedRisk --> ScriptGen : "One-Click Script Generation"
+    YellowRisk --> ScriptGen : "Generate Written Confirmation Letter"
 ```
 
 *   **📂 Direct Source Code Links**:
@@ -181,6 +181,14 @@ npm run dev
 ```
 Backend defaults to `http://localhost:3001`.
 
+**Expected output**:
+```bash
+> youju-server@1.0.0 dev
+> tsx watch src/main.ts
+[Express] Server listening on port 3001
+[Heuristic] Fallback engine ready (no AI key)
+```
+
 ### 2. Start Frontend App
 ```bash
 cd youju-app
@@ -188,6 +196,12 @@ npm install
 npm run dev
 ```
 Frontend defaults to `http://localhost:5173`.
+
+**Expected output**:
+```bash
+VITE v5.x.x  ready in XXX ms
+➜  Local:   http://localhost:5173/
+```
 
 ### 3. Configure Gemini AI Key (Optional)
 Edit `youju-server/.env`:
@@ -212,6 +226,47 @@ If no key is configured, the backend automatically degrades to the built-in heur
 | `POST` | `/api/analyze` | Trigger 7-step reasoning pipeline & return RiskReport |
 | `POST` | `/api/draft` | Generate actionable dispute communication script |
 | `GET` | `/api/health` | Service health check endpoint |
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome. Quick flow:
+
+```bash
+# 1. Fork → Clone → Branch
+git checkout -b feat/your-feature
+
+# 2. Backend build passes
+cd youju-server && npm run build
+
+# 3. Frontend build passes
+cd ../youju-app && npm run build
+
+# 4. Commit and open a PR
+git commit -m "feat: your change"
+git push origin feat/your-feature
+```
+
+**Welcome contribution directions**:
+- 🧩 Add new material parsers (Docx, image OCR, speech-to-text, etc.)
+- 🧪 Add Domain rule operators and end-to-end E2E tests
+- 🌍 Multi-language i18n localization
+- 🧹 Fix issues or optimize UI/UX
+
+---
+
+## 🔒 Security
+
+| Risk Scenario | Mitigation |
+|---------|---------|
+| **AI API Key Leak** | `.env` is in `.gitignore`; only server-side `ai/connector.ts` reads env vars; never bundled into frontend |
+| **Uploaded Material Privacy Leak** | Uploaded files stored in temp directory; deleted after analysis; supports one-click clearing all submitted materials |
+| **Zod Schema Injection Bypass** | All AI outputs force Zod runtime validation before entering Domain layer; failed ones trigger automatic retry (max 3) |
+| **User Uploaded Malicious Documents** | File Middleware limits upload file size and type; server disables `eval` and template string rendering |
+| **Prompt Injection Attack** | 7-Step Pipeline strictly separates System Prompts from user input at each stage; Sanitizer guardrail truncates out-of-bounds output |
+
+**Vulnerability disclosure**: Report security issues directly to **`youju-security [at] googlegroups [dot] com`** — do not file a public issue. We commit to a **first response within 24 hours**.
 
 ---
 

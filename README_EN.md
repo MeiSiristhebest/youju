@@ -1,12 +1,20 @@
 # 💬 YouJu (有据) - AI-Powered Contract Risk & Chat Discrepancy Analyzer
 
-[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Tencent_Cloud-blue?style=for-the-badge)](https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![Tech Stack](https://img.shields.io/badge/Tech_Stack-React_%7C_Express_%7C_Gemini_API-8A2BE2?style=for-the-badge)](https://react.dev/)
+<p align="center">
+  [![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Tencent_Cloud-blue?style=for-the-badge)](https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+  [![Tech Stack](https://img.shields.io/badge/Tech_Stack-React_%7C_Express_%7C_Gemini_API-8A2BE2?style=for-the-badge)](https://react.dev/)
+</p>
 
-[🇨🇳 中文](README.md) | [🇺🇸 English](README_EN.md)
+<p align="center">
+  <a href="README.md">🇨🇳 中文</a> &nbsp;|&nbsp; <a href="README_EN.md">🇺🇸 English</a>
+</p>
 
 ---
+
+<p align="center">
+    <strong>AI-Powered Contract & Chat Risk Analysis Assistant · 5-Layer DDD Architecture · 7-Step Traceable Reasoning Pipeline</strong>
+</p>
 
 ## 📖 Origin & Vision
 
@@ -57,7 +65,7 @@ graph TD
     Orchestration --> Data
 ```
 
-*   **📂 Direct Source Code Links**:
+*   **📂 Direct Source Code Links**：
     - [youju-server/src/domain/ (Core Domain Risk Entities, Rule Operators, & Schemas)](youju-server/src/domain/)
     - [youju-server/src/ai/ (Gemini LLM Connector & 7-Step Pipeline Orchestrator)](youju-server/src/ai/)
     - [youju-server/src/infrastructure/ (Web Scraper & Multi-Format Text Extractors)](youju-server/src/infrastructure/)
@@ -72,7 +80,7 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    actor Client as "Frontend UI<br/>(React + Vite)
+    actor Client as "Frontend UI<br/>(React + Vite)"
     participant Server as "Route Controller (Express)"
     participant Pipeline as "7-Step Pipeline Executor"
     participant Gemini as "Gemini Stream API / Fallback"
@@ -94,7 +102,7 @@ sequenceDiagram
     Server-->>Client: "Render Visual Risk Dashboard & Evidence Tracing Links"
 ```
 
-*   **7 Pipeline Steps Defined**:
+*   **7 Pipeline Steps Defined**：
     1.  **Scenario Recognition**: Automatically detects material type (Offer / Lease / Contest Rules) and applies domain-specific evaluation frameworks.
     2.  **Input Parsing**: Parses heterogeneous documents and cleans metadata.
     3.  **Dimension Extraction**: Dynamically identifies comparison axes (Salary / Probation / Penalties / Reimbursements) without rigid hardcoding.
@@ -107,7 +115,7 @@ sequenceDiagram
 
 ### 3. Red/Yellow/Green Risk Dashboard & Dispute Script Generator 🛡️
 
-*   **Three-Tier Severity Classification**:
+*   **Three-Tier Severity Classification**：
     - 🔴 **Severe Risk (Direct Contradiction)**: Oral commitment directly opposes formal contract terms (e.g., WeChat states full probation pay, but PDF contract slashes salary by 20%).
     - 🟡 **Pending Confirmation (Unwritten Verbal Commitment)**: Promised perks via chat/oral agreements are completely missing in the formal contract.
     - 🔵 **Informational Notice**: Ambiguous language requiring clarification (e.g., "Subject to company performance", "Pay as soon as possible").
@@ -127,7 +135,7 @@ stateDiagram-v2
     YellowRisk --> ScriptGen : "Generate Written Confirmation Letter"
 ```
 
-*   **📂 Direct Source Code Links**:
+*   **📂 Direct Source Code Links**：
     - [CONTEXT.md (System Domain Glossary & Prompt Knowledge Base)](CONTEXT.md)
     - [PRD.md (Detailed Product Requirement Specification & 26 User Stories)](PRD.md)
 
@@ -248,7 +256,7 @@ git commit -m "feat: your change"
 git push origin feat/your-feature
 ```
 
-**Welcome contribution directions**:
+**Welcome contribution directions**：
 - 🧩 Add new material parsers (Docx, image OCR, speech-to-text, etc.)
 - 🧪 Add Domain rule operators and end-to-end E2E tests
 - 🌍 Multi-language i18n localization

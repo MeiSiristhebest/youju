@@ -1,0 +1,50 @@
+name: 🐛 Bug Report
+description: File a bug report with reproducible steps
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please ensure the bug is reproducible.
+  - type: input
+    id: version
+    attributes:
+      label: Version / Environment
+      description: What version/commit are you running? (e.g. Node 22, Go 1.23, Java 21, OS)
+      placeholder: e.g. Node.js v22.12.0 on Ubuntu 24.04 / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description & Current Behavior
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps or minimal reproduction code to reproduce the behavior.
+      placeholder: |
+        1. Run `...`
+        2. Execute `...`
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Verification & Quality Gate
+      options:
+        - label: I have searched existing issues and confirmed this is not a duplicate.
+          required: true
+        - label: I am willing to submit a Pull Request with unit tests to fix this.
+          required: false

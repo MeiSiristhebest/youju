@@ -8,23 +8,39 @@ on:
 
 jobs:
   test:
+    name: Test & Build (${{ matrix.os }}, Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         node-version: [20.x, 22.x]
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
       - name: Install Dependencies
-        run: npm ci || npm install
-      - name: Typecheck & Lint
-        run: npm run lint --if-present
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Format & Lint Check
+        run: pnpm run format:check || pnpm run lint --if-present
+
+      - name: Typecheck
+        run: pnpm run typecheck --if-present
+
       - name: Run Tests
-        run: npm test --if-present
+        run: pnpm run test --if-present
+
       - name: Build Check
-        run: npm run build --if-present
+        run: pnpm run build --if-present

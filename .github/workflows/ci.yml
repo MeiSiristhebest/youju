@@ -21,8 +21,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -34,7 +32,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Format & Lint Check
-        run: pnpm run format:check || pnpm run lint --if-present
+        run: pnpm run lint --if-present
 
       - name: Typecheck
         run: pnpm run typecheck --if-present

@@ -29,5 +29,8 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build Monorepo Packages
-        run: pnpm run build
+      - name: Typecheck App
+        run: pnpm --filter youju-app exec tsc --noEmit
+
+      - name: Build App
+        run: pnpm --filter youju-app build

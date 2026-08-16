@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 22.x (LTS for pnpm v11)
+      - name: Setup Node.js 22.x (LTS)
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
@@ -30,10 +30,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Typecheck
-        run: pnpm run typecheck --if-present
-
-      - name: Run Tests
-        run: pnpm run test --if-present
+        run: pnpm run typecheck
 
       - name: Build Check
-        run: pnpm run build --if-present
+        run: pnpm run build

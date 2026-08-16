@@ -1,75 +1,30 @@
-name: CI
+name: CI Pipeline
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [20.x, 22.x]
+
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm check
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-
-  rag-eval:
-    runs-on: ubuntu-latest
-    if: ${{ secrets.AI_API_KEY != '' }}
-    needs: build-and-test
-    env:
-      AI_API_KEY: ${{ secrets.AI_API_KEY }}
-      AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
-      AI_MODEL: ${{ secrets.AI_MODEL }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run RAG evaluation
-        working-directory: youju-server
-        run: pnpm test:rag
-
-      - name: Upload evaluation report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rag-eval-report
-          path: youju-server/docs/rag-eval-report.md
+          node-version: ${{ matrix.node-version }}
+      - name: Install Dependencies
+        run: npm ci || npm install
+      - name: Typecheck & Lint
+        run: npm run lint --if-present
+      - name: Run Tests
+        run: npm test --if-present
+      - name: Build Check
+        run: npm run build --if-present

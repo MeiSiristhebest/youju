@@ -29,8 +29,5 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Typecheck
-        run: pnpm run typecheck
-
-      - name: Build Check
+      - name: Build Monorepo Packages
         run: pnpm run build

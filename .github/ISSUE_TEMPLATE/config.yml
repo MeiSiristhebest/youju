@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Community Discussions
+    url: https://github.com/MeiSiristhebest
+    about: Ask questions and discuss architecture with the community
+  - name: 🛡️ Security Vulnerabilities
+    url: mailto:maox_neta@foxmail.com
+    about: Privately report security vulnerabilities

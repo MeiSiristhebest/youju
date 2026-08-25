@@ -1,3 +1,7 @@
+<!-- 
+  Designed & Built with ❤️ by MeiSiristhebest (https://github.com/MeiSiristhebest)
+  If this repository helps your learning or engineering, please consider dropping a ⭐ Star!
+-->
 # 💬 有据 (YouJu) - AI 驱动的合同漏洞与聊天记录风险分析助手
 
 <p align="center">
@@ -356,3 +360,13 @@ git push origin feat/your-feature
 ## 📜 许可证 (License)
 
 本项目基于 **MIT License (MIT 许可证)** 开源协议发布。详见 [LICENSE](LICENSE) 文件。
+
+
+
+---
+
+## ⭐ Star & Support
+
+If you find this project useful or inspiring, please consider giving it a ⭐ **Star** on GitHub! It helps more developers discover the work and supports continuous maintenance.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=MeiSiristhebest/youju&type=Date)](https://star-history.com/#MeiSiristhebest/youju&Date)

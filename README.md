@@ -2,139 +2,144 @@
   Designed & Built with ❤️ by MeiSiristhebest (https://github.com/MeiSiristhebest)
   If this repository helps your learning or engineering, please consider dropping a ⭐ Star!
 -->
-# 💬 有据 (YouJu) - AI 驱动的合同漏洞与聊天记录风险分析助手
+# 💬 YouJu (有据) - AI-Powered Contract Risk & Chat Discrepancy Analyzer
 
 <p align="center">
-  <a href="https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/"><img src="https://img.shields.io/badge/在线体验Demo-Tencent_Cloud-blue?style=for-the-badge" alt="Live Demo" /></a>
+  <b>English | <a href="./README_zh.md">简体中文</a></b>
+</p>
+
+> [!TIP]
+> 💡 **If this architecture, engineering implementation, or toolchain helps your learning or workflow, please drop a ⭐ Star!**
+> 📚 Explore the technical blueprint: [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+
+<p align="center">
+  <a href="https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/"><img src="https://img.shields.io/badge/Live_Demo-Tencent_Cloud-blue?style=for-the-badge" alt="Live Demo" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License" /></a>
   <a href="https://react.dev/"><img src="https://img.shields.io/badge/Tech_Stack-React_%7C_Express_%7C_Gemini_API-8A2BE2?style=for-the-badge" alt="Tech Stack" /></a>
-  <a href="#-参与贡献-contributing"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge" alt="PRs Welcome" /></a>
+  <a href="#-contributing"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge" alt="PRs Welcome" /></a>
 </p>
 
 <p align="center">
   <a href="README.md">🇨🇳 中文</a> &nbsp;|&nbsp; <a href="README_EN.md">🇺🇸 English</a>
 </p>
 
-> [!TIP]
-> 💡 **如果本项目的架构设计、工程实践或开源基础设施对您有所启发，欢迎点亮右上角 ⭐ Star 支持创作者！**
-> 📚 查阅核心架构推演：[ARCHITECTURE.md](./ARCHITECTURE.md)
-
 ---
 
 <p align="center">
-  <strong>AI 驱动的合同漏洞与聊天记录风险分析助手 · 5 层 DDD 解耦架构 · 7 步可追溯推理流水线</strong>
+  <strong>AI-Powered Contract & Chat Risk Analysis Assistant · 5-Layer DDD Architecture · 7-Step Traceable Reasoning Pipeline</strong>
 </p>
 
 ---
 
-## 📑 目录 (Table of Contents)
+## 📑 Table of Contents
 
-- [📖 项目简介 (About)](#-项目简介-about)
-- [✨ 核心功能 (Features)](#-核心功能-features)
-- [📋 环境要求 (Requirements)](#-环境要求-requirements)
-- [📦 安装 (Installation)](#-安装-installation)
-- [🏃 快速开始 (Quick Start)](#-快速开始-quick-start)
-- [⚙️ 配置 (Configuration)](#️-配置-configuration)
-- [🛠️ 架构设计 (Architecture)](#️-架构设计-architecture)
-- [📂 项目结构 (Project Structure)](#-项目结构-project-structure)
-- [📊 技术栈 (Tech Stack)](#-技术栈-tech-stack)
-- [🌐 API 接口规范 (API Reference)](#-api-接口规范-api-reference)
-- [🤝 参与贡献 (Contributing)](#-参与贡献-contributing)
-- [🔒 安全说明 (Security)](#-安全说明-security)
-- [📜 许可证 (License)](#-许可证-license)
-
----
-
-## 📖 项目简介 (About)
-
-**有据 (YouJu)** 是一张数字化的“信息核对桌”与 AI 风险排雷工作台。项目的产生源于真实痛点：在求职 Offer 确认、房屋租赁、外包合同签订、比赛报名及商业采购等场景中，信息往往散落在 **微信聊天记录、正式合同 PDF、网页公示及邮件** 等多个地方。人的大脑无法同时记住所有版本并逐一比对，导致“口头说一套、落笔另一套”或“口头承诺无书面落字”的纠纷频发。
-
-> **核心原则**：不替你做决定，只帮你在真正签字、付钱、提交前，把所有依据放回同一张桌上，让 AI 当那个“逐条对照、较真排雷的人”。
-
-在 **TRAE AI 创造力大赛** 中，“有据”凭借创新的 5 层解耦架构与 7 步可追溯推理流水线，获得了广泛关注与认可。
-
-🌐 **官方在线体验 Demo**：<https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/>
+- [📖 About](#-about)
+- [✨ Features](#-features)
+- [📋 Requirements](#-requirements)
+- [📦 Installation](#-installation)
+- [🏃 Quick Start](#-quick-start)
+- [⚙️ Configuration](#️-configuration)
+- [🛠️ Architecture](#️-architecture)
+- [📂 Project Structure](#-project-structure)
+- [📊 Tech Stack](#-tech-stack)
+- [🌐 API Reference](#-api-reference)
+- [🤝 Contributing](#-contributing)
+- [🔒 Security](#-security)
+- [📜 License](#-license)
 
 ---
 
-## ✨ 核心功能 (Features)
+## 📖 About
 
-| 功能 | 说明 |
+**YouJu (有据)** is a digital risk inspection workbench and cross-verification system. It stems from a real-world pain point: during job offer confirmations, housing leases, freelance contract signings, competition applications, and commercial procurements, critical information is fragmented across **WeChat/Slack chat logs, formal PDF contracts, web announcements, and emails**. The human brain cannot simultaneously remember and line-by-line cross-examine multiple document versions, leading to frequent disputes where oral promises are omitted or contradicted in formal contracts.
+
+> **Core Principle**: YouJu does not make decisions for you; it brings all supporting evidence back onto a single digital desk before you sign, pay, or submit, empowering AI to act as that "relentless, meticulous inspector."
+
+Featured in the **TRAE AI Innovation Contest**, YouJu gained widespread acclaim for its innovative 5-Layer Decoupled Architecture and 7-Step Traceable Reasoning Pipeline.
+
+🌐 **Live Demo Workbench**: <https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/>
+
+---
+
+## ✨ Features
+
+| Feature | Description |
 |:---|:---|
-| **多源材料导入** | 支持粘贴文本、上传 TXT / PDF 文档、自动抓取网页 URL |
-| **7 步推理流水线** | 场景识别 → 输入解析 → 维度提取 → 要素比对 → 冲突检测 → 结果自检 → 报告生成 |
-| **红黄绿风险看板** | 严重风险 / 待确认 / 信息提示 三级分类可视化呈现 |
-| **证据链溯源** | 每条风险均关联原文 Snippet，支持点击跳转高亮定位 |
-| **防扯皮话术生成** | 支持温和、正式、简洁三种语气，一键复制发送 |
-| **离线降级引擎** | 未配置 AI Key 时自动切换内置启发式规则引擎 |
+| **Multi-Source Ingestion** | Paste raw text, upload TXT / PDF documents, or scrape web page URLs |
+| **7-Step Reasoning Pipeline** | Scenario Recognition → Input Parsing → Dimension Extraction → Element Correlation → Conflict Detection → Self-Reflection → Report Generation |
+| **Red/Yellow/Green Risk Board** | Three-tier severity classification with visual dashboard rendering |
+| **Evidence Chain Tracing** | Every risk point is bound to original source snippets with clickable highlight anchors |
+| **Dispute Script Generator** | Gentle / Formal / Concise tones, one-click copy and send |
+| **Offline Fallback Engine** | Automatically switches to the built-in heuristic rule engine when no AI key is configured |
 
-### 红黄绿风险看板与沟通话术生成器 (Risk Dashboard & Actionable Script Generator) 🛡️
+### Red/Yellow/Green Risk Dashboard & Dispute Script Generator 🛡️
 
-- **三级风险分类看板**：
-  - 🔴 **严重风险 (Direct Contradiction)**：口头承诺与正式合同条款直接相左（如微信说试用期全额，合同写打 8 折）。
-  - 🟡 **待确认 (Unwritten Verbal Commitment)**：微信/口头答应的福利，正式合同中完全缺失。
-  - 🔵 **信息提示 (Informational Note)**：模糊用词（如“视公司绩效而定”、“尽快付清”）。
-- **防扯皮沟通话术生成**：针对筛选出的特定风险点，AI 自动生成具备法律防护效力的沟通话术（支持 **温和、正式、简洁** 三种语气模式），直接复制发送至微信或邮件，促使对方回复以留下有效书面凭证。
+- **Three-Tier Severity Classification**:
+  - 🔴 **Severe Risk (Direct Contradiction)**: Oral commitment directly opposes formal contract terms (e.g., WeChat states full probation pay, but PDF contract slashes salary by 20%).
+  - 🟡 **Pending Confirmation (Unwritten Verbal Commitment)**: Promised perks via chat/oral agreements are completely missing in the formal contract.
+  - 🔵 **Informational Notice**: Ambiguous language requiring clarification (e.g., "Subject to company performance", "Pay as soon as possible").
+- **Actionable Dispute Communication Script Generator**: For selected risk points, AI generates polite, evidence-backed confirmation scripts (supporting **Gentle, Formal, Concise** tones) to copy directly into WeChat or Email, establishing written paper trails.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Ingestion : "多源材料导入<br/>(Text/PDF/URL)"
-    Ingestion --> PipelineAnalysis : "触发 7 步推理流水线"
-    PipelineAnalysis --> DirectContradiction : "检测到书面与口头截然相反"
-    PipelineAnalysis --> UnwrittenCommitment : "检测到口头承诺落笔缺失"
-    PipelineAnalysis --> AmbiguousClause : "检测到责任条款界定模糊"
-    DirectContradiction --> RedRisk : "标注红色高危<br/>(附原文对比 Snippet)"
-    UnwrittenCommitment --> YellowRisk : "标注黄色中危<br/>(提示补签协议)"
-    AmbiguousClause --> BlueNotice : "标注蓝色提示"
-    RedRisk --> ScriptGen : "触发一键生成<br/>防扯皮沟通脚本"
-    YellowRisk --> ScriptGen : "触发书面确认函生成"
+    [*] --> Ingestion : "Multi-Source Ingestion<br/>(Text/PDF/URL)"
+    Ingestion --> PipelineAnalysis : "Trigger 7-Step Reasoning Pipeline"
+    PipelineAnalysis --> DirectContradiction : "Detect oral vs written contradiction"
+    PipelineAnalysis --> UnwrittenCommitment : "Detect omitted verbal promises"
+    PipelineAnalysis --> AmbiguousClause : "Detect vague term boundaries"
+    DirectContradiction --> RedRisk : "Flag High Risk<br/>(Attach source comparison snippet)"
+    UnwrittenCommitment --> YellowRisk : "Flag Medium Risk<br/>(Prompt supplementary agreement)"
+    AmbiguousClause --> BlueNotice : "Flag Info Notice"
+    RedRisk --> ScriptGen : "One-Click Script Generation"
+    YellowRisk --> ScriptGen : "Generate Written Confirmation Letter"
 ```
 
-**📂 核心文档直链**：
+**📂 Direct Documentation Links**:
 
-- [CONTEXT.md (系统领域术语表与 Prompt 知识库)](CONTEXT.md)
-- [PRD.md (详细产品需求说明书与 26 项 User Story 规范)](PRD.md)
+- [CONTEXT.md (System Domain Glossary & Prompt Knowledge Base)](CONTEXT.md)
+- [PRD.md (Detailed Product Requirement Specification & 26 User Stories)](PRD.md)
 
 ---
 
-## 📋 环境要求 (Requirements)
+## 📋 Requirements
 
-| 依赖项 | 版本要求 | 说明 |
+| Dependency | Version | Notes |
 |:---|:---|:---|
-| **Node.js** | ≥ 18 | React 18 + Vite 5 构建所需运行时 |
-| **npm** | ≥ 9 | 随 Node.js 一同安装 |
-| **AI API Key** | 可选 | 未配置时自动降级为内置启发式规则引擎 |
+| **Node.js** | ≥ 18 | Required runtime for React 18 + Vite 5 builds |
+| **npm** | ≥ 9 | Bundled with Node.js |
+| **AI API Key** | Optional | Falls back to the built-in heuristic rule engine when absent |
 
 ---
 
-## 📦 安装 (Installation)
+## 📦 Installation
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/MeiSiristhebest/youju.git
 cd youju
 
-# 安装后端依赖
+# Install backend dependencies
 cd youju-server && npm install
 
-# 安装前端依赖
+# Install frontend dependencies
 cd ../youju-app && npm install
 ```
 
 ---
 
-## 🏃 快速开始 (Quick Start)
+## 🏃 Quick Start
 
-### 1. 启动后端服务
+### 1. Start Backend Service
 
 ```bash
 cd youju-server
 npm run dev
 ```
 
-后端服务默认运行在 `http://localhost:3001`。
+Backend defaults to `http://localhost:3001`.
 
-**预期输出**：
+**Expected output**:
 
 ```bash
 > youju-server@1.0.0 dev
@@ -143,16 +148,16 @@ npm run dev
 [Heuristic] Fallback engine ready (no AI key)
 ```
 
-### 2. 启动前端服务
+### 2. Start Frontend App
 
 ```bash
 cd youju-app
 npm run dev
 ```
 
-前端界面默认运行在 `http://localhost:5173`。
+Frontend defaults to `http://localhost:5173`.
 
-**预期输出**：
+**Expected output**:
 
 ```bash
 VITE v5.x.x  ready in XXX ms
@@ -161,9 +166,9 @@ VITE v5.x.x  ready in XXX ms
 
 ---
 
-## ⚙️ 配置 (Configuration)
+## ⚙️ Configuration
 
-编辑 `youju-server/.env` 文件，配置 Gemini / OpenAI 兼容的 AI 密钥（可选）：
+Edit `youju-server/.env` to configure the Gemini / OpenAI-compatible AI key (optional):
 
 ```env
 AI_API_KEY="your-gemini-or-openai-api-key"
@@ -171,44 +176,44 @@ AI_BASE_URL="https://api.openai.com/v1"
 AI_MODEL="gpt-3.5-turbo"
 ```
 
-| 环境变量 | 是否必填 | 说明 |
+| Variable | Required | Description |
 |:---|:---|:---|
-| `AI_API_KEY` | 否 | 大模型访问密钥；未配置时启用离线规则引擎 |
-| `AI_BASE_URL` | 否 | 兼容 OpenAI 协议的 API 网关地址 |
-| `AI_MODEL` | 否 | 调用的模型名称 |
+| `AI_API_KEY` | No | LLM access key; heuristic engine is used when unset |
+| `AI_BASE_URL` | No | OpenAI-compatible API gateway endpoint |
+| `AI_MODEL` | No | Target model name |
 
-> 未配置 Key 时，后端将自动平滑降级使用内置规则引擎。
+> If no key is configured, the backend automatically degrades to the built-in heuristic rule engine.
 
 ---
 
-## 🛠️ 架构设计 (Architecture)
+## 🛠️ Architecture
 
-以下架构模块均在本项目中进行了完整的实现与落地，点击对应模块中的源码直链，即可查阅底层的核心代码实现细节。
+All architectural components below are fully implemented in this repository. Click any source code link to inspect the implementation details:
 
-### 1. 5 层解耦 Clean / DDD 领域驱动架构 (5-Layer Decoupled Architecture) 🏛️
+### 1. 5-Layer Decoupled Clean / DDD Architecture 🏛️
 
-- **架构演进与思考**：摒弃传统“后端直接调大模型返回”的混杂模式，构建了 5 层严格隔离的架构。AI 仅负责“语义理解与表达”，业务逻辑判定（如风险等级划分、置信度折算）完全由 Domain 层接管。Prompt 仅管表达，所有 AI 输出均经过 Zod Schema 运行时校验，不合格则触发自动重试。
-- **5 层隔离拓扑图**：
+- **Design Rationale**: Replaces the naive "backend calls LLM and returns raw text" pattern with a strict 5-layer isolated architecture. The AI engine is strictly responsible for "semantic understanding and natural expression," while business risk evaluation (severity thresholding, confidence score calculations) is fully governed by the Domain Layer. All AI outputs are validated at runtime via Zod Schemas; failed outputs automatically trigger self-reflection retry cycles.
+- **5-Layer Topology Diagram**:
 
 ```mermaid
 graph TD
     subgraph Layer1["UI Layer - React 18 / Vite"]
-        UI["交互工作台<br/>材料添加 / 风险看板 / 话术生成"]
+        UI["Interactive Workbench - Source Ingestion / Risk Board / Script Generator"]
     end
 
     subgraph Layer2["API Layer - Express Routes"]
         API["Express Controller & Route Interceptors"]
     end
 
-    subgraph Layer3["Domain Layer - 核心业务与规则中枢"]
-        Domain["风险等级矩阵 · 置信度算子 · 证据比对算法"]
+    subgraph Layer3["Domain Layer - Core Business & Rule Hub"]
+        Domain["Risk Matrix - Severity Levels · Confidence Operators · Evidence Matching Algorithms"]
     end
 
-    subgraph Layer4["AI Orchestration Layer - 推理流水线"]
-        Orchestration["7 步 Pipeline 执行器 · Prompt 版本管理 · Schema 校验器"]
+    subgraph Layer4["AI Orchestration Layer - Reasoning Pipeline"]
+        Orchestration["7-Step Pipeline Executor · Prompt Versioning · Schema Validators"]
     end
 
-    subgraph Layer5["Data & Infrastructure Layer - 基础设施与采集"]
+    subgraph Layer5["Data & Infrastructure Layer - Ingestion & Extraction"]
         Data["Web Scraper / PDF Parser / OCR Extractor / Heuristic Fallback"]
     end
 
@@ -218,158 +223,156 @@ graph TD
     Orchestration --> Data
 ```
 
-**📂 核心源码直链**：
+**📂 Direct Source Code Links**:
 
-- [youju-server/src/domain/ (核心领域风险实体、规则算子与 Schema 表)](youju-server/src/domain/)
-- [youju-server/src/ai/ (Gemini 大模型 Connector 与 7 步 Pipeline 编排器)](youju-server/src/ai/)
-- [youju-server/src/infrastructure/ (网页抓取与多格式文档提取器)](youju-server/src/infrastructure/)
-- [youju-server/src/presentation/ (Express API 控制器与 DTO 路由)](youju-server/src/presentation/)
+- [youju-server/src/domain/ (Core Domain Risk Entities, Rule Operators, & Schemas)](youju-server/src/domain/)
+- [youju-server/src/ai/ (Gemini LLM Connector & 7-Step Pipeline Orchestrator)](youju-server/src/ai/)
+- [youju-server/src/infrastructure/ (Web Scraper & Multi-Format Text Extractors)](youju-server/src/infrastructure/)
+- [youju-server/src/presentation/ (Express API Controllers & DTO Routes)](youju-server/src/presentation/)
 
-### 2. 7 步透明推理流水线与自检自纠循环 (7-Step Transparent AI Pipeline) 🧠
+### 2. 7-Step Transparent AI Reasoning Pipeline & Self-Reflection 🧠
 
-- **设计思路**：摒弃黑盒输出，将 AI 比对过程拆解为 7 个透明的步骤。引入 **自检循环 (Self-Reflection Loop)**：AI 审视自身的推理结论，进行包括“证据充分性、分类准确性、严重程度合理性、确认偏误”在内的 6 项自检，确保结论能在原文找到准确证据。
-- **7 步流水线流程图**：
+- **Design Rationale**: Replaces black-box generation with a transparent 7-step pipeline. Introduces a **Self-Reflection Loop**: the AI evaluates its own deductions against 6 verification criteria (evidence sufficiency, classification accuracy, severity rationality, confirmation bias check) to guarantee every risk point is grounded in original source quotes.
+- **7-Step Sequence Diagram**:
 
 ```mermaid
 sequenceDiagram
-    actor Client as "前端 UI<br/>(React + Vite)"
-    participant Server as "路由控制器 (Express)"
-    participant Pipeline as "7步 Pipeline 执行器"
+    actor Client as "Frontend UI<br/>(React + Vite)"
+    participant Server as "Route Controller (Express)"
+    participant Pipeline as "7-Step Pipeline Executor"
     participant Gemini as "Gemini Stream API / Fallback"
-    participant Verifier as "6项自检循环引擎"
+    participant Verifier as "6-Point Self-Reflection Engine"
 
-    Client->>Server: "提交多源材料<br/>(文本/PDF/URL/截图)"
-    Server->>Pipeline: "启动 7 步推理流水线"
-    Pipeline->>Pipeline: "Step 1: 场景识别<br/>(匹配 Offer/合同/赛事框架)"
-    Pipeline->>Pipeline: "Step 2: 输入解析<br/>(结构化文本与元数据绑定)"
-    Pipeline->>Pipeline: "Step 3: 维度提取<br/>(动态发现金额/时间/责任/承诺)"
-    Pipeline->>Pipeline: "Step 4: 要素比对<br/>(跨源归一化关联)"
-    Pipeline->>Gemini: "Step 5: 冲突检测<br/>(判定 直接矛盾 / 口头未落字 / 提示)"
-    Gemini-->>Pipeline: "返回初步 RiskReport"
-    Pipeline->>Verifier: "Step 6: 结果自检<br/>(校验证据充分性与置信度)"
-    alt 自检未通过
-        Verifier->>Gemini: "触发补充推理重跑"
+    Client->>Server: "Submit Multi-Source Materials<br/>(Text/PDF/URL/OCR)"
+    Server->>Pipeline: "Trigger 7-Step Reasoning Pipeline"
+    Pipeline->>Pipeline: "Step 1: Scenario Recognition<br/>(Match Offer/Contract/Contest framework)"
+    Pipeline->>Pipeline: "Step 2: Input Parsing<br/>(Structured text & metadata binding)"
+    Pipeline->>Pipeline: "Step 3: Dimension Extraction<br/>(Dynamic discovery of Money/Dates/Terms)"
+    Pipeline->>Pipeline: "Step 4: Element Correlation<br/>(Cross-source normalized linking)"
+    Pipeline->>Gemini: "Step 5: Conflict Detection<br/>(Identify Contradiction / Unwritten / Info)"
+    Gemini-->>Pipeline: "Return Preliminary RiskReport"
+    Pipeline->>Verifier: "Step 6: Result Self-Reflection<br/>(Validate evidence & confidence scores)"
+    alt Reflection Failed
+        Verifier->>Gemini: "Trigger supplementary reasoning re-run"
     end
-    Pipeline-->>Server: "Step 7: 报告生成<br/>(关联原文证据链高亮)"
-    Server-->>Client: "渲染可视化风险看板<br/>与证据跳转直链"
+    Pipeline-->>Server: "Step 7: Report Generation<br/>(Bind source text highlight anchors)"
+    Server-->>Client: "Render Visual Risk Dashboard & Evidence Tracing Links"
 ```
 
-**7 步流水线定义**：
+**7 Pipeline Steps Defined**:
 
-1. **场景识别**：自动识别材料类型（如 Offer / 租房合同 / 比赛通知），匹配最适配的分析维度。
-2. **输入解析**：解析异构材料，提取清洗后的元数据。
-3. **维度提取**：动态长出比对维度（金额 / 试用期 / 违约金 / 报销），而非预设死规则。
-4. **要素提取**：跨源关联相同维度的具体表述并提取原文 Snippets。
-5. **冲突检测**：精准甄别矛盾与缺失，附带置信度评分。
-6. **结果校验**：执行 6 项自检循环，排除 AI 确认偏误。
-7. **报告生成**：输出附带可点击溯源高亮证据链的结构化报告。
+1. **Scenario Recognition**: Automatically detects material type (Offer / Lease / Contest Rules) and applies domain-specific evaluation frameworks.
+2. **Input Parsing**: Parses heterogeneous documents and cleans metadata.
+3. **Dimension Extraction**: Dynamically identifies comparison axes (Salary / Probation / Penalties / Reimbursements) without rigid hardcoding.
+4. **Element Correlation**: Links identical dimensions across sources and extracts exact source snippets.
+5. **Conflict Detection**: Identifies contradictions and omissions with attached confidence scores.
+6. **Self-Reflection**: Runs a 6-point self-review loop to eliminate hallucination and confirmation bias.
+7. **Report Generation**: Outputs a structured report with clickable source text highlight anchors.
 
 ---
 
-## 📂 项目结构 (Project Structure)
+## 📂 Project Structure
 
 ```text
 youju/
-├── youju-app/              # React + Vite 前端客户端
+├── youju-app/              # React + Vite Frontend Client
 │   ├── src/
-│   │   ├── components/     # 工作台、红黄绿风险看板、话术生成对话框
-│   │   ├── hooks/          # 自定义 React Hooks (用以管理 Source 状态)
-│   │   └── api/            # REST API Axios 客户端封装
+│   │   ├── components/     # Workbench, Red/Yellow/Green Dashboard, Script Modal
+│   │   ├── hooks/          # Custom React Hooks (Source state management)
+│   │   └── api/            # REST API Axios Client Wrapper
 │   └── package.json
-├── youju-server/           # Express + TypeScript 领域后端服务
+├── youju-server/           # Express + TypeScript Backend Service
 │   ├── src/
-│   │   ├── ai/             # Gemini 7 步 Pipeline 编排器与离线模拟引擎
-│   │   ├── domain/         # 核心 Risk / Source 领域模型与规则中枢
-│   │   ├── infrastructure/ # PDF/TXT 提取器与 URL 爬虫服务
-│   │   ├── presentation/   # Express 路由控制器与 DTO 校验
-│   │   ├── app.ts          # Express 实例初始化
-│   │   └── main.ts         # 服务启动入口
+│   │   ├── ai/             # Gemini 7-Step Pipeline Orchestrator & Heuristic Engine
+│   │   ├── domain/         # Core Risk / Source Domain Models & Rule Hub
+│   │   ├── infrastructure/ # PDF/TXT Extractors & Web Scraper Service
+│   │   ├── presentation/   # Express Route Controllers & DTO Validation
+│   │   ├── app.ts          # Express Instance Setup
+│   │   └── main.ts         # Service Entry Point
 │   └── package.json
-├── PRD.md                  # 产品需求说明书
-└── CONTEXT.md              # 领域模型与 Prompt 上下文映射表
+├── PRD.md                  # Product Requirement Document
+└── CONTEXT.md              # Domain Glossary & Prompt Mapping Table
 ```
 
 ---
 
-## 📊 技术栈 (Tech Stack)
+## 📊 Tech Stack
 
-| 层级 | 核心技术 | 作用 |
+| Layer | Core Technology | Role |
 |:---|:---|:---|
-| **后端架构** | Node.js + Express + TypeScript | 5 层解耦 Clean / DDD 领域驱动后端 |
-| **AI 大模型引擎** | Google Gemini API | 7 步 Pipeline 动态推演与话术生成 |
-| **离线引擎降级** | Heuristic Rule Engine | 无 Key / 离线状态下的启发式规则判定 |
-| **前端应用** | React 18 + Vite 5 + TypeScript | 高性能响应式数字工作台 |
-| **多源材料解析** | Cheerio + Axios + File Middleware | 网页抓取与 PDF/TXT/Doc 文档文本抽取 |
-| **UI 设计系统** | TailwindCSS + Lucide Icons | 高对比度风险看板与证据直链高亮 |
+| **Backend Architecture** | Node.js + Express + TypeScript | 5-Layer Decoupled Clean / DDD Architecture |
+| **AI LLM Engine** | Google Gemini API (`gpt-3.5-turbo` / Gemini Connector) | 7-Step Pipeline Reasoning & Script Generation |
+| **Fallback Engine** | Heuristic Rule Engine | Offline / Keyless Heuristic Evaluation |
+| **Frontend Application** | React 18 + Vite 5 + TypeScript | High-Performance Responsive Workbench |
+| **Ingestion Engine** | Cheerio + Axios + File Middleware | Web Scraping & PDF/TXT/Doc Text Extraction |
+| **UI Design System** | TailwindCSS + Lucide Icons | High-Contrast Risk Board & Evidence Tracing |
 
 ---
 
-## 🌐 API 接口规范 (API Reference)
+## 🌐 API Reference
 
-| 方法 | HTTP 路径 | 功能说明 |
+| Method | HTTP Path | Description |
 |:---|:---|:---|
-| `POST` | `/api/sources/text` | 提交文本材料（如粘贴聊天记录） |
-| `POST` | `/api/sources/upload` | 上传文档材料（TXT / PDF 合同文本） |
-| `POST` | `/api/sources/url` | 自动抓取网页 URL 内容 |
-| `GET` | `/api/sources` | 获取已收集材料列表 |
-| `DELETE` | `/api/sources/:id` | 删除特定材料 |
-| `POST` | `/api/analyze` | 触发 7 步推理流水线生成 RiskReport |
-| `POST` | `/api/draft` | 针对选定风险生成防扯皮沟通话术 |
-| `GET` | `/api/health` | 健康检查接口 |
+| `POST` | `/api/sources/text` | Submit raw text material (e.g., pasted chat logs) |
+| `POST` | `/api/sources/upload` | Upload document file (TXT / PDF contract) |
+| `POST` | `/api/sources/url` | Scrape web page content from URL |
+| `GET` | `/api/sources` | Fetch collected source materials list |
+| `DELETE` | `/api/sources/:id` | Remove specific source material |
+| `POST` | `/api/analyze` | Trigger 7-step reasoning pipeline & return RiskReport |
+| `POST` | `/api/draft` | Generate actionable dispute communication script |
+| `GET` | `/api/health` | Service health check endpoint |
 
 ---
 
-## 🤝 参与贡献 (Contributing)
+## 🤝 Contributing
 
-欢迎贡献代码。简要流程：
+Contributions welcome. Quick flow:
 
 ```bash
-# 1. Fork → Clone → 切分支
+# 1. Fork → Clone → Branch
 git checkout -b feat/your-feature
 
-# 2. 后端构建通过
+# 2. Backend build passes
 cd youju-server && npm run build
 
-# 3. 前端构建通过
+# 3. Frontend build passes
 cd ../youju-app && npm run build
 
-# 4. Commit 并提 PR
+# 4. Commit and open a PR
 git commit -m "feat: your change"
 git push origin feat/your-feature
 ```
 
-**欢迎贡献的方向**：
+**Welcome contribution directions**:
 
-- 🧩 新增材料解析器（Docx、图片 OCR、语音转写等）
-- 🧪 补充 Domain 规则算子与端到端 E2E 测试
-- 🌍 多语言国际化文案
-- 🧹 修复 Issue 或优化 UI/UX
+- 🧩 Add new material parsers (Docx, image OCR, speech-to-text, etc.)
+- 🧪 Add Domain rule operators and end-to-end E2E tests
+- 🌍 Multi-language i18n localization
+- 🧹 Fix issues or optimize UI/UX
 
 ---
 
-## 🔒 安全说明 (Security)
+## 🔒 Security
 
-| 风险场景 | 防护措施 |
+| Risk Scenario | Mitigation |
 |:---|:---|
-| **AI API Key 泄露** | `.env` 已加入 `.gitignore`；仅服务端 `ai/connector.ts` 读取环境变量，从不打包进入前端 bundle |
-| **上传材料隐私泄露** | 上传文件存储在临时目录，分析完成即删除；支持一键清空所有已提交材料 |
-| **Zod Schema 注入穿透** | 所有 AI 输出在进入 Domain 层前强制经过 Zod 运行时校验，不合格则触发自动重试（上限 3 次） |
-| **用户提交恶意文档** | File Middleware 限制上传文件大小与类型；服务端禁用 `eval` 与模板字符串渲染 |
-| **Prompt 注入攻击** | 7 步 Pipeline 各阶段 System Prompt 与用户输入严格分离；Sanitizer 护栏截断越界输出 |
+| **AI API Key Leak** | `.env` is in `.gitignore`; only server-side `ai/connector.ts` reads env vars; never bundled into frontend |
+| **Uploaded Material Privacy Leak** | Uploaded files stored in temp directory; deleted after analysis; supports one-click clearing all submitted materials |
+| **Zod Schema Injection Bypass** | All AI outputs force Zod runtime validation before entering Domain layer; failed ones trigger automatic retry (max 3) |
+| **User Uploaded Malicious Documents** | File Middleware limits upload file size and type; server disables `eval` and template string rendering |
+| **Prompt Injection Attack** | 7-Step Pipeline strictly separates System Prompts from user input at each stage; Sanitizer guardrail truncates out-of-bounds output |
 
-**漏洞上报**：发现安全问题请直接发邮件至 **`maox_neta@foxmail.com`**，不要公开在 Issue 里。承诺 **24 小时内首次响应**。
+**Vulnerability disclosure**: Report security issues directly to **`maox_neta@foxmail.com`** — do not file a public issue. We commit to a **first response within 24 hours**.
 
 ---
-
-## 📜 许可证 (License)
-
-本项目基于 **MIT License (MIT 许可证)** 开源协议发布。详见 [LICENSE](LICENSE) 文件。
-
-
 
 ---
 
 ## ⭐ Star & Support
+
+If you find this project useful or inspiring, please consider giving it a ⭐ **Star** on GitHub! It helps more developers discover the work and supports continuous open-source maintenance.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=MeiSiristhebest/youju&type=Date)](https://star-history.com/#MeiSiristhebest/youju&Date)
 
 ### 🌟 Stargazers Over Time
 [![Stargazers repo roster for @MeiSiristhebest/youju](https://reporoster.com/stars/MeiSiristhebest/youju)](https://github.com/MeiSiristhebest/youju/stargazers)
@@ -379,7 +382,6 @@ git push origin feat/your-feature
   <img src="https://contrib.rocks/image?repo=MeiSiristhebest/youju" alt="Contributors" />
 </a>
 
+## 📜 License
 
-If you find this project useful or inspiring, please consider giving it a ⭐ **Star** on GitHub! It helps more developers discover the work and supports continuous maintenance.
-
-[![Star History Chart](https://api.star-history.com/svg?repos=MeiSiristhebest/youju&type=Date)](https://star-history.com/#MeiSiristhebest/youju&Date)
+This project is released under the **MIT License**. See the [LICENSE](LICENSE) file for details.

@@ -372,10 +372,17 @@ git push origin feat/your-feature
 
 If you find this project useful or inspiring, please consider giving it a ⭐ **Star** on GitHub! It helps more developers discover the work and supports continuous open-source maintenance.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=MeiSiristhebest/youju&type=Date)](https://star-history.com/#MeiSiristhebest/youju&Date)
-
-### 🌟 Stargazers Over Time
-[![Stargazers repo roster for @MeiSiristhebest/youju](https://reporoster.com/stars/MeiSiristhebest/youju)](https://github.com/MeiSiristhebest/youju/stargazers)
+<p align="left">
+  <a href="https://github.com/MeiSiristhebest/youju/stargazers">
+    <img src="https://img.shields.io/github/stars/MeiSiristhebest/youju?style=for-the-badge&logo=apachespark&color=f59e0b" alt="Stargazers" />
+  </a>
+  <a href="https://github.com/MeiSiristhebest/youju/network/members">
+    <img src="https://img.shields.io/github/forks/MeiSiristhebest/youju?style=for-the-badge&color=3b82f6" alt="Forks" />
+  </a>
+  <a href="https://star-history.com/#MeiSiristhebest/youju&Date">
+    <img src="https://img.shields.io/badge/Star%20History-View%20Interactive%20Chart-FF6B6B?style=for-the-badge&logo=github" alt="Star History" />
+  </a>
+</p>
 
 ### 🤝 Contributors
 <a href="https://github.com/MeiSiristhebest/youju/graphs/contributors">

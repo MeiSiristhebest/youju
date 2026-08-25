@@ -382,8 +382,12 @@ git push origin feat/your-feature
 如果本项目对您的学习、研究或工程落地有所帮助，欢迎给本项目点亮一颗 ⭐ **Star**！这是对开源创作者最大的鼓励与支持。
 
 <p align="center">
-  <a href="https://star-history.com/#MeiSiristhebest/youju&Date">
-    <img src="https://api.star-history.com/svg?repos=MeiSiristhebest/youju&type=Date" alt="Star History 趋势图" width="100%" />
+  <a href="https://www.star-history.com/?repos=MeiSiristhebest%2Fyouju&type=date&legend=bottom-right">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MeiSiristhebest/youju&type=date&theme=dark&legend=bottom-right&sealed_token=uaVldQgHazK-DcCE89936BEzAUE1ErdhsQqB7B583EJxvNyhoxZkU2soE6gCjSGsdn5TpVFHAzFZx8D-0S5bVhb8lmr1rrsJOU_UV3x9DqHUQ-cQJYtXBw" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MeiSiristhebest/youju&type=date&legend=bottom-right&sealed_token=uaVldQgHazK-DcCE89936BEzAUE1ErdhsQqB7B583EJxvNyhoxZkU2soE6gCjSGsdn5TpVFHAzFZx8D-0S5bVhb8lmr1rrsJOU_UV3x9DqHUQ-cQJYtXBw" />
+      <img alt="Star History 趋势图" src="https://api.star-history.com/chart?repos=MeiSiristhebest/youju&type=date&legend=bottom-right&sealed_token=uaVldQgHazK-DcCE89936BEzAUE1ErdhsQqB7B583EJxvNyhoxZkU2soE6gCjSGsdn5TpVFHAzFZx8D-0S5bVhb8lmr1rrsJOU_UV3x9DqHUQ-cQJYtXBw" width="100%" />
+    </picture>
   </a>
 </p>
 

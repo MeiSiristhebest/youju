@@ -366,18 +366,19 @@ git push origin feat/your-feature
 
 ---
 
+## 📜 License
+
+This project is released under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
 ---
 
 ## ⭐ Star & Support
 
 If you find this project useful or inspiring, please consider giving it a ⭐ **Star** on GitHub! It helps more developers discover the work and supports continuous open-source maintenance.
 
-<p align="left">
-  <a href="https://github.com/MeiSiristhebest/youju/stargazers">
-    <img src="https://img.shields.io/github/stars/MeiSiristhebest/youju?style=for-the-badge&logo=apachespark&color=f59e0b" alt="Stargazers" />
-  </a>
-  <a href="https://github.com/MeiSiristhebest/youju/network/members">
-    <img src="https://img.shields.io/github/forks/MeiSiristhebest/youju?style=for-the-badge&color=3b82f6" alt="Forks" />
+<p align="center">
+  <a href="https://star-history.com/#MeiSiristhebest/youju&Date">
+    <img src="https://api.star-history.com/svg?repos=MeiSiristhebest/youju&type=Date" alt="Star History Chart" width="100%" />
   </a>
 </p>
 
@@ -385,10 +386,6 @@ If you find this project useful or inspiring, please consider giving it a ⭐ **
 <a href="https://github.com/MeiSiristhebest/youju/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=MeiSiristhebest/youju" alt="Contributors" />
 </a>
-
-## 📜 License
-
-This project is released under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
 <!-- Scarf Telemetry Pixel -->
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=p2L36r5iF7fAu6cd2J2Y41Cp6Z3YJHInGjzgouIZuLLHJhyoV9" />

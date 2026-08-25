@@ -2,7 +2,7 @@
   Designed & Built with ❤️ by MeiSiristhebest (https://github.com/MeiSiristhebest)
   If this repository helps your learning or engineering, please consider dropping a ⭐ Star!
 -->
-# 💬 YouJu (有据) - AI-Powered Contract Risk & Chat Discrepancy Analyzer
+<h1 align="center">💬 YouJu (有据)</h1>
 
 <p align="center">
   <b>English | <a href="./README_zh.md">简体中文</a></b>
@@ -12,16 +12,15 @@
 > 💡 **If this architecture, engineering implementation, or toolchain helps your learning or workflow, please drop a ⭐ Star!**
 > 📚 Explore the technical blueprint: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
-
 <p align="center">
-  <a href="https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/"><img src="https://img.shields.io/badge/Live_Demo-Tencent_Cloud-blue?style=for-the-badge" alt="Live Demo" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License" /></a>
-  <a href="https://react.dev/"><img src="https://img.shields.io/badge/Tech_Stack-React_%7C_Express_%7C_Gemini_API-8A2BE2?style=for-the-badge" alt="Tech Stack" /></a>
-  <a href="#-contributing"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge" alt="PRs Welcome" /></a>
+  <b>AI-Powered Contract Risk & Chat Discrepancy Analyzer</b>
 </p>
 
 <p align="center">
-  <a href="README.md">🇨🇳 中文</a> &nbsp;|&nbsp; <a href="README_EN.md">🇺🇸 English</a>
+  <a href="https://youju-d0glz4mwbc5100a98-1316832532.tcloudbaseapp.com/"><img src="https://img.shields.io/badge/Live_Demo-Tencent_Cloud-blue.svg?style=flat" alt="Live Demo" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat" alt="License: MIT" /></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black" alt="React 18" /></a>
+  <a href="https://expressjs.com/"><img src="https://img.shields.io/badge/Express-4.x-black?style=flat&logo=express" alt="Express" /></a>
 </p>
 
 ---

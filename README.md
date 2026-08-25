@@ -15,6 +15,10 @@
   <a href="README.md">🇨🇳 中文</a> &nbsp;|&nbsp; <a href="README_EN.md">🇺🇸 English</a>
 </p>
 
+> [!TIP]
+> 💡 **如果本项目的架构设计、工程实践或开源基础设施对您有所启发，欢迎点亮右上角 ⭐ Star 支持创作者！**
+> 📚 查阅核心架构推演：[ARCHITECTURE.md](./ARCHITECTURE.md)
+
 ---
 
 <p align="center">
@@ -366,6 +370,15 @@ git push origin feat/your-feature
 ---
 
 ## ⭐ Star & Support
+
+### 🌟 Stargazers Over Time
+[![Stargazers repo roster for @MeiSiristhebest/youju](https://reporoster.com/stars/MeiSiristhebest/youju)](https://github.com/MeiSiristhebest/youju/stargazers)
+
+### 🤝 Contributors
+<a href="https://github.com/MeiSiristhebest/youju/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=MeiSiristhebest/youju" alt="Contributors" />
+</a>
+
 
 If you find this project useful or inspiring, please consider giving it a ⭐ **Star** on GitHub! It helps more developers discover the work and supports continuous maintenance.
 

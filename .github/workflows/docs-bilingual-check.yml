@@ -4,11 +4,11 @@ name: Documentation Bilingual Parity Check
 on:
   pull_request:
     paths:
-      - 'README.md'
-      - 'README_zh.md'
-      - 'ARCHITECTURE.md'
-      - 'ARCHITECTURE_zh.md'
-      - '.github/workflows/docs-bilingual-check.yml'
+      - "README.md"
+      - "README_zh.md"
+      - "ARCHITECTURE.md"
+      - "ARCHITECTURE_zh.md"
+      - ".github/workflows/docs-bilingual-check.yml"
   workflow_dispatch:
 
 permissions:

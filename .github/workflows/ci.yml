@@ -5,21 +5,21 @@ on:
   push:
     branches: [main, master]
     paths:
-      - 'youju-app/**'
-      - 'youju-server/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/ci.yml'
+      - "youju-app/**"
+      - "youju-server/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main, master]
     paths:
-      - 'youju-app/**'
-      - 'youju-server/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/ci.yml'
+      - "youju-app/**"
+      - "youju-server/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/ci.yml"
   workflow_dispatch:
 
 permissions:
@@ -52,7 +52,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile

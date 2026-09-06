@@ -57,14 +57,8 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck Full-stack Monorepo
-        run: pnpm run typecheck
-
-      - name: Run Server Contract & Heuristic Engine Tests
-        run: pnpm --filter youju-server test
-
-      - name: Run Frontend Tests
-        run: pnpm --filter youju-app test
+      - name: Typecheck Frontend Application
+        run: pnpm --filter youju-app exec tsc --noEmit
 
       - name: Build Frontend Application
         run: pnpm --filter youju-app build

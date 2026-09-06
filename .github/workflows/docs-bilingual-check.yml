@@ -1,0 +1,62 @@
+---
+name: Documentation Bilingual Parity Check
+
+on:
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'README_zh.md'
+      - 'ARCHITECTURE.md'
+      - 'ARCHITECTURE_zh.md'
+      - '.github/workflows/docs-bilingual-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-bilingual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bilingual-parity:
+    name: Verify Markdown Documentation Symmetry
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Bilingual Documentation Sync
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${BASE_SHA:-}" ]]; then
+            echo "Skipping check for non-pull-request event."
+            exit 0
+          fi
+
+          DIFF_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true)
+
+          HAS_README_EN=$(echo "$DIFF_FILES" | grep -E '^README\.md$' || true)
+          HAS_README_ZH=$(
+            echo "$DIFF_FILES" | grep -E '^README_zh\.md$' || true
+          )
+
+          if [[ -n "$HAS_README_EN" && -z "$HAS_README_ZH" ]]; then
+            echo "::warning::README.md was updated but README_zh.md was not."
+            echo "Please keep both English and Chinese docs in sync."
+          elif [[ -z "$HAS_README_EN" && -n "$HAS_README_ZH" ]]; then
+            echo "::warning::README_zh.md was updated but README.md was not."
+            echo "Please keep both English and Chinese docs in sync."
+          else
+            echo "Documentation bilingual symmetry check passed."
+          fi
+...

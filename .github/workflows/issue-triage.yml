@@ -1,0 +1,81 @@
+---
+name: Issue & Community Triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    name: Automatic Triage & Labeling
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Analyze and Label Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = (issue.title || '').toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+
+            const labelsToAdd = [];
+
+            const isBug =
+              title.includes('bug') ||
+              title.includes('error') ||
+              body.includes('crash');
+            if (isBug) {
+              labelsToAdd.push('bug');
+            }
+
+            const isFeat =
+              title.includes('feat') ||
+              title.includes('add') ||
+              body.includes('proposal');
+            if (isFeat) {
+              labelsToAdd.push('enhancement');
+            }
+
+            if (body.includes('contract') || title.includes('contract')) {
+              labelsToAdd.push('area:contract-engine');
+            }
+            if (body.includes('server') || title.includes('api')) {
+              labelsToAdd.push('area:server');
+            }
+            if (body.includes('ui') || body.includes('frontend')) {
+              labelsToAdd.push('area:frontend');
+            }
+
+            if (labelsToAdd.length === 0) {
+              labelsToAdd.push('needs-triage');
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: labelsToAdd
+            });
+
+            const welcomeComment = [
+              'Thank you for reporting this issue to YouJu!',
+              'Our risk analysis team will review it shortly.'
+            ].join(' ');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: welcomeComment
+            });
+...
